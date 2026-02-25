@@ -1,0 +1,42 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/src/laravel/.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editors
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Laravel
+backend/src/laravel/vendor/
+backend/src/.composer/
+backend/src/laravel/node_modules/
+backend/storage/*.key
+backend/storage/logs/*.log
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/src/laravel/bootstrap/cache/*.php
+backend/src/laravel/.phpunit.result.cache
+backend/src/laravel/npm-debug.log
+backend/src/laravel/yarn-error.log
+
+# Flutter / Dart
+frontend/src/.dart_tool/
+frontend/src/.packages
+frontend/src/build/
+frontend/src/.flutter-plugins
+frontend/src/.flutter-plugins-dependencies
+
+# Misc
+*.log
+.cache/
