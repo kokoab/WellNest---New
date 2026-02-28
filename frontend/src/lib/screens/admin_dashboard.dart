@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
-  // Brand Colors matching your design
+  // Brand Colors
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
   static const Color accentYellow = Color(0xFFFDB813);
+  static const Color lightGrey = Color(0xFFF5F5F5);
 
   @override
   Widget build(BuildContext context) {
@@ -14,72 +15,119 @@ class AdminDashboard extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 10),
-              // --- TOP BAR ---
+              const SizedBox(height: 20),
+              
+              // --- APP BAR ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.menu, color: nestOrange, size: 35),
-                  Image.asset('lib/assets/images/logo1.png', height: 50),
-                  const Icon(Icons.notifications, color: nestOrange, size: 35),
+                  _buildIconButton(Icons.grid_view_rounded),
+                  Image.asset('lib/assets/images/logo1.png', height: 45),
+                  _buildIconButton(Icons.notifications_none_rounded),
                 ],
               ),
-              const SizedBox(height: 20),
+              
+              const SizedBox(height: 30),
+              
+              // --- WELCOME TEXT ---
+              const Text(
+                "Admin Console",
+                style: TextStyle(
+                  fontSize: 28, 
+                  fontWeight: FontWeight.w800, 
+                  color: wellGreen,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const Text(
+                "Manage your WellNest community",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              
+              const SizedBox(height: 25),
 
               // --- SEARCH BAR ---
-              TextField(
-                decoration: InputDecoration(
-                  suffixIcon: const Icon(Icons.search, color: wellGreen),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: accentYellow, width: 1.5),
+              Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentYellow.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: "Search content...",
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.search, color: wellGreen),
+                    filled: true,
+                    fillColor: Colors.white,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: accentYellow, width: 1.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(color: nestOrange, width: 2),
+                    ),
                   ),
                 ),
               ),
+              
               const SizedBox(height: 30),
 
-              // --- STATISTICS CARDS ---
+              // --- STATISTICS ---
               Row(
                 children: [
-                  Expanded(child: _buildStatCard("15 Users")),
+                  Expanded(child: _buildModernStatCard("Users", "15", Icons.people_alt_rounded)),
                   const SizedBox(width: 15),
-                  Expanded(child: _buildStatCard("34 Recipes")),
+                  Expanded(child: _buildModernStatCard("Recipes", "34", Icons.restaurant_menu_rounded)),
                 ],
               ),
+              
               const SizedBox(height: 30),
 
-              // --- DATA TABLE SECTION ---
+              // --- MANAGEMENT TABLE ---
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: accentYellow,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))
-                  ],
+                  borderRadius: BorderRadius.circular(35),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [accentYellow, accentYellow.withOpacity(0.8)],
+                  ),
                 ),
-                padding: const EdgeInsets.all(25),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    const Text(
-                      'Table',
-                      style: TextStyle(
-                        fontSize: 22, 
-                        fontWeight: FontWeight.bold, 
-                        color: wellGreen
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Recent Activity',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: wellGreen),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          child: const Icon(Icons.tune_rounded, size: 20, color: wellGreen),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
-                    // Generated Table Rows
-                    _buildTableRow("User Content Example 1"),
-                    _buildTableRow("User Content Example 2"),
-                    _buildTableRow("User Content Example 3"),
-                    _buildTableRow("User Content Example 4"),
-                    _buildTableRow("User Content Example 5"),
-                    _buildTableRow("User Content Example 6"),
+                    _buildModernTableRow("New Salad Recipe Posted", "2m ago"),
+                    _buildModernTableRow("User 'ChefMike' joined", "1h ago"),
+                    _buildModernTableRow("Spam comment removed", "3h ago"),
+                    _buildModernTableRow("Database backup sync", "5h ago"),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
@@ -91,51 +139,70 @@ class AdminDashboard extends StatelessWidget {
     );
   }
 
-  // Helper for "15 Users" and "34 Recipes" boxes
-  Widget _buildStatCard(String label) {
+  // --- HELPER METHODS (Placed inside the class) ---
+
+  Widget _buildIconButton(IconData icon) {
     return Container(
-      height: 100,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: accentYellow,
+        color: lightGrey,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Icon(icon, color: nestOrange, size: 28),
+    );
+  }
+
+  Widget _buildModernStatCard(String title, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: lightGrey),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))
+          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
         ],
       ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 18, 
-          fontWeight: FontWeight.bold, 
-          color: wellGreen
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: nestOrange, size: 30),
+          const SizedBox(height: 15),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: wellGreen)),
+          Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
 
-  // Helper for the rows inside the Table
-  Widget _buildTableRow(String content) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget _buildModernTableRow(String title, String time) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: wellGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.history, size: 18, color: wellGreen),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Container(
-              height: 25,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              // content could be dynamic from backend
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                Text(time, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
             ),
           ),
-          const SizedBox(width: 15),
-          const Icon(Icons.delete, color: Colors.black, size: 24),
+          const Icon(Icons.delete_sweep_rounded, color: nestOrange, size: 22),
         ],
       ),
     );
   }
-}
+} // This is the last closing brace for the AdminDashboard class
