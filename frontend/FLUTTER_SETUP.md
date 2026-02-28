@@ -1,14 +1,8 @@
 # Flutter dev setup (WellNest)
 
-Two ways to run the Flutter app: **on your Mac (recommended)** or **inside Docker**.
+Run the backend in Docker, run Flutter on your Mac. No ADB/Docker device setup.
 
----
-
-## Option 1: Run Flutter on your Mac (recommended)
-
-Easiest: run the backend in Docker, run Flutter on your Mac. No ADB/Docker device setup.
-
-### 1. Install Flutter on your Mac
+### 1. Install Flutter
 
 ```bash
 # If you don't have Flutter yet (macOS):
@@ -19,7 +13,7 @@ brew install flutter
 ### 2. Backend must be running
 
 ```bash
-docker compose up -d database backend_app backend_nginx
+docker compose up -d
 ```
 
 Backend URL: **http://localhost:8080** (or **http://localhost** if you mapped port 80).
@@ -50,7 +44,7 @@ flutter run -d chrome --dart-define=BASE_URL=http://localhost:8080
    flutter run -d <device-id> --dart-define=BASE_URL=http://10.0.2.2:8080
    ```
 
-   Use `http://10.0.2.2:8080` so the **emulator** (Android) can reach your **Mac’s** backend (10.0.2.2 = host from inside the emulator). Use `:80` if your backend is on port 80.
+   Use `http://10.0.2.2:8080` so the **emulator** (Android) can reach your **Mac's** backend (10.0.2.2 = host from inside the emulator). Use `:80` if your backend is on port 80.
 
 **Physical Android phone:**
 
@@ -65,46 +59,17 @@ flutter run -d chrome --dart-define=BASE_URL=http://localhost:8080
    flutter run -d <device-id> --dart-define=BASE_URL=http://<YOUR_MAC_IP>:8080
    ```
 
-   Use your Mac’s IP (e.g. `192.168.1.x`) so the phone can reach the backend. Find it: **System Settings → Wi‑Fi → your network → Details**.
-
----
-
-## Option 2: Run Flutter inside Docker
-
-Use the `flutter_dev` container when you want a consistent Linux/CI-like environment.
-
-### Start the container
-
-```bash
-docker compose up -d flutter_dev
-docker compose exec flutter_dev bash
-# now you're inside the container
-```
-
-### Web (Chrome in container)
-
-```bash
-cd /app
-flutter pub get
-flutter run -d web-server --web-hostname 0.0.0.0 --web-port 3000 --dart-define=BASE_URL=http://backend_nginx:80
-```
-
-Then on your Mac open **http://localhost:3000** (port 3000 must be published; add `ports: - "3000:3000"` to `flutter_dev` in `docker-compose.yml` if needed).
-
-### Android from Docker (advanced)
-
-The emulator runs on your Mac; the container can’t easily drive it. Prefer **Option 1** for Android (run Flutter on your Mac, backend in Docker).
+   Use your Mac's IP (e.g. `192.168.1.x`) so the phone can reach the backend. Find it: **System Settings → Wi‑Fi → your network → Details**.
 
 ---
 
 ## Quick reference: BASE_URL
 
-| Where the app runs        | Backend URL to use        |
-|---------------------------|----------------------------|
-| Chrome on Mac             | `http://localhost:8080`    |
-| Android emulator          | `http://10.0.2.2:8080`     |
-| Physical Android (USB)    | `http://<YOUR_MAC_IP>:8080` |
-| Flutter inside Docker     | `http://backend_nginx:80`  |
+| Where the app runs     | Backend URL to use        |
+|------------------------|----------------------------|
+| Chrome on Mac          | `http://localhost:8080`    |
+| Android emulator       | `http://10.0.2.2:8080`     |
+| Physical Android (USB) | `http://<YOUR_MAC_IP>:8080` |
 
 Use `:80` instead of `:8080` if you exposed the backend on port 80.
 
@@ -114,6 +79,6 @@ Use `:80` instead of `:8080` if you exposed the backend on port 80.
 
 - **List devices:** `adb devices`
 - **Restart ADB:** `adb kill-server && adb start-server`
-- **Enable USB debugging:** Settings → Developer options → USB debugging (see “Physical Android phone” above).
+- **Enable USB debugging:** Settings → Developer options → USB debugging (see "Physical Android phone" above).
 
-If you use **Option 1** and run Flutter on your Mac, Android Studio’s Device Manager and built-in ADB are enough; you don’t need to configure ADB inside Docker.
+Android Studio's Device Manager and built-in ADB are enough for Flutter development.

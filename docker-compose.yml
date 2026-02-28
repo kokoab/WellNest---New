@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}   # Using same password for root for simplicity
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
@@ -32,10 +32,10 @@ services:
     working_dir: /var/www/laravel
     volumes:
       - ./backend/src:/var/www
-      - ./backend/storage:/var/www/laravel/storage
+      - ./backend/storage:/var/www/laravel/storage:delegated
     environment:
       - DB_CONNECTION=${DB_CONNECTION}
-      - DB_HOST=${DB_HOST}
+      - DB_HOST=database
       - DB_PORT=${DB_PORT}
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
@@ -52,7 +52,7 @@ services:
     container_name: laravel_nginx
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8080:80" # This is your entry point from the host
     volumes:
       - ./backend/src:/var/www
       - ./backend/nginx:/etc/nginx/conf.d
@@ -60,32 +60,6 @@ services:
       - backend_app
     networks:
       - backend
-
-  flutter_dev:
-    platform: linux/arm64   # Use ARM image on Apple Silicon so adb/SDK run natively (avoids Rosetta ELF error)
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: flutter_dev
-    volumes:
-      - ./frontend/src:/app   # Mount Flutter source code
-      - ~/.android:/home/cirrus/.android  # Optional: mount Android config for AVDs
-      - ~/.emulator_console_auth_token:/home/cirrus/.emulator_console_auth_token  # For emulator
-    environment:
-      - ANDROID_HOME=/opt/android-sdk-linux   # Already set in base image
-      - CHROME_EXECUTABLE=/usr/bin/chromium-browser  # For web builds
-      - BASE_URL=http://backend_nginx:80   # backend_nginx is the name of the backend service in the docker-compose.yml file  
-      - ANALYTICS_ENABLED=true    
-    # For USB device access (Linux only)
-    devices:
-      - "/dev/bus/usb:/dev/bus/usb"
-    # For macOS/Windows you may need to set up ADB over network.
-    stdin_open: true
-    tty: true
-    command: ["sleep", "infinity"]   # Keep container up; exec in and run `flutter run` (or `flutter run -d chrome`) manually
-    networks:
-      - backend   # So Flutter can talk to Laravel directly
-
 
 volumes:
   db_data:
