@@ -8,4 +8,5 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/hello', function () {
-    return response()->json(['message' => 'hello tanginamo ka'])
+    return response()->json(['message' => 'hello tanginamo ka']);
+});
