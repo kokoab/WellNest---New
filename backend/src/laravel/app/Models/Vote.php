@@ -4,13 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PostComment extends Model
+class Vote extends Model
 {
     //
     protected $fillable = [
         'user_id',
-        'post_id',
-        'comment',
+        'votable_id',
+        'votable_type',
+        'vote',
     ];
 
     public function user()
@@ -18,8 +19,8 @@ class PostComment extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function post()
+    public function votable()
     {
-        return $this->belongsTo(Post::class);
+        return $this->morphTo();
     }
 }

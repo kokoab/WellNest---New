@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RecipeVote;
+use App\Models\Vote;
 use Illuminate\Http\Request;
 
-class RecipeVoteController extends Controller
+class VoteController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class RecipeVoteController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(RecipeVote $recipeVote)
+    public function show(Vote $vote)
     {
         //
     }
@@ -42,7 +42,7 @@ class RecipeVoteController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(RecipeVote $recipeVote)
+    public function edit(Vote $vote)
     {
         //
     }
@@ -50,7 +50,7 @@ class RecipeVoteController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, RecipeVote $recipeVote)
+    public function update(Request $request, Vote $vote)
     {
         //
     }
@@ -58,7 +58,7 @@ class RecipeVoteController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(RecipeVote $recipeVote)
+    public function destroy(Vote $vote)
     {
         //
     }
