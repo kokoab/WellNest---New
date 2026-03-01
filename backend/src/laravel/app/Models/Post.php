@@ -23,4 +23,14 @@ class Post extends Model
     {
         return $this->belongsTo(Recipe::class);
     }
+
+    public function votes()
+    {
+        return $this->morphMany(Vote::class, 'votable');
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(PostComment::class);
+    }
 }
