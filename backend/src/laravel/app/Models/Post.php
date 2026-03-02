@@ -12,6 +12,7 @@ class Post extends Model
         'recipe_id',
         'title',
         'content',
+        'image_url',
     ];
 
     public function user()

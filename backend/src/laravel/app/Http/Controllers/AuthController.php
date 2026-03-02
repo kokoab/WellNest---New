@@ -40,8 +40,11 @@ class AuthController extends Controller
             'password' => 'required|string|min:8',
         ]);
         $user = User::where('email', $request->email)->first();
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+        if (($user->status ?? 'active') === 'inactive') {
+            return response()->json(['message' => 'Account is deactivated'], 403);
         }
         $token = $user->createToken('auth-token')->plainTextToken;
 

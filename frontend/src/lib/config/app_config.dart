@@ -1,8 +1,9 @@
 class AppConfig {
   // API base URL – passed via --dart-define=BASE_URL=...
+  // Use http://localhost:8080 for Chrome; use http://10.0.2.2:8080 for Android emulator
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080', // default for Android emulator
+    defaultValue: 'http://localhost:8080',
   );
 
   // Example: enable analytics – passed via --dart-define=ANALYTICS_ENABLED=true

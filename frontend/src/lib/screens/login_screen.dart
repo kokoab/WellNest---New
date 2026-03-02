@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/auth_service.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +82,7 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 48),
               // Username Field
               const Text(
-                "Username:",
+                "Email:",
                 style: TextStyle(
                   color: wellGreen,
                   fontSize: 16,
@@ -74,6 +91,8 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -99,6 +118,7 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   contentPadding:
@@ -117,30 +137,49 @@ class LoginScreen extends StatelessWidget {
               // Enter Button
               Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/dashboard');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side:
-                        const BorderSide(color: Color(0xFF097333), width: 1.2),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text(
-                    'Enter',
-                    style: TextStyle(
-                      color: accentYellow,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Color(0xFF097333))
+                    : OutlinedButton(
+                        onPressed: () async {
+                          final email = _emailController.text.trim();
+                          final password = _passwordController.text;
+                          if (email.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Enter email and password')),
+                            );
+                            return;
+                          }
+                          setState(() => _isLoading = true);
+                          final error = await AuthService.instance.login(email, password);
+                          if (!mounted) return;
+                          setState(() => _isLoading = false);
+                          if (error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error)),
+                            );
+                            return;
+                          }
+                          Navigator.pushReplacementNamed(context, '/dashboard');
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side:
+                              const BorderSide(color: Color(0xFF097333), width: 1.2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: const Text(
+                          'Enter',
+                          style: TextStyle(
+                            color: accentYellow,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
               ),
-              const SizedBox(height: 24),
               // Connect: Navigate to Register page
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

@@ -24,6 +24,7 @@ class AdminAuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => 'admin',
+            'is_admin' => true,
         ]);
 
         $token = $admin->createToken('auth-token')->plainTextToken;

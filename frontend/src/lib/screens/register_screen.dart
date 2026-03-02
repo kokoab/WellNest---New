@@ -1,7 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/auth_service.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,22 +82,49 @@ class RegisterScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-              // Form Fields (Fullname, Email, Username, Password)
-              _buildField("Fullname:", wellGreen, accentYellow),
+              // Form Fields (Fullname, Email, Password — backend uses first_name, last_name, email, password)
+              _buildField("Fullname:", wellGreen, accentYellow, controller: _fullNameController),
               const SizedBox(height: 20),
-              _buildField("Email:", wellGreen, accentYellow),
+              _buildField("Email:", wellGreen, accentYellow, controller: _emailController, keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 20),
-              _buildField("Username:", wellGreen, accentYellow),
-              const SizedBox(height: 20),
-              _buildField("Password:", wellGreen, accentYellow, obscureText: true),
+              _buildField("Password:", wellGreen, accentYellow, controller: _passwordController, obscureText: true),
               const SizedBox(height: 32),
               // Sign-up Button
               Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  onPressed: () {
-                    // Navigate to content or login
-                  },
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Color(0xFF097333))
+                    : OutlinedButton(
+                        onPressed: () async {
+                          final fullName = _fullNameController.text.trim();
+                          final email = _emailController.text.trim();
+                          final password = _passwordController.text;
+                          if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Fill in Fullname, Email and Password')),
+                            );
+                            return;
+                          }
+                          final parts = fullName.split(RegExp(r'\s+'));
+                          final firstName = parts.first;
+                          final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                          setState(() => _isLoading = true);
+                          final error = await AuthService.instance.register(
+                            firstName: firstName,
+                            lastName: lastName,
+                            email: email,
+                            password: password,
+                          );
+                          if (!mounted) return;
+                          setState(() => _isLoading = false);
+                          if (error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error)),
+                            );
+                            return;
+                          }
+                          Navigator.pushReplacementNamed(context, '/dashboard');
+                        },
                   style: OutlinedButton.styleFrom(
                     side:
                         const BorderSide(color: Color(0xFF097333), width: 1.2),
@@ -104,7 +150,7 @@ class RegisterScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Dont have an account? ",
+                    "Already have an account? ",
                     style: TextStyle(color: wellGreen),
                   ),
                   GestureDetector(
@@ -138,7 +184,8 @@ class RegisterScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildField(String label, Color labelColor, Color borderColor, {bool obscureText = false}) {
+  Widget _buildField(String label, Color labelColor, Color borderColor,
+      {bool obscureText = false, TextEditingController? controller, TextInputType? keyboardType}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -152,7 +199,9 @@ class RegisterScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          controller: controller,
           obscureText: obscureText,
+          keyboardType: keyboardType,
           decoration: InputDecoration(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

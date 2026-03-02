@@ -8,11 +8,13 @@ class Post {
 
   // Factory to convert JSON from Laravel to a Flutter Object
   factory Post.fromJson(Map<String, dynamic> json) {
+    final user = json['user'];
+    final userName = user is Map ? (user['name'] as String? ?? '') : '';
     return Post(
-      id: json['id'],
-      userName: json['user']['name'], // Assuming Laravel returns nested user
-      content: json['content'],
-      imageUrl: json['image_url'],
+      id: json['id'] as int,
+      userName: userName,
+      content: json['content'] as String? ?? '',
+      imageUrl: json['image_url'] as String? ?? '',
     );
   }
 }

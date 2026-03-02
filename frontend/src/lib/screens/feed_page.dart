@@ -77,18 +77,19 @@ class _FeedPageState extends State<FeedPage> {
           Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 5),
           Text(post.content),
-          const SizedBox(height: 15),
-          // Using Network Image since it's coming from the backend
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: Image.network(
-              post.imageUrl, 
-              height: 180, 
-              width: double.infinity, 
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey, height: 180),
+          if (post.imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 15),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Image.network(
+                post.imageUrl,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey, height: 180),
+              ),
             ),
-          ),
+          ],
           // ... rest of your interaction bar code
         ],
       ),

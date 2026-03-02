@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/admin_auth_service.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -78,14 +79,30 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               
               Align(
                 alignment: Alignment.centerRight,
-                child: _isLoading 
-                  ? const CircularProgressIndicator(color: wellGreen)
-                  : OutlinedButton(
-                      onPressed: () {
-                        // BACKEND DEV: Trigger your login logic here
-                        setState(() => _isLoading = true);
-                        print("Logging in with: ${_usernameController.text}");
-                      },
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: wellGreen)
+                    : OutlinedButton(
+                        onPressed: () async {
+                          final email = _usernameController.text.trim();
+                          final password = _passwordController.text;
+                          if (email.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Enter email and password')),
+                            );
+                            return;
+                          }
+                          setState(() => _isLoading = true);
+                          final error = await AdminAuthService.instance.loginAdmin(email, password);
+                          if (!mounted) return;
+                          setState(() => _isLoading = false);
+                          if (error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error)),
+                            );
+                            return;
+                          }
+                          Navigator.pushReplacementNamed(context, '/admin_dashboard');
+                        },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: wellGreen, width: 1.2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
