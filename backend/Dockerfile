@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -35,4 +35,6 @@ RUN mkdir -p /var/www/storage /var/www/bootstrap/cache && \
 USER www-data
 
 EXPOSE 9000
+# Bypass broken image entrypoint (e.g. CRLF on Windows) by running php-fpm directly
+ENTRYPOINT []
 CMD ["php-fpm"]

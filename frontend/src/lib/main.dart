@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Set the Splash screen as the home
-      home: const AdminDashboard(), // We will reuse and connect to your WelcomeScreen from here
+      home: const WellnestSplashScreen(),
       // Define routes for named navigation
       routes: {
         '/login': (context) => const LoginScreen(),
