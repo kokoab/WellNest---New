@@ -3,7 +3,7 @@ class AppConfig {
   // Docker (nginx) exposes backend on 8080. Use http://10.0.2.2:8080 for Android emulator.
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://localhost:8080',
+    defaultValue: 'http://10.0.2.2:8080',
   );
 
   // Example: enable analytics – passed via --dart-define=ANALYTICS_ENABLED=true

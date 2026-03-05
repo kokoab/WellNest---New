@@ -38,7 +38,10 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/register'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'first_name': firstName.trim(),
           'last_name': lastName.trim(),
@@ -53,7 +56,10 @@ class AuthService {
         return null;
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      final msg = data?['message'] as String? ?? data?['errors']?.toString() ?? 'Registration failed';
+      final msg =
+          data?['message'] as String? ??
+          data?['errors']?.toString() ??
+          'Registration failed';
       return msg;
     } catch (e) {
       return 'Failed to connect: $e';
@@ -65,13 +71,17 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/login'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'email': email.trim(), 'password': password}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
-        if (token == null || token.isEmpty) return 'Invalid response from server';
+        if (token == null || token.isEmpty)
+          return 'Invalid response from server';
         setToken(token);
         return null;
       }
