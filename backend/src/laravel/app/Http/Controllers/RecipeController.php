@@ -13,11 +13,20 @@ class RecipeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        //
         $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name'])->orderBy('created_at', 'desc');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('search')) {
+            $term = $request->search;
+            $query->where(function ($q) use ($term) {
+                $q->where('title', 'like', '%' . $term . '%')
+                    ->orWhereHas('ingredients', function ($q2) use ($term) {
+                        $q2->where('name', 'like', '%' . $term . '%');
+                    });
+            });
         }
 
         $recipes = $query->paginate(10);

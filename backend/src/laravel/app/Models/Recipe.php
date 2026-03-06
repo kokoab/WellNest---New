@@ -27,9 +27,9 @@ class Recipe extends Model
 
     public function ingredients()
     {
-        return $this->belongsToMany(Ingredient::class)
-        ->withPivot('quantity', 'unit')
-        ->withTimestamps();
+        return $this->belongsToMany(Ingredient::class, 'recipe_ingredients')
+            ->withPivot('quantity', 'unit')
+            ->withTimestamps();
     }
     public function images()
     {

@@ -21,6 +21,12 @@ Route::get('/hello', function () {
 // Public: feed posts (no auth required)
 Route::get('posts', [PostController::class, 'index']);
 
+// Public: list and view recipes and categories (no auth required — show all recipes)
+Route::get('categories', [CategoryController::class, 'index']);
+Route::get('categories/{category}', [CategoryController::class, 'show']);
+Route::get('recipes', [RecipeController::class, 'index']);
+Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
+
 // Protected routes (auth:sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
@@ -29,11 +35,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('logout-admin', [AdminAuthController::class, 'logout']);
 
-    Route::get('categories', [CategoryController::class, 'index']);
-    Route::get('categories/{category}', [CategoryController::class, 'show']);
-
-    Route::get('recipes', [RecipeController::class, 'index']);
-    Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
     Route::post('recipes', [RecipeController::class, 'create']);
     Route::put('recipes/{recipe}', [RecipeController::class, 'update']);
     Route::delete('recipes/{recipe}', [RecipeController::class, 'delete']);

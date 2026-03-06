@@ -29,11 +29,7 @@ class AdminUserService {
       final list = jsonDecode(response.body) as List<dynamic>;
       return list.map((e) => AdminUser.fromJson(e as Map<String, dynamic>)).toList();
     }
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(data?['message'] as String? ?? 'Unauthorized');
-    }
-    throw Exception('Failed to load users: ${response.statusCode}');
+    _throwFromResponse(response);
   }
 
   /// PATCH /api/admin/users/{id}/status — set status to active or inactive.
@@ -47,8 +43,7 @@ class AdminUserService {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return AdminUser.fromJson(data);
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>?;
-    throw Exception(data?['message'] as String? ?? 'Failed to update status');
+    _throwFromResponse(response);
   }
 
   /// DELETE /api/admin/users/{id} — permanently delete user.
@@ -58,7 +53,19 @@ class AdminUserService {
       headers: _headers,
     );
     if (response.statusCode == 204) return;
+    _throwFromResponse(response);
+  }
+
+  static Never _throwFromResponse(http.Response response) {
     final data = jsonDecode(response.body) as Map<String, dynamic>?;
-    throw Exception(data?['message'] as String? ?? 'Failed to delete user');
+    final message = data?['message'] as String?;
+    final errors = data?['errors'] as Map<String, dynamic>?;
+    if (errors != null && errors.isNotEmpty) {
+      final first = errors.values.first;
+      final list = first is List ? first : [first];
+      final msg = list.isNotEmpty ? list.first.toString() : message;
+      throw Exception(msg ?? 'Request failed');
+    }
+    throw Exception(message ?? 'Request failed: ${response.statusCode}');
   }
 }
