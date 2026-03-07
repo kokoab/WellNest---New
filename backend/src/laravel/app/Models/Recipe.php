@@ -43,4 +43,9 @@ class Recipe extends Model
     {
         return $this->hasMany(Post::class);
     }
+
+    public function reports()
+    {
+        return $this->morphMany(Report::class, 'reportable');
+    }
 }

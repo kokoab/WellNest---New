@@ -1,4 +1,6 @@
-/// Recipe model matching backend API (with category and user relations).
+import '../config/app_config.dart';
+
+/// Recipe model matching backend API (with category, user, ingredients, image).
 class Recipe {
   final int id;
   final int? userId;
@@ -10,6 +12,8 @@ class Recipe {
   final String? updatedAt;
   final CategoryInfo? category;
   final UserInfo? user;
+  final List<RecipeIngredientInfo>? ingredients;
+  final String? imageUrl;
 
   Recipe({
     required this.id,
@@ -22,6 +26,8 @@ class Recipe {
     this.updatedAt,
     this.category,
     this.user,
+    this.ingredients,
+    this.imageUrl,
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
@@ -42,6 +48,19 @@ class Recipe {
         lastName: uj['last_name'] as String? ?? '',
       );
     }
+    List<RecipeIngredientInfo>? ingredients;
+    if (json['ingredients'] != null) {
+      final list = json['ingredients'] as List<dynamic>;
+      ingredients = list.map((e) {
+        final m = e as Map<String, dynamic>;
+        final pivot = m['pivot'] as Map<String, dynamic>? ?? {};
+        return RecipeIngredientInfo(
+          name: m['name'] as String? ?? '',
+          quantity: (pivot['quantity'] as num?)?.toDouble() ?? 0,
+          unit: pivot['unit'] as String? ?? '',
+        );
+      }).toList();
+    }
     return Recipe(
       id: json['id'] as int,
       userId: json['user_id'] as int?,
@@ -53,6 +72,8 @@ class Recipe {
       updatedAt: json['updated_at'] as String?,
       category: cat,
       user: u,
+      ingredients: ingredients,
+      imageUrl: json['image_url'] as String?,
     );
   }
 
@@ -66,6 +87,21 @@ class Recipe {
   String get userDisplayName {
     if (user == null) return 'Unknown';
     return '${user!.firstName} ${user!.lastName}'.trim();
+  }
+
+  /// Image URL for display. Uses frontend base URL to fix Docker internal host issues.
+  String? get displayImageUrl {
+    if (imageUrl == null || imageUrl!.isEmpty) return null;
+    final url = imageUrl!;
+    final base = AppConfig.baseUrl.replaceAll(RegExp(r'/api$'), '');
+    if (url.startsWith('http')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null && uri.path.startsWith('/storage/')) {
+        return '$base${uri.path}';
+      }
+    }
+    if (url.startsWith('/')) return base + url;
+    return url;
   }
 }
 
@@ -83,5 +119,16 @@ class UserInfo {
     required this.id,
     required this.firstName,
     required this.lastName,
+  });
+}
+
+class RecipeIngredientInfo {
+  final String name;
+  final double quantity;
+  final String unit;
+  RecipeIngredientInfo({
+    required this.name,
+    required this.quantity,
+    required this.unit,
   });
 }

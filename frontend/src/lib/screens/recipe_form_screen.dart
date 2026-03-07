@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/category_service.dart';
@@ -28,6 +30,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   bool _saving = false;
   String? _submitError;
   String? _loadError;
+  XFile? _pickedImage;
+  final ImagePicker _picker = ImagePicker();
 
   bool get _isEditing => widget.recipe != null;
 
@@ -91,6 +95,23 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     return null;
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        imageQuality: 85,
+      );
+      if (picked != null && mounted) setState(() => _pickedImage = picked);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e'), backgroundColor: nestOrange),
+        );
+      }
+    }
+  }
+
   Future<void> _submit() async {
     _submitError = null;
     if (!_formKey.currentState!.validate()) return;
@@ -112,13 +133,19 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           instructions: instructions,
           prepTime: prepTime,
         );
+        if (_pickedImage != null) {
+          await RecipeService.instance.uploadRecipeImage(widget.recipe!.id, _pickedImage!);
+        }
       } else {
-        await RecipeService.instance.createRecipe(
+        final recipeId = await RecipeService.instance.createRecipe(
           categoryId: _selectedCategoryId!,
           title: title,
           instructions: instructions,
           prepTime: prepTime,
         );
+        if (_pickedImage != null) {
+          await RecipeService.instance.uploadRecipeImage(recipeId, _pickedImage!);
+        }
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +162,64 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         _saving = false;
       });
     }
+  }
+
+  Widget _buildImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recipe photo',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_pickedImage != null) ...[
+          FutureBuilder<dynamic>(
+            future: _pickedImage!.readAsBytes(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                return Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        snapshot.data! as Uint8List,
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                      ),
+                      onPressed: () => setState(() => _pickedImage = null),
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: _pickImage,
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: Text(_pickedImage == null ? 'Add photo' : 'Change photo'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: wellGreen,
+            side: const BorderSide(color: wellGreen),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -209,6 +294,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
                       validator: (v) => v == null ? 'Select a category' : null,
                     ),
+                    const SizedBox(height: 16),
+                    _buildImageSection(),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _titleController,

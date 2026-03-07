@@ -53,6 +53,7 @@ services:
       - "8080:80" # This is your entry point from the host
     volumes:
       - ./backend/src:/var/www
+      - ./backend/storage:/var/www/laravel/storage
       - ./backend/nginx:/etc/nginx/conf.d
     depends_on:
       - backend_app

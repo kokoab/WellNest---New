@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../models/recipe.dart';
 import 'auth_service.dart';
@@ -28,14 +29,16 @@ class RecipeService {
         ...AuthService.instance.authHeaders,
       };
 
-  /// GET /api/recipes — optional category_id, search (name/ingredients), paginated (public)
+  /// GET /api/recipes — optional category_id, user_id, search (name/ingredients), paginated (public)
   Future<RecipeListResponse> fetchRecipes({
     int? categoryId,
+    int? userId,
     String? search,
     int page = 1,
   }) async {
     final params = <String, String>{'page': '$page'};
     if (categoryId != null) params['category_id'] = '$categoryId';
+    if (userId != null) params['user_id'] = '$userId';
     if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
     final uri = Uri.parse('$_baseUrl/recipes').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headersForRead);
@@ -64,8 +67,8 @@ class RecipeService {
     _throwFromResponse(response);
   }
 
-  /// POST /api/recipes
-  Future<void> createRecipe({
+  /// POST /api/recipes — returns new recipe id for image upload
+  Future<int> createRecipe({
     required int categoryId,
     required String title,
     required String instructions,
@@ -81,7 +84,34 @@ class RecipeService {
         'prep_time': prepTime,
       }),
     );
-    if (response.statusCode == 200) return;
+    if (response.statusCode == 201) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['id'] as int;
+    }
+    _throwFromResponse(response);
+  }
+
+  /// POST /api/recipes/{id}/images — multipart image upload (auth required).
+  /// Uses bytes so it works on web (XFile path is blob URL there).
+  Future<void> uploadRecipeImage(int recipeId, XFile imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    final name = imageFile.name.isNotEmpty ? imageFile.name : 'image.jpg';
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/recipes/$recipeId/images'),
+    );
+    request.headers.addAll({
+      'Accept': 'application/json',
+      ...AuthService.instance.authHeaders,
+    });
+    request.files.add(http.MultipartFile.fromBytes(
+      'image',
+      bytes,
+      filename: name,
+    ));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 201) return;
     _throwFromResponse(response);
   }
 

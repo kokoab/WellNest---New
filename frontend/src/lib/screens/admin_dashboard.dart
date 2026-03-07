@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/models/admin_user.dart';
+import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/services/admin_auth_service.dart';
 import 'package:my_app/services/admin_user_service.dart';
 
@@ -186,13 +187,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: [
                     _buildIconButton(Icons.grid_view_rounded),
                     Image.asset('lib/assets/images/logo1.png', height: 45),
-                    IconButton(
-                      onPressed: () async {
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        NotificationsDropdown(
+                          iconColor: nestOrange,
+                          child: const Icon(Icons.notifications, color: nestOrange, size: 28),
+                        ),
+                        IconButton(
+                          onPressed: () async {
                         await AdminAuthService.instance.logoutAdmin();
                         if (!context.mounted) return;
                         Navigator.pushNamedAndRemoveUntil(context, '/admin_login', (r) => false);
-                      },
-                      icon: const Icon(Icons.logout, color: nestOrange, size: 28),
+                          },
+                          icon: const Icon(Icons.logout, color: nestOrange, size: 28),
+                        ),
+                      ],
                     ),
                   ],
                 ),

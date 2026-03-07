@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Image;
 use App\Models\Recipe;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 
 class RecipeController extends Controller
 {
@@ -13,10 +15,14 @@ class RecipeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name'])->orderBy('created_at', 'desc');
+        $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name', 'images:id,path,imageable_id,imageable_type'])->orderBy('created_at', 'desc');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
         }
 
         if ($request->filled('search')) {
@@ -30,7 +36,14 @@ class RecipeController extends Controller
         }
 
         $recipes = $query->paginate(10);
-        return response()->json($recipes);
+        $data = $recipes->toArray();
+        $baseUrl = rtrim(config('app.url'), '/');
+        foreach ($data['data'] as $i => $recipeData) {
+            $recipe = $recipes->getCollection()[$i];
+            $firstImage = $recipe->images->first();
+            $data['data'][$i]['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+        }
+        return response()->json($data);
     }
     /**
      * Show the form for creating a new resource.
@@ -47,7 +60,10 @@ class RecipeController extends Controller
 
         $validated['user_id'] = $request->user()->id;
         $recipe = Recipe::create($validated);
-        return response()->json(['message' => 'Recipe created successfully'], 200);
+        return response()->json([
+            'message' => 'Recipe created successfully',
+            'id' => $recipe->id,
+        ], 201);
     }
 
 
@@ -56,10 +72,18 @@ class RecipeController extends Controller
      */
     public function show(Recipe $recipe): JsonResponse
     {
-        //
+        $recipe->load([
+            'category:id,name',
+            'user:id,first_name,last_name',
+            'ingredients:id,name',
+        ]);
 
-        $recipe->load(['category:id,name', 'user:id,first_name,last_name']);
-        return response()->json($recipe);
+        $data = $recipe->toArray();
+        $baseUrl = rtrim(config('app.url'), '/');
+        $firstImage = $recipe->images()->first();
+        $data['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+
+        return response()->json($data);
     }
 
     /**
@@ -84,8 +108,35 @@ class RecipeController extends Controller
      */
     public function delete(Recipe $recipe): JsonResponse
     {
-        //
+        foreach ($recipe->images as $image) {
+            Storage::disk('public')->delete($image->path);
+        }
         $recipe->delete();
         return response()->json(['message' => 'Recipe deleted successfully'], 200);
+    }
+
+    /**
+     * Upload an image for the recipe.
+     */
+    public function uploadImage(Request $request, Recipe $recipe): JsonResponse
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+        ]);
+
+        $file = $request->file('image');
+        $path = $file->store('recipes', 'public');
+
+        $recipe->images()->create([
+            'path' => $path,
+        ]);
+
+        $image = $recipe->images()->latest()->first();
+        $imageUrl = rtrim(config('app.url'), '/') . '/storage/' . $image->path;
+
+        return response()->json([
+            'message' => 'Image uploaded successfully',
+            'image_url' => $imageUrl,
+        ], 201);
     }
 }

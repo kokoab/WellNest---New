@@ -4,6 +4,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/custom_bottom_nav.dart';
+import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/screens/profile_page.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
@@ -158,6 +159,15 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   int _ratingFor(int index) => _recipeRatings[_recipes[index].id] ?? 0;
 
+  Widget _buildRecipeImagePlaceholder() {
+    return Container(
+      color: Colors.white24,
+      child: Center(
+        child: Icon(Icons.restaurant, size: 48, color: Colors.white.withOpacity(0.9)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -173,7 +183,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               children: [
                 const Icon(Icons.menu, color: nestOrange, size: 35),
                 Image.asset('lib/assets/images/logo1.png', height: 50),
-                const Icon(Icons.notifications, color: nestOrange, size: 35),
+                NotificationsDropdown(
+                  iconColor: nestOrange,
+                  child: const Icon(Icons.notifications, color: nestOrange, size: 35),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -328,12 +341,30 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: Container(
-                  color: Colors.white24,
-                  child: Center(
-                    child: Icon(Icons.restaurant, size: 48, color: Colors.white.withOpacity(0.9)),
-                  ),
-                ),
+                child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+                    ? Image.network(
+                        recipe.displayImageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.white24,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
+                      )
+                    : _buildRecipeImagePlaceholder(),
               ),
             ),
             if (isExpanded) ...[
