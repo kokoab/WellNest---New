@@ -25,7 +25,7 @@ class ContentReportedNotification extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
-        $typeLabel = $this->reportableType === 'recipe' ? 'Recipe' : 'Post';
+        $typeLabel = $this->reportableType === 'recipe' ? 'Recipe' : ($this->reportableType === 'user' ? 'User' : ($this->reportableType === 'post' ? 'Post' : 'Unknown'));
 
         return [
             'type' => 'content_reported',

@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\RecipeController;
+use App\Models\User;
+use App\Http\Controllers\Api\AdminModerationController;
 
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
@@ -70,6 +72,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+
+    Route::post('users/{user}/report', [ReportController::class, 'reportUser']);
 });
 
 // Admin-only routes (auth:sanctum + admin)
@@ -82,4 +86,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('categories', [CategoryController::class, 'create']);
     Route::put('categories/{category}', [CategoryController::class, 'update']);
     Route::delete('categories/{category}', [CategoryController::class, 'delete']);
+
+    Route::get('admin/reports', [AdminModerationController::class, 'index']);
+    Route::patch('admin/reports/{report}/approve', [AdminModerationController::class, 'approve']);
+    Route::patch('admin/reports/{report}/remove-content', [AdminModerationController::class, 'removeContent']);
+    Route::patch('admin/reports/{report}/suspend-user', [AdminModerationController::class, 'suspendUser']);
+    Route::patch('admin/reports/{report}/unban-user', [AdminModerationController::class, 'unbanUser']);
+    Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);
+    Route::delete('admin/reports', [AdminModerationController::class, 'deleteAllReports']);
 });

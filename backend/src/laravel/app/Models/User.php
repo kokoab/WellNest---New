@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
+use App\Models\Report;
 
 class User extends Authenticatable
 {
@@ -73,7 +73,8 @@ class User extends Authenticatable
     {
         return $this->hasMany(Recipe::class);
     }
-
+    public function reports()
+    {
+        return $this->morphMany(Report::class, 'reportable');
+    }
 }
-
-    

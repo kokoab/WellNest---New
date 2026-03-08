@@ -21,7 +21,7 @@ class AdminUserController extends Controller
 
         $users = User::orderBy('created_at', 'desc')
             ->get()
-            ->map(fn (User $u) => [
+            ->map(fn(User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
@@ -43,7 +43,7 @@ class AdminUserController extends Controller
         }
 
         $request->validate([
-            'status' => 'required|in:active,inactive',
+            'status' => 'required|in:active,inactive,suspended',
         ]);
 
         $user = User::find($id);

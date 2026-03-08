@@ -78,4 +78,36 @@ class ReportController extends Controller
 
         return response()->json(['message' => 'Post reported. Admins will review.'], 201);
     }
+
+    public function reportUser(Request $request, User $user): JsonResponse
+    {
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'You cannot report yourself.'], 400);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:255',
+            'details' => 'nullable|string|max:2000',
+        ]);
+
+        Report::create([
+            'user_id' => $request->user()->id,
+            'reportable_type' => User::class,
+            'reportable_id' => $user->id,
+            'reason' => $validated['reason'],
+            'details' => $validated['details'] ?? null
+        ]);
+
+        $admins = User::where('is_admin', true)->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new ContentReportedNotification(
+                'user',
+                $user->id,
+                $request->user()->name,
+                $validated['reason'],
+            ));
+        }
+
+        return response()->json(['message' => 'User reported. Admins will review'], 201);
+    }
 }
