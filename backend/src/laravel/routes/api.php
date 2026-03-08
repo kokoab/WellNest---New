@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Api\RecipeRatingController;
 use App\Models\User;
 use App\Http\Controllers\Api\AdminModerationController;
 
@@ -43,6 +44,7 @@ Route::get('categories', [CategoryController::class, 'index']);
 Route::get('categories/{category}', [CategoryController::class, 'show']);
 Route::get('recipes', [RecipeController::class, 'index']);
 Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
+Route::get('recipes/{recipe}/ratings', [RecipeRatingController::class, 'index']);
 
 // Protected routes (auth:sanctum)
 Route::middleware('auth:sanctum')->group(function () {
@@ -59,6 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('recipes/{recipe}/like', [VoteController::class, 'likeRecipe']);
     Route::delete('recipes/{recipe}/like', [VoteController::class, 'unlikeRecipe']);
     Route::post('recipes/{recipe}/report', [ReportController::class, 'reportRecipe']);
+    Route::post('recipes/{recipe}/ratings', [RecipeRatingController::class, 'store']);
+    Route::get('recipes/{recipe}/ratings/me', [RecipeRatingController::class, 'userRating']);
 
     Route::post('posts', [PostController::class, 'store']);
     Route::post('posts/{post}/images', [PostController::class, 'uploadImage']);

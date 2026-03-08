@@ -42,6 +42,8 @@ class RecipeController extends Controller
             $recipe = $recipes->getCollection()[$i];
             $firstImage = $recipe->images->first();
             $data['data'][$i]['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+            $data['data'][$i]['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
+            $data['data'][$i]['ratings_count'] = $recipe->ratings()->count();
         }
         return response()->json($data);
     }
@@ -82,6 +84,8 @@ class RecipeController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
         $firstImage = $recipe->images()->first();
         $data['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+        $data['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
+        $data['ratings_count'] = $recipe->ratings()->count();
 
         return response()->json($data);
     }

@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
+import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/screens/custom_bottom_nav.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/screens/profile_page.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/category_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/services/rating_service.dart';
+import 'package:my_app/services/vote_service.dart';
 import 'feed_page.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -81,13 +84,26 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   String? _error;
   int? _selectedCategoryId;
   int _expandedIndex = -1;
-  final Map<int, int> _recipeRatings = {};
+  Recipe? _expandedRecipe;
+  RecipeRatingsResponse? _expandedRatings;
+  RecipeRating? _expandedUserRating;
+  bool _expandedLiked = false;
+  bool _expandedLoading = false;
+  int? _pendingStars;
+  bool _submittingRating = false;
+  final Map<int, TextEditingController> _reviewControllers = {};
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
 
+  TextEditingController _getReviewController(int recipeId) {
+    _reviewControllers[recipeId] ??= TextEditingController();
+    return _reviewControllers[recipeId]!;
+  }
+
   @override
   void dispose() {
+    for (final c in _reviewControllers.values) c.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
@@ -156,8 +172,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       });
     }
   }
-
-  int _ratingFor(int index) => _recipeRatings[_recipes[index].id] ?? 0;
 
   Widget _buildRecipeImagePlaceholder() {
     return Container(
@@ -299,11 +313,14 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ),
       );
     }
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
+
     return RefreshIndicator(
       onRefresh: _load,
       color: wellGreen,
       child: MasonryGridView.count(
-        crossAxisCount: 2,
+        crossAxisCount: crossAxisCount,
         mainAxisSpacing: 15,
         crossAxisSpacing: 15,
         itemCount: _recipes.length,
@@ -316,16 +333,64 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     );
   }
 
+  Future<void> _onCardTap(Recipe recipe, int index) async {
+    final isExpanded = _expandedIndex == index;
+    if (isExpanded) {
+      setState(() {
+        _expandedIndex = -1;
+        _expandedRecipe = null;
+        _expandedRatings = null;
+        _expandedUserRating = null;
+        _pendingStars = null;
+      });
+      return;
+    }
+    setState(() {
+      _expandedIndex = index;
+      _expandedLoading = true;
+      _expandedRecipe = null;
+      _expandedRatings = null;
+      _expandedUserRating = null;
+    });
+    try {
+      final fullRecipe = await RecipeService.instance.fetchRecipe(recipe.id);
+      RecipeRatingsResponse? ratings;
+      RecipeRating? userRating;
+      bool liked = false;
+      try {
+        ratings = await RatingService.instance.fetchRatings(recipe.id);
+        if (AuthService.instance.isLoggedIn) {
+          userRating = await RatingService.instance.fetchUserRating(recipe.id);
+        }
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _expandedRecipe = fullRecipe;
+        _expandedRatings = ratings;
+        _expandedUserRating = userRating;
+        _expandedLiked = liked;
+        _expandedLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _expandedLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: nestOrange),
+      );
+    }
+  }
+
   Widget _buildRecipeCard(Recipe recipe, int index, Color bgColor) {
     final isExpanded = _expandedIndex == index;
-    final normalHeight = index.isEven ? 200.0 : 260.0;
-    const expandedHeight = 380.0;
-    final rating = _ratingFor(index);
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
+    final cardWidth = (width - 40 - (crossAxisCount - 1) * 15) / crossAxisCount;
+    final normalHeight = cardWidth * (index.isEven ? 1.0 : 1.3);
+    const expandedHeight = 620.0;
+    final ratingsCount = recipe.ratingsCount ?? 0;
 
     return GestureDetector(
-      onTap: () {
-        setState(() => _expandedIndex = isExpanded ? -1 : index);
-      },
+      onTap: () => _onCardTap(recipe, index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -336,83 +401,421 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
         ),
         padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
-                    ? Image.network(
-                        recipe.displayImageUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: Colors.white24,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
-                      )
-                    : _buildRecipeImagePlaceholder(),
-              ),
+        child: isExpanded
+            ? _buildExpandedCard(recipe, bgColor)
+            : _buildCollapsedCard(recipe, normalHeight, ratingsCount, bgColor),
+      ),
+    );
+  }
+
+  Widget _buildCollapsedCard(Recipe recipe, double normalHeight, int ratingsCount, Color bgColor) {
+    return Column(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+                ? Image.network(
+                    recipe.displayImageUrl!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Colors.white24,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
+                  )
+                : _buildRecipeImagePlaceholder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          recipe.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        Text(
+          'Prep: ${recipe.prepTime} mins | ${recipe.category?.name ?? ""}',
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+        if (ratingsCount > 0)
+          Text(
+            '$ratingsCount ${ratingsCount == 1 ? 'rating' : 'ratings'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildExpandedCard(Recipe recipe, Color bgColor) {
+    final fullRecipe = _expandedRecipe ?? recipe;
+    if (_expandedLoading) {
+      return Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 140,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: fullRecipe.displayImageUrl != null && fullRecipe.displayImageUrl!.isNotEmpty
+                  ? Image.network(
+                      fullRecipe.displayImageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
+                    )
+                  : _buildRecipeImagePlaceholder(),
             ),
-            if (isExpanded) ...[
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
-                    ),
-                  ).then((_) => setState(() {}));
-                },
-                child: Text(
-                  recipe.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            fullRecipe.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            'Prep: ${fullRecipe.prepTime} mins | ${fullRecipe.category?.name ?? ""}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          if (fullRecipe.user != null)
+            Text(
+              'By ${fullRecipe.userDisplayName}',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          if (AuthService.instance.isLoggedIn) _buildExpandedLikeButton(fullRecipe),
+          const SizedBox(height: 12),
+          _buildExpandedRatingSection(fullRecipe),
+          const SizedBox(height: 12),
+          _buildExpandedReviewsList(),
+          const SizedBox(height: 12),
+          _buildExpandedSectionTitle('Ingredients'),
+          _buildExpandedIngredientsList(fullRecipe),
+          const SizedBox(height: 12),
+          _buildExpandedSectionTitle('Instructions'),
+          _buildExpandedInstructions(fullRecipe),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedLikeButton(Recipe recipe) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () async {
+              if (!AuthService.instance.isLoggedIn) return;
+              try {
+                if (_expandedLiked) {
+                  await VoteService.instance.unlikeRecipe(recipe.id);
+                  if (mounted) setState(() => _expandedLiked = false);
+                } else {
+                  await VoteService.instance.likeRecipe(recipe.id);
+                  if (mounted) setState(() => _expandedLiked = true);
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                  );
+                }
+              }
+            },
+            icon: Icon(
+              _expandedLiked ? Icons.favorite : Icons.favorite_border,
+              color: _expandedLiked ? Colors.pink : Colors.white,
+              size: 24,
+            ),
+          ),
+          Text(
+            _expandedLiked ? 'Liked' : 'Like',
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedRatingSection(Recipe recipe) {
+    final avg = _expandedRatings?.averageRating ?? recipe.averageRating ?? 0.0;
+    final count = _expandedRatings?.ratingsCount ?? recipe.ratingsCount ?? 0;
+    final hasUserRating = _expandedUserRating != null;
+    final canRate = AuthService.instance.isLoggedIn && !hasUserRating;
+    final ctrl = _getReviewController(recipe.id);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildStarDisplay(avg),
+              const SizedBox(width: 8),
               Text(
-                'Prep: ${recipe.prepTime} mins | ${recipe.category?.name ?? ""}',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                avg > 0 ? avg.toStringAsFixed(1) : '—',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: wellGreen),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(width: 4),
+              Text(
+                '($count ${count == 1 ? 'rating' : 'ratings'})',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
             ],
-            const SizedBox(height: 8),
+          ),
+          if (canRate) ...[
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (starIndex) {
+              children: List.generate(5, (i) {
+                final star = i + 1;
+                final selected = (_pendingStars ?? 0) >= star;
                 return GestureDetector(
-                  onTap: () {
-                    setState(() => _recipeRatings[recipe.id] = starIndex + 1);
-                  },
-                  child: Icon(
-                    Icons.star,
-                    size: 18,
-                    color: starIndex < rating ? Colors.yellowAccent : Colors.white70,
+                  onTap: () => setState(() => _pendingStars = star),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Icon(Icons.star, size: 28, color: selected ? accentYellow : Colors.grey.shade300),
                   ),
                 );
               }),
             ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Write a review (optional)...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _submittingRating || (_pendingStars ?? 0) < 1
+                  ? null
+                  : () async {
+                      if (_pendingStars == null) return;
+                      setState(() => _submittingRating = true);
+                      try {
+                        await RatingService.instance.submitRating(
+                          recipeId: recipe.id,
+                          rating: _pendingStars!,
+                          comment: ctrl.text.trim().isEmpty ? null : ctrl.text.trim(),
+                        );
+                        if (!mounted) return;
+                        ctrl.clear();
+                        setState(() {
+                          _submittingRating = false;
+                          _pendingStars = null;
+                        });
+                        await _onCardTap(recipe, _expandedIndex);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Thanks for your rating!'), backgroundColor: wellGreen),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() => _submittingRating = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: nestOrange),
+                          );
+                        }
+                      }
+                    },
+              style: FilledButton.styleFrom(backgroundColor: wellGreen),
+              child: _submittingRating
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit rating'),
+            ),
           ],
+          if (hasUserRating)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'You rated ${_expandedUserRating!.rating}/5${_expandedUserRating!.comment != null && _expandedUserRating!.comment!.isNotEmpty ? ': "${_expandedUserRating!.comment}"' : ''}',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontStyle: FontStyle.italic),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStarDisplay(double avg) {
+    final full = avg.floor();
+    final half = (avg - full) >= 0.5;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (i) {
+        IconData icon;
+        Color color;
+        if (i < full) {
+          icon = Icons.star;
+          color = accentYellow;
+        } else if (i == full && half) {
+          icon = Icons.star_half;
+          color = accentYellow;
+        } else {
+          icon = Icons.star_border;
+          color = Colors.grey.shade300;
+        }
+        return Icon(icon, size: 20, color: color);
+      }),
+    );
+  }
+
+  Widget _buildExpandedReviewsList() {
+    final ratings = _expandedRatings?.ratings ?? [];
+    if (ratings.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: Text(
+          'No reviews yet. Be the first to rate!',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        ),
+      );
+    }
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 120),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: ratings.length,
+        itemBuilder: (context, i) {
+          final r = ratings[i];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _buildStarDisplay(r.rating.toDouble()),
+                    const SizedBox(width: 6),
+                    Text(r.userDisplayName, style: const TextStyle(fontWeight: FontWeight.w600, color: wellGreen, fontSize: 12)),
+                  ],
+                ),
+                if (r.comment != null && r.comment!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(r.comment!, style: TextStyle(fontSize: 12, color: Colors.grey.shade800), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildExpandedSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildExpandedIngredientsList(Recipe recipe) {
+    final ingredients = recipe.ingredients;
+    if (ingredients == null || ingredients.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(12)),
+        child: Text('No ingredients listed.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: ingredients.map((ing) {
+          final qty = ing.quantity.toInt() == ing.quantity ? ing.quantity.toInt().toString() : ing.quantity.toString();
+          final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 5),
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(color: wellGreen, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                      children: [
+                        if (amount.isNotEmpty) TextSpan(text: '$amount ', style: const TextStyle(fontWeight: FontWeight.w600, color: wellGreen)),
+                        TextSpan(text: ing.name),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildExpandedInstructions(Recipe recipe) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(12)),
+      child: Text(
+        recipe.instructions,
+        style: TextStyle(fontSize: 14, height: 1.5, color: Colors.grey.shade800),
       ),
     );
   }

@@ -14,6 +14,8 @@ class Recipe {
   final UserInfo? user;
   final List<RecipeIngredientInfo>? ingredients;
   final String? imageUrl;
+  final double? averageRating;
+  final int? ratingsCount;
 
   Recipe({
     required this.id,
@@ -28,6 +30,8 @@ class Recipe {
     this.user,
     this.ingredients,
     this.imageUrl,
+    this.averageRating,
+    this.ratingsCount,
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
@@ -74,6 +78,8 @@ class Recipe {
       user: u,
       ingredients: ingredients,
       imageUrl: json['image_url'] as String?,
+      averageRating: (json['average_rating'] as num?)?.toDouble(),
+      ratingsCount: json['ratings_count'] as int?,
     );
   }
 

@@ -48,4 +48,9 @@ class Recipe extends Model
     {
         return $this->morphMany(Report::class, 'reportable');
     }
+
+    public function ratings()
+    {
+        return $this->hasMany(RecipeRating::class);
+    }
 }
