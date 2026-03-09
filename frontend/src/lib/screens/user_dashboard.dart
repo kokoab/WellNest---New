@@ -34,7 +34,7 @@ class _UserDashboardState extends State<UserDashboard> {
       const ProfilePage(),
     ];
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true, // Allows the floating nav bar to look transparent at the edges
       body: IndexedStack(
         index: _currentIndex,
@@ -43,10 +43,7 @@ class _UserDashboardState extends State<UserDashboard> {
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
               onPressed: () async {
-                final result = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(builder: (context) => RecipeFormScreen()),
-                );
+                final result = await RecipeFormScreen.showAsModal(context);
                 if (result == true && mounted) setState(() => _recipeGridKey++);
               },
               backgroundColor: const Color(0xFF097333),
@@ -173,11 +170,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     }
   }
 
-  Widget _buildRecipeImagePlaceholder() {
+  Widget _buildRecipeImagePlaceholder(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white24,
+      color: colorScheme.surfaceContainerHighest,
       child: Center(
-        child: Icon(Icons.restaurant, size: 48, color: Colors.white.withOpacity(0.9)),
+        child: Icon(Icons.restaurant, size: 48, color: colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -186,95 +184,92 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.menu, color: nestOrange, size: 35),
-                Image.asset('lib/assets/images/logo1.png', height: 50),
-                NotificationsDropdown(
-                  iconColor: nestOrange,
-                  child: const Icon(Icons.notifications, color: nestOrange, size: 35),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Search
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search recipes or ingredients...',
-                prefixIcon: const Icon(Icons.search, color: wellGreen),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-              onChanged: (value) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 400), () {
-                  if (!mounted) return;
-                  setState(() => _searchQuery = value.trim());
-                  _loadRecipes();
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            // Smart filters (dietary)
-            if (_categories.isNotEmpty) ...[
-              Text(
-                'Dietary',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (_categories.isNotEmpty)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+                // Compact Pinterest-style header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _FilterChip(
-                      label: 'All',
-                      selected: _selectedCategoryId == null,
-                      onTap: () {
-                        setState(() => _selectedCategoryId = null);
-                        _loadRecipes();
-                      },
+                    const Icon(Icons.menu, color: nestOrange, size: 28),
+                    Image.asset('lib/assets/images/logo1.png', height: 36),
+                    NotificationsDropdown(
+                      iconColor: nestOrange,
+                      child: const Icon(Icons.notifications, color: nestOrange, size: 28),
                     ),
-                    ..._categories.map((c) => _FilterChip(
-                          label: c.name,
-                          selected: _selectedCategoryId == c.id,
-                          onTap: () {
-                            setState(() => _selectedCategoryId = c.id);
-                            _loadRecipes();
-                          },
-                        )),
                   ],
                 ),
-              ),
-            if (_categories.isNotEmpty) const SizedBox(height: 15),
-            const Text(
-              'Discover',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: wellGreen),
+                const SizedBox(height: 10),
+                // Search bar
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search recipes...',
+                    prefixIcon: const Icon(Icons.search, color: wellGreen, size: 22),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onChanged: (value) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+                      if (!mounted) return;
+                      setState(() => _searchQuery = value.trim());
+                      _loadRecipes();
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                // Horizontal filter chips (Pinterest-style)
+                if (_categories.isNotEmpty)
+                  SizedBox(
+                    height: 36,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _FilterChip(
+                          label: 'All',
+                          selected: _selectedCategoryId == null,
+                          onTap: () {
+                            setState(() => _selectedCategoryId = null);
+                            _loadRecipes();
+                          },
+                        ),
+                        ..._categories.map((c) => _FilterChip(
+                              label: c.name,
+                              selected: _selectedCategoryId == c.id,
+                              onTap: () {
+                                setState(() => _selectedCategoryId = c.id);
+                                _loadRecipes();
+                              },
+                            )),
+                      ],
+                    ),
+                  ),
+                if (_categories.isNotEmpty) const SizedBox(height: 10),
+                Text(
+                  'Discover',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _buildContent(),
-            ),
-          ],
-        ),
+          ),
+          Expanded(child: _buildContent()),
+        ],
       ),
     );
   }
@@ -314,21 +309,25 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       );
     }
     final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
+    final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
+    final padding = width > 900 ? 24.0 : 16.0;
+    const gap = 12.0;
 
     return RefreshIndicator(
       onRefresh: _load,
       color: wellGreen,
-      child: MasonryGridView.count(
-        crossAxisCount: crossAxisCount,
-        mainAxisSpacing: 15,
-        crossAxisSpacing: 15,
-        itemCount: _recipes.length,
-        itemBuilder: (context, index) {
-          final recipe = _recipes[index];
-          final isGreen = (index % 3 == 1) || (index == _recipes.length - 1 && _recipes.length % 2 == 1);
-          return _buildRecipeCard(recipe, index, isGreen ? wellGreen : accentYellow);
-        },
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        child: MasonryGridView.count(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: gap,
+          crossAxisSpacing: gap,
+          itemCount: _recipes.length,
+          itemBuilder: (context, index) {
+            final recipe = _recipes[index];
+            return _buildRecipeCard(recipe, index);
+          },
+        ),
       ),
     );
   }
@@ -380,12 +379,17 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     }
   }
 
-  Widget _buildRecipeCard(Recipe recipe, int index, Color bgColor) {
+  Widget _buildRecipeCard(Recipe recipe, int index) {
     final isExpanded = _expandedIndex == index;
     final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
-    final cardWidth = (width - 40 - (crossAxisCount - 1) * 15) / crossAxisCount;
-    final normalHeight = cardWidth * (index.isEven ? 1.0 : 1.3);
+    final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
+    final horizontalPadding = width > 900 ? 24.0 : 16.0;
+    const gap = 12.0;
+    final cardWidth = (width - 2 * horizontalPadding - (crossAxisCount - 1) * gap) / crossAxisCount;
+    // Pinterest-style varied pin heights (0.8, 1.0, 1.15, 1.3, 1.1...)
+    final aspectRatios = [0.85, 1.05, 1.25, 1.0, 1.2];
+    final aspect = aspectRatios[index % aspectRatios.length];
+    final normalHeight = cardWidth * aspect + 72; // +72 for text area below image
     const expandedHeight = 620.0;
     final ratingsCount = recipe.ratingsCount ?? 0;
 
@@ -396,71 +400,101 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         curve: Curves.easeInOut,
         height: isExpanded ? expandedHeight : normalHeight,
         decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.all(12),
+        clipBehavior: Clip.antiAlias,
         child: isExpanded
-            ? _buildExpandedCard(recipe, bgColor)
-            : _buildCollapsedCard(recipe, normalHeight, ratingsCount, bgColor),
+            ? _buildExpandedCard(recipe, wellGreen)
+            : _buildCollapsedCard(recipe, cardWidth * aspect, ratingsCount),
       ),
     );
   }
 
-  Widget _buildCollapsedCard(Recipe recipe, double normalHeight, int ratingsCount, Color bgColor) {
+  Widget _buildCollapsedCard(Recipe recipe, double imageHeight, int ratingsCount) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
-                ? Image.network(
-                    recipe.displayImageUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.white24,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
+        // Image on top (Pinterest pin style)
+        SizedBox(
+          height: imageHeight,
+          width: double.infinity,
+          child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+              ? Image.network(
+                  recipe.displayImageUrl!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: Colors.grey.shade100,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: wellGreen,
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
                         ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
-                  )
-                : _buildRecipeImagePlaceholder(),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(context),
+                )
+              : _buildRecipeImagePlaceholder(context),
+        ),
+        // Text block below (Pinterest caption style)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                recipe.title,
+                style: TextStyle(
+                  color: Colors.grey.shade900,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 12, color: Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${recipe.prepTime} min',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  if (recipe.category != null) ...[
+                    Text(' · ', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    Text(
+                      recipe.category!.name,
+                      style: TextStyle(color: wellGreen, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                  if (ratingsCount > 0) ...[
+                    Text(' · ', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    Icon(Icons.star, size: 12, color: accentYellow),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$ratingsCount',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          recipe.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-        Text(
-          'Prep: ${recipe.prepTime} mins | ${recipe.category?.name ?? ""}',
-          style: const TextStyle(color: Colors.white70, fontSize: 11),
-        ),
-        if (ratingsCount > 0)
-          Text(
-            '$ratingsCount ${ratingsCount == 1 ? 'rating' : 'ratings'}',
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
-          ),
       ],
     );
   }
@@ -469,32 +503,33 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     final fullRecipe = _expandedRecipe ?? recipe;
     if (_expandedLoading) {
       return Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: CircularProgressIndicator(color: wellGreen),
       );
     }
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
             height: 140,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(12),
               child: fullRecipe.displayImageUrl != null && fullRecipe.displayImageUrl!.isNotEmpty
                   ? Image.network(
                       fullRecipe.displayImageUrl!,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(),
+                      errorBuilder: (_, __, ___) => _buildRecipeImagePlaceholder(context),
                     )
-                  : _buildRecipeImagePlaceholder(),
+                  : _buildRecipeImagePlaceholder(context),
             ),
           ),
           const SizedBox(height: 12),
           Text(
             fullRecipe.title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Colors.grey.shade900,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
@@ -503,12 +538,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           ),
           Text(
             'Prep: ${fullRecipe.prepTime} mins | ${fullRecipe.category?.name ?? ""}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
           if (fullRecipe.user != null)
             Text(
               'By ${fullRecipe.userDisplayName}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
           if (AuthService.instance.isLoggedIn) _buildExpandedLikeButton(fullRecipe),
           const SizedBox(height: 12),
@@ -553,13 +588,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             },
             icon: Icon(
               _expandedLiked ? Icons.favorite : Icons.favorite_border,
-              color: _expandedLiked ? Colors.pink : Colors.white,
+              color: _expandedLiked ? nestOrange : Colors.grey.shade600,
               size: 24,
             ),
           ),
           Text(
             _expandedLiked ? 'Liked' : 'Like',
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
           ),
         ],
       ),
@@ -755,7 +790,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: wellGreen),
       ),
     );
   }
@@ -829,18 +864,29 @@ class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.selected, required this.onTap});
 
   static const Color wellGreen = Color(0xFF097333);
-  static const Color accentYellow = Color(0xFFFDB813);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        selectedColor: wellGreen.withOpacity(0.3),
-        checkmarkColor: wellGreen,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? wellGreen : Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : Colors.grey.shade700,
+            ),
+          ),
+        ),
       ),
     );
   }

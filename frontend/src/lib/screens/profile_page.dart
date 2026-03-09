@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:my_app/providers/theme_provider.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
@@ -134,8 +136,12 @@ class _ProfilePageState extends State<ProfilePage> {
               if (_user != null)
                 Text(
                   _user!.email,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
+              const SizedBox(height: 20),
+
+              // Theme toggle
+              _buildThemeToggle(context),
               const SizedBox(height: 20),
 
               Row(
@@ -151,10 +157,7 @@ class _ProfilePageState extends State<ProfilePage> {
               if (AuthService.instance.isLoggedIn)
                 OutlinedButton(
                   onPressed: () async {
-                    final result = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RecipeFormScreen()),
-                    );
+                    final result = await RecipeFormScreen.showAsModal(context);
                     if (result == true && mounted) _load();
                   },
                   style: OutlinedButton.styleFrom(
@@ -204,7 +207,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     AuthService.instance.isLoggedIn
                         ? 'No recipes yet. Add one to get started!'
                         : 'Sign in to see your recipes.',
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 )
               else
@@ -229,6 +232,45 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildThemeToggle(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: wellGreen.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: wellGreen.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                color: wellGreen,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                themeProvider.isDarkMode ? 'Dark Mode' : 'Light Mode',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: wellGreen,
+                ),
+              ),
+            ],
+          ),
+          Switch.adaptive(
+            value: themeProvider.isDarkMode,
+            onChanged: (_) => themeProvider.toggleTheme(),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _displayInitials() {
     if (_user == null) return '?';
     final first = _user!.firstName.isNotEmpty ? _user!.firstName[0] : '';
@@ -245,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         Text(
           label,
-          style: const TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
+          style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
         ),
       ],
     );

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Recipe;
 use App\Models\RecipeRating;
+use App\Notifications\RecipeRatedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,20 @@ class RecipeRatingController extends Controller
             ->first();
 
         if ($existing) {
+            $hadComment = !empty(trim($existing->comment ?? ''));
             $existing->update($validated);
+            $owner = $recipe->user;
+            $comment = $validated['comment'] ?? null;
+            $hasNewComment = !$hadComment && !empty(trim($comment ?? ''));
+            if ($owner && $owner->id !== $user->id && $hasNewComment) {
+                $owner->notify(new RecipeRatedNotification(
+                    $recipe->id,
+                    $recipe->title,
+                    $user->name,
+                    $validated['rating'],
+                    $comment
+                ));
+            }
             return response()->json([
                 'message' => 'Rating updated',
                 'rating' => $this->formatRating($existing->fresh(['user:id,first_name,last_name'])),
@@ -41,6 +55,18 @@ class RecipeRatingController extends Controller
         ]);
 
         $rating->load(['user:id,first_name,last_name']);
+
+        $owner = $recipe->user;
+        if ($owner && $owner->id !== $user->id) {
+            $owner->notify(new RecipeRatedNotification(
+                $recipe->id,
+                $recipe->title,
+                $user->name,
+                $validated['rating'],
+                $validated['comment'] ?? null
+            ));
+        }
+
         return response()->json([
             'message' => 'Rating submitted',
             'rating' => $this->formatRating($rating),

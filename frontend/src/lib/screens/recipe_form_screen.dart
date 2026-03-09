@@ -8,8 +8,29 @@ import 'package:my_app/services/recipe_service.dart';
 
 class RecipeFormScreen extends StatefulWidget {
   final Recipe? recipe;
+  final bool asModal;
 
-  const RecipeFormScreen({super.key, this.recipe});
+  const RecipeFormScreen({super.key, this.recipe, this.asModal = false});
+
+  /// Shows the recipe form as a modal bottom sheet. Returns true if saved.
+  static Future<bool?> showAsModal(BuildContext context, {Recipe? recipe}) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          height: MediaQuery.of(ctx).size.height * 0.92,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: RecipeFormScreen(recipe: recipe, asModal: true),
+        ),
+      ),
+    );
+  }
 
   @override
   State<RecipeFormScreen> createState() => _RecipeFormScreenState();
@@ -104,7 +125,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       );
       if (picked != null && mounted) setState(() => _pickedImage = picked);
     } catch (e) {
-      if (mounted) {
+      if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not pick image: $e'), backgroundColor: nestOrange),
         );
@@ -147,13 +168,14 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           await RecipeService.instance.uploadRecipeImage(recipeId, _pickedImage!);
         }
       }
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditing ? 'Recipe updated' : 'Recipe created'),
           backgroundColor: wellGreen,
         ),
       );
+      if (!context.mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -222,8 +244,172 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     );
   }
 
+  Widget _buildFormContent() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_loadError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: nestOrange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_loadError!, style: const TextStyle(color: nestOrange)),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _loadCategories,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_submitError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: nestOrange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(_submitError!, style: const TextStyle(color: nestOrange)),
+            ),
+            const SizedBox(height: 16),
+          ],
+          DropdownButtonFormField<int>(
+            value: _categories.isEmpty ? null : _selectedCategoryId,
+            decoration: InputDecoration(
+              labelText: 'Category',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
+            items: _categories
+                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                .toList(),
+            onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
+            validator: (v) => v == null ? 'Select a category' : null,
+          ),
+          const SizedBox(height: 16),
+          _buildImageSection(),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _titleController,
+            decoration: InputDecoration(
+              labelText: 'Title',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            validator: _validateTitle,
+            maxLength: 255,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _instructionsController,
+            decoration: InputDecoration(
+              labelText: 'Instructions',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              alignLabelWithHint: true,
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            validator: _validateInstructions,
+            maxLines: 4,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _prepTimeController,
+            decoration: InputDecoration(
+              labelText: 'Prep time (minutes)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            keyboardType: TextInputType.number,
+            validator: _validatePrepTime,
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _saving ? null : _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: wellGreen,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _saving
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Text(_isEditing ? 'Update Recipe' : 'Create Recipe'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.asModal) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _isEditing ? 'Edit Recipe' : 'New Recipe',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade900,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  icon: Icon(Icons.close, color: Colors.grey.shade600),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey.shade100,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: _loadingCategories
+                ? const Center(child: CircularProgressIndicator(color: wellGreen))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: _buildFormContent(),
+                  ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -237,117 +423,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           ? const Center(child: CircularProgressIndicator(color: wellGreen))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_loadError != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: nestOrange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _loadError!,
-                              style: const TextStyle(color: nestOrange),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: _loadCategories,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_submitError != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: nestOrange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _submitError!,
-                          style: const TextStyle(color: nestOrange),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    DropdownButtonFormField<int>(
-                      value: _categories.isEmpty ? null : _selectedCategoryId,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                      ),
-                      hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
-                      items: _categories
-                          .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                          .toList(),
-                      onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
-                      validator: (v) => v == null ? 'Select a category' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildImageSection(),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: _validateTitle,
-                      maxLength: 255,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _instructionsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Instructions',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
-                      validator: _validateInstructions,
-                      maxLines: 5,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _prepTimeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Prep time (minutes)',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: _validatePrepTime,
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _saving ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: wellGreen,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(_isEditing ? 'Update Recipe' : 'Create Recipe'),
-                    ),
-                  ],
-                ),
-              ),
+              child: _buildFormContent(),
             ),
     );
   }

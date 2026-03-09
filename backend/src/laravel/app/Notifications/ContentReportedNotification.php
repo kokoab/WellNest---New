@@ -2,13 +2,10 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class ContentReportedNotification extends Notification implements ShouldQueue
+class ContentReportedNotification extends Notification
 {
-    use Queueable;
 
     public function __construct(
         public string $reportableType,

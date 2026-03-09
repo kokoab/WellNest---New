@@ -2,13 +2,10 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class CommentReceivedNotification extends Notification implements ShouldQueue
+class CommentReceivedNotification extends Notification
 {
-    use Queueable;
 
     public function __construct(
         public int $postId,

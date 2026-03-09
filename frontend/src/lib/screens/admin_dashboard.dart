@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:my_app/models/activity_log.dart';
 import 'package:my_app/models/admin_user.dart';
+import 'package:my_app/models/recipe.dart';
 import 'package:my_app/models/report.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/services/admin_auth_service.dart';
 import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
+import 'package:my_app/services/admin_activity_log_service.dart';
+import 'package:my_app/services/recipe_service.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -29,11 +36,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _reportsLoading = true;
   String? _reportsError;
 
+  int _recipeTotal = 0;
+  bool _recipeTotalLoading = true;
+
+  List<ActivityLog> _activityLogs = [];
+  bool _logsLoading = true;
+  String? _logsError;
+  bool _exportingReportsCsv = false;
+  bool _exportingInsightsCsv = false;
+  bool _exportingUsersCsv = false;
+
   @override
   void initState() {
     super.initState();
     _loadUsers();
     _loadReports();
+    _loadRecipeTotal();
+    _loadActivityLogs();
   }
 
   Future<void> _loadReports() async {
@@ -77,6 +96,199 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadRecipeTotal() async {
+    if (!mounted) return;
+    setState(() => _recipeTotalLoading = true);
+    try {
+      final res = await RecipeService.instance.fetchRecipes(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _recipeTotal = res.total;
+        _recipeTotalLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _recipeTotalLoading = false);
+    }
+  }
+
+  Future<void> _loadActivityLogs() async {
+    if (!mounted) return;
+    setState(() {
+      _logsLoading = true;
+      _logsError = null;
+    });
+    try {
+      final res = await AdminActivityLogService.instance.fetchLogs(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _activityLogs = res.logs;
+        _logsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _logsError = e.toString().replaceFirst('Exception: ', '');
+        _logsLoading = false;
+      });
+    }
+  }
+
+  String _escapeCsv(String? s) {
+    if (s == null || s.isEmpty) return '';
+    if (s.contains(',') || s.contains('"') || s.contains('\n')) {
+      return '"${s.replaceAll('"', '""')}"';
+    }
+    return s;
+  }
+
+  Future<void> _exportReportsCsv() async {
+    if (_exportingReportsCsv) return;
+    setState(() => _exportingReportsCsv = true);
+    try {
+      final rows = <String>[
+        'id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label',
+      ];
+      for (final r in _reports) {
+        final type = r.reportable?.type ?? '';
+        final id = r.reportable?.id ?? 0;
+        final label = r.reportableLabel.replaceAll(',', ' ').replaceAll('\n', ' ');
+        rows.add([
+          r.id,
+          _escapeCsv(r.reporter),
+          _escapeCsv(r.reason),
+          _escapeCsv(r.details),
+          _escapeCsv(r.status),
+          _escapeCsv(r.createdAt),
+          _escapeCsv(type),
+          id,
+          _escapeCsv(label),
+        ].join(','));
+      }
+      final csv = rows.join('\n');
+      final bytes = Uint8List.fromList(csv.codeUnits);
+      final xfile = XFile.fromData(bytes, name: 'content_reports_export.csv', mimeType: 'text/csv');
+      await Share.shareXFiles(
+        [xfile],
+        subject: 'WellNest Content Reports Export',
+        text: 'Content moderation reports CSV export',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reports exported'), backgroundColor: wellGreen),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingReportsCsv = false);
+    }
+  }
+
+  Future<void> _exportInsightsCsv() async {
+    if (_exportingInsightsCsv) return;
+    setState(() => _exportingInsightsCsv = true);
+    try {
+      final totalUsers = _users.length;
+      final activeUsers = _users.where((u) => u.isActive).length;
+      final totalRecipes = _recipeTotal;
+
+      // Fetch multiple pages of recipes to find most popular (by ratings_count)
+      final allRecipes = <Recipe>[];
+      for (var page = 1; page <= 5; page++) {
+        final res = await RecipeService.instance.fetchRecipes(page: page);
+        allRecipes.addAll(res.recipes);
+        if (res.recipes.length < 10) break;
+      }
+      allRecipes.sort((a, b) {
+        final aCount = a.ratingsCount ?? 0;
+        final bCount = b.ratingsCount ?? 0;
+        if (aCount != bCount) return bCount.compareTo(aCount);
+        final aRate = a.averageRating ?? 0;
+        final bRate = b.averageRating ?? 0;
+        return bRate.compareTo(aRate);
+      });
+      final topRecipes = allRecipes.take(25).toList();
+
+      final rows = <String>[
+        'Metric,Value',
+        'Total Users,$totalUsers',
+        'Active Users,$activeUsers',
+        'Total Recipes,$totalRecipes',
+        '',
+        'Most Popular Recipes',
+        'rank,id,title,category,average_rating,ratings_count',
+      ];
+      for (var i = 0; i < topRecipes.length; i++) {
+        final r = topRecipes[i];
+        final cat = r.category?.name ?? '';
+        final avg = r.averageRating?.toStringAsFixed(1) ?? '0';
+        final cnt = r.ratingsCount ?? 0;
+        rows.add('${i + 1},${r.id},${_escapeCsv(r.title)},${_escapeCsv(cat)},$avg,$cnt');
+      }
+      final csv = rows.join('\n');
+      final bytes = Uint8List.fromList(csv.codeUnits);
+      final xfile = XFile.fromData(bytes, name: 'admin_insights_export.csv', mimeType: 'text/csv');
+      await Share.shareXFiles(
+        [xfile],
+        subject: 'WellNest Admin Insights Report',
+        text: 'Total users, recipes, active users, and most popular recipes',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Insights report exported'), backgroundColor: wellGreen),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingInsightsCsv = false);
+    }
+  }
+
+  Future<void> _exportUsersCsv() async {
+    if (_exportingUsersCsv) return;
+    setState(() => _exportingUsersCsv = true);
+    try {
+      final rows = <String>['id,name,email,status'];
+      for (final u in _users) {
+        rows.add('${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}');
+      }
+      final csv = rows.join('\n');
+      final bytes = Uint8List.fromList(csv.codeUnits);
+      final xfile = XFile.fromData(bytes, name: 'users_export.csv', mimeType: 'text/csv');
+      await Share.shareXFiles(
+        [xfile],
+        subject: 'WellNest Users Export',
+        text: 'Registered users list',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Users exported'), backgroundColor: wellGreen),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingUsersCsv = false);
     }
   }
 
@@ -204,6 +416,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           onRefresh: () async {
               await _loadUsers();
               await _loadReports();
+              await _loadRecipeTotal();
+              await _loadActivityLogs();
             },
           color: wellGreen,
           child: SingleChildScrollView(
@@ -298,6 +512,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     const SizedBox(width: 15),
                     Expanded(
                       child: _buildModernStatCard(
+                        "Active",
+                        _loading ? '…' : '${_users.where((u) => u.isActive).length}',
+                        Icons.person_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildModernStatCard(
+                        "Recipes",
+                        _recipeTotalLoading ? '…' : '$_recipeTotal',
+                        Icons.restaurant_menu_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: _buildModernStatCard(
                         "Reports",
                         _reportsLoading ? '…' : '${_reports.length}',
                         Icons.flag_rounded,
@@ -305,7 +539,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _exportingInsightsCsv ? null : _exportInsightsCsv,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: wellGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: _exportingInsightsCsv
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download_rounded, size: 22),
+                  label: Text(_exportingInsightsCsv ? 'Exporting…' : 'Export Insights (Users, Recipes, Popular)'),
+                ),
+                const SizedBox(height: 25),
+                // --- ACTIVITY LOGS & EXPORT ---
+                _buildActivityLogsSection(),
+                const SizedBox(height: 25),
                 // --- MANAGE USERS SECTION ---
                 Container(
                   width: double.infinity,
@@ -339,9 +592,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
                             )
                           else
-                            IconButton(
-                              onPressed: _loadUsers,
-                              icon: const Icon(Icons.refresh_rounded, color: wellGreen),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: _loadUsers,
+                                  icon: const Icon(Icons.refresh_rounded, color: wellGreen),
+                                ),
+                                FilledButton.icon(
+                                  onPressed: _exportingUsersCsv ? null : _exportUsersCsv,
+                                  style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                                  icon: _exportingUsersCsv
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.download_rounded, size: 18),
+                                  label: Text(_exportingUsersCsv ? 'Exporting…' : 'Export CSV'),
+                                ),
+                              ],
                             ),
                         ],
                       ),
@@ -456,12 +726,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       onPressed: _loadReports,
                       icon: const Icon(Icons.refresh_rounded, color: wellGreen),
                     ),
-                    if (_reports.isNotEmpty)
+                    FilledButton.icon(
+                      onPressed: _exportingReportsCsv ? null : _exportReportsCsv,
+                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                      icon: _exportingReportsCsv
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_rounded, size: 18),
+                      label: Text(_exportingReportsCsv ? 'Exporting…' : 'Export CSV'),
+                    ),
+                    if (_reports.isNotEmpty) ...[
+                      const SizedBox(width: 8),
                       IconButton(
                         onPressed: _confirmDeleteAllReports,
                         icon: const Icon(Icons.delete_sweep_rounded, color: nestOrange, size: 24),
                         tooltip: 'Delete all reports',
                       ),
+                    ],
                   ],
                 ),
             ],
@@ -514,6 +798,129 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     r.isUserReport ? () => _handleReportAction(r.id, 'suspend-user') : null,
               ),
             ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityLogsSection() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: accentYellow,
+        borderRadius: BorderRadius.circular(35),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accentYellow, accentYellow.withOpacity(0.8)],
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Activity Logs & Reports',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: wellGreen,
+                ),
+              ),
+              if (_logsLoading)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  onPressed: _loadActivityLogs,
+                  icon: const Icon(Icons.refresh_rounded, color: wellGreen),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Recent activity (login, moderation, content).',
+            style: TextStyle(fontSize: 13, color: wellGreen.withOpacity(0.9)),
+          ),
+          const SizedBox(height: 16),
+          if (_logsLoading && _activityLogs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator(color: wellGreen)),
+            )
+          else if (_logsError != null)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text(_logsError!, textAlign: TextAlign.center, style: const TextStyle(color: nestOrange)),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _loadActivityLogs,
+                    style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_activityLogs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No activity logs yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+            )
+          else
+            ..._activityLogs.take(15).map(
+                  (log) => Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: lightGrey),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.history_rounded, color: nestOrange, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                log.description,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${log.category} · ${log.action}${log.actorName != null ? ' · ${log.actorName}' : ''}',
+                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                              if (log.createdAt != null)
+                                Text(
+                                  log.createdAt!,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
           const SizedBox(height: 10),
         ],
       ),

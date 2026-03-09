@@ -1,13 +1,54 @@
 import 'package:flutter/material.dart';
 
+/// Brand seed color - used for both light and dark themes.
+const Color kWellGreen = Color(0xFF097333);
+const Color kNestOrange = Color(0xFFEF5026);
+const Color kAccentYellow = Color(0xFFFDB813);
+
+/// Light theme
+ThemeData get lightTheme => ThemeData(
+  useMaterial3: true,
+  brightness: Brightness.light,
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: kWellGreen,
+    brightness: Brightness.light,
+    primary: kWellGreen,
+  ),
+  scaffoldBackgroundColor: Colors.white,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: kWellGreen,
+    foregroundColor: Colors.white,
+    elevation: 0,
+  ),
+);
+
+/// Dark theme
+ThemeData get darkTheme => ThemeData(
+  useMaterial3: true,
+  brightness: Brightness.dark,
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: kWellGreen,
+    brightness: Brightness.dark,
+    primary: kWellGreen,
+    surface: const Color(0xFF1E1E1E),
+  ),
+  scaffoldBackgroundColor: const Color(0xFF121212),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Color(0xFF1E1E1E),
+    foregroundColor: Colors.white,
+    elevation: 0,
+  ),
+  cardColor: const Color(0xFF2C2C2C),
+);
+
 /// Font families: Recoleta (main), Helvetica Now (sub).
 const String kFontRecoleta = 'Recoleta';
 const String kFontHelveticaNow = 'HelveticaNow';
 
 /// Brand colors and shared design tokens for consistency.
 class AppColors {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
+  static const Color wellGreen = kWellGreen;
+  static const Color nestOrange = kNestOrange;
   static const Color accentYellow = Color(0xFFFDB813);
   static const Color lightGrey = Color(0xFFF5F5F5);
   static const Color bodyText = Color(0xFF333333);

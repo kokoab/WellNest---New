@@ -41,11 +41,13 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   }
 
   void _showOverlay() {
-    if (_isOpen) return;
+    if (_isOpen || !mounted) return;
     _isOpen = true;
     _load();
     _overlayEntry = OverlayEntry(
-      builder: (context) => GestureDetector(
+      builder: (overlayContext) {
+        final colorScheme = Theme.of(overlayContext).colorScheme;
+        return GestureDetector(
         onTap: _hideOverlay,
         behavior: HitTestBehavior.opaque,
         child: Stack(
@@ -59,7 +61,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                 child: Material(
                   elevation: 8,
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   child: GestureDetector(
                     onTap: () {},
                     child: Container(
@@ -74,43 +76,52 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                           ),
                         ],
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildHeader(),
-                          Flexible(
-                            child: _loading
-                                ? const Padding(
-                                    padding: EdgeInsets.all(32),
-                                    child: Center(child: CircularProgressIndicator(color: wellGreen)),
-                                  )
-                                : _notifications.isEmpty
-                                    ? Padding(
-                                        padding: const EdgeInsets.all(32),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.notifications_none, size: 48, color: Colors.grey.shade400),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              'No notifications yet',
-                                              style: TextStyle(color: Colors.grey.shade600),
-                                            ),
-                                          ],
-                                        ),
+                      child: Builder(
+                        builder: (ctx) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildHeader(ctx),
+                              Flexible(
+                                child: _loading
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(32),
+                                        child: Center(child: CircularProgressIndicator(color: wellGreen)),
                                       )
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        padding: EdgeInsets.zero,
-                                        itemCount: _notifications.length,
-                                        itemBuilder: (context, index) {
-                                          final n = _notifications[index];
-                                          return _buildNotificationTile(n);
-                                        },
-                                      ),
-                          ),
-                        ],
+                                    : _notifications.isEmpty
+                                        ? Padding(
+                                            padding: const EdgeInsets.all(32),
+                                            child: Builder(
+                                              builder: (emptyCtx) {
+                                                final cs = Theme.of(emptyCtx).colorScheme;
+                                                return Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.notifications_none, size: 48, color: cs.onSurfaceVariant),
+                                                    const SizedBox(height: 12),
+                                                    Text(
+                                                      'No notifications yet',
+                                                      style: TextStyle(color: cs.onSurfaceVariant),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : ListView.builder(
+                                            shrinkWrap: true,
+                                            padding: EdgeInsets.zero,
+                                            itemCount: _notifications.length,
+                                            itemBuilder: (c, index) {
+                                              final n = _notifications[index];
+                                              return _buildNotificationTile(c, n);
+                                            },
+                                          ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -119,16 +130,23 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
             ),
           ],
         ),
-      ),
+      );
+      },
     );
-    Overlay.of(context).insert(_overlayEntry!);
+    if (context.mounted) {
+      Overlay.of(context).insert(_overlayEntry!);
+    } else {
+      _isOpen = false;
+      _overlayEntry = null;
+    }
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
@@ -155,7 +173,8 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     );
   }
 
-  Widget _buildNotificationTile(AppNotification n) {
+  Widget _buildNotificationTile(BuildContext context, AppNotification n) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: () => _onTapNotification(n),
       child: Container(
@@ -182,7 +201,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: n.isRead ? FontWeight.normal : FontWeight.w600,
-                      color: Colors.grey.shade800,
+                      color: colorScheme.onSurface,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -190,7 +209,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                   const SizedBox(height: 2),
                   Text(
                     _formatTime(n.createdAt),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -202,10 +221,12 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   }
 
   void _hideOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    _isOpen = false;
-    setState(() {});
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+      _isOpen = false;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _load() async {
@@ -255,6 +276,10 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       case 'recipe_liked':
       case 'post_liked':
         return Icons.favorite;
+      case 'recipe_rated':
+        return Icons.star;
+      case 'recipe_comment':
+        return Icons.comment;
       case 'comment_received':
         return Icons.comment;
       case 'content_reported':
@@ -269,6 +294,10 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       case 'recipe_liked':
       case 'post_liked':
         return Colors.pink;
+      case 'recipe_rated':
+        return const Color(0xFFFDB813); // accentYellow
+      case 'recipe_comment':
+        return wellGreen;
       case 'comment_received':
         return wellGreen;
       case 'content_reported':
@@ -294,8 +323,17 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   }
 
   @override
+  void deactivate() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+      _isOpen = false;
+    }
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
-    _hideOverlay();
     super.dispose();
   }
 

@@ -81,6 +81,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'recipe_liked':
       case 'post_liked':
         return Icons.favorite;
+      case 'recipe_rated':
+        return Icons.star;
+      case 'recipe_comment':
       case 'comment_received':
         return Icons.comment;
       case 'content_reported':
@@ -95,6 +98,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'recipe_liked':
       case 'post_liked':
         return Colors.pink;
+      case 'recipe_rated':
+        return const Color(0xFFFDB813);
+      case 'recipe_comment':
       case 'comment_received':
         return wellGreen;
       case 'content_reported':

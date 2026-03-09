@@ -28,17 +28,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     const Color nestOrange = Color(0xFFEF5026);
     const Color accentYellow = Color(0xFFFDB813);
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Register Form",
-          style: TextStyle(color: Colors.grey, fontSize: 16),
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.grey),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurfaceVariant),
           onPressed: () {
             // Navigate back to Login
             Navigator.pop(context);
