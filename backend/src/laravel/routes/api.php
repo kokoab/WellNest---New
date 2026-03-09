@@ -16,7 +16,7 @@ use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\Api\RecipeRatingController;
 use App\Models\User;
 use App\Http\Controllers\Api\AdminModerationController;
-
+use App\Http\Controllers\Api\Activity\LogController;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+    Route::patch('/user', [AuthController::class, 'updateProfile']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('logout-admin', [AdminAuthController::class, 'logout']);
 
@@ -98,4 +99,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::patch('admin/reports/{report}/unban-user', [AdminModerationController::class, 'unbanUser']);
     Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);
     Route::delete('admin/reports', [AdminModerationController::class, 'deleteAllReports']);
+
+    Route::get('admin/activity-logs', [LogController::class, 'index']);
+    Route::get('admin/activity-logs/export', [LogController::class, 'exportCsv']);
 });

@@ -7,6 +7,7 @@ use App\Models\Recipe;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ActivityLogService;
 
 class RecipeController extends Controller
 {
@@ -62,6 +63,7 @@ class RecipeController extends Controller
 
         $validated['user_id'] = $request->user()->id;
         $recipe = Recipe::create($validated);
+        ActivityLogService::log('recipe', 'create', 'Recipe created successfully', $request->user()->id, $recipe);
         return response()->json([
             'message' => 'Recipe created successfully',
             'id' => $recipe->id,
@@ -104,18 +106,20 @@ class RecipeController extends Controller
         ]);
 
         $recipe->update($validated);
+        ActivityLogService::log('recipe', 'update', 'Recipe updated successfully', $request->user()->id, $recipe);
         return response()->json(['message' => 'Recipe updated successfully'], 200);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function delete(Recipe $recipe): JsonResponse
+    public function delete(Recipe $recipe, Request $request): JsonResponse
     {
         foreach ($recipe->images as $image) {
             Storage::disk('public')->delete($image->path);
         }
         $recipe->delete();
+        ActivityLogService::log('recipe', 'delete', 'Recipe deleted successfully', $request->user()->id, $recipe);
         return response()->json(['message' => 'Recipe deleted successfully'], 200);
     }
 

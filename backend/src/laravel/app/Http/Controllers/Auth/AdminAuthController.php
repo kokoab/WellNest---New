@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use App\Services\ActivityLogService;
 
 class AdminAuthController extends Controller
 {
@@ -18,6 +19,7 @@ class AdminAuthController extends Controller
             'password' => 'required|string|min:8',
         ]);
 
+        ActivityLogService::log('admin', 'register', 'Admin registered successfully', null, null, ['email' => $request->email]);
         $admin = User::create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
@@ -45,6 +47,7 @@ class AdminAuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
         if (!$user || !Hash::check($request->password, $user->password)) {
+            ActivityLogService::log('admin', 'login_failed', 'Invalid credentials', $user?->id, null, ['email' => $request->email]);
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
@@ -53,6 +56,8 @@ class AdminAuthController extends Controller
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
+
+        ActivityLogService::log('login_attempts', 'login_success', 'Admin login successful', $user->id, null, ['email' => $user->email, 'ip_address' => $request->ip()]);
 
         return response()->json([
             'message' => 'Login successful',
@@ -64,6 +69,7 @@ class AdminAuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+        ActivityLogService::log('admin', 'logout', 'Logged out successfully', $request->user()->id);
         return response()->json(['message' => 'Logged out successfully'], 200);
     }
 }
