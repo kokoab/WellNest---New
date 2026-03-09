@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Services\ActivityLogService;
 
 class AdminUserController extends Controller
 {
@@ -58,6 +59,7 @@ class AdminUserController extends Controller
         $user->status = $request->status;
         $user->save();
 
+        ActivityLogService::log('admin_user', 'update_status', 'User status updated.', $admin->id, $user);
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,

@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Services\ActivityLogService;
 
 class AdminModerationController extends Controller
 {
@@ -46,39 +47,42 @@ class AdminModerationController extends Controller
         return response()->json($reports);
     }
 
-    public function deleteAllReports(): JsonResponse
+    public function deleteAllReports(Request $request): JsonResponse
     {
         Report::where('status', 'pending')->delete();
+        ActivityLogService::log('admin_moderation', 'delete_all_reports', 'All pending reports deleted.', $request->user()->id);
         return response()->json(['message' => 'All pending reports deleted.']);
     }
 
     /**
      * Approve (dismiss) a report.
      */
-    public function approve(Report $report): JsonResponse
+    public function approve(Report $report, Request $request): JsonResponse
     {
         if ($report->status !== 'pending') {
             return response()->json(['message' => 'Report already processed'], 400);
         }
         $report->status = 'approved';
         $report->save();
+        ActivityLogService::log('content_moderation', 'moderation_approve', 'Report approved', $request->user()->id, $report, ['ip_address' => $request->ip()]);
         return response()->json(['message' => 'Report approved (dismissed).', 'report' => $report]);
     }
 
-    public function dismiss(Report $report): JsonResponse
+    public function dismiss(Report $report, Request $request): JsonResponse
     {
         if ($report->status !== 'pending') {
             return response()->json(['message' => 'Report already processed'], 400);
         }
         $report->status = 'dismissed';
         $report->save();
+        ActivityLogService::log('admin_moderation', 'dismiss', 'Report dismissed.', $request->user()->id, $report);
         return response()->json(['message' => 'Report dismissed.'], 200);
     }
 
     /**
      * Remove reported content (delete recipe or post).
      */
-    public function removeContent(Report $report): JsonResponse
+    public function removeContent(Report $report, Request $request): JsonResponse
     {
         if ($report->status !== 'pending') {
             return response()->json(['message' => 'Report already processed'], 400);
@@ -93,13 +97,14 @@ class AdminModerationController extends Controller
         }
         $report->status = 'removed';
         $report->save();
+        ActivityLogService::log('admin_moderation', 'remove_content', 'Content removed.', $request->user()->id, $report);
         return response()->json(['message' => 'Content removed.']);
     }
 
     /**
      * Suspend reported user (for reportable_type = User).
      */
-    public function suspendUser(Report $report): JsonResponse
+    public function suspendUser(Report $report, Request $request): JsonResponse
     {
         if ($report->status !== 'pending') {
             return response()->json(['message' => 'Report already processed'], 400);
@@ -112,10 +117,11 @@ class AdminModerationController extends Controller
         $reportable->save();
         $report->status = 'suspended';
         $report->save();
+        ActivityLogService::log('admin_moderation', 'suspend_user', 'Account suspended.', $request->user()->id, $report);
         return response()->json(['message' => 'Account suspended.', 'user_id' => $reportable->id]);
     }
 
-    public function unbanUser(Report $report): JsonResponse
+    public function unbanUser(Report $report, Request $request): JsonResponse
     {
 
         $reportable = $report->reportable;
@@ -132,6 +138,7 @@ class AdminModerationController extends Controller
 
         $report->status = 'unbanned';
         $report->save();
+        ActivityLogService::log('admin_moderation', 'unban_user', 'User unbanned.', $request->user()->id, $report);
         return response()->json(['message' => 'User unbanned'], 200);
     }
 }
