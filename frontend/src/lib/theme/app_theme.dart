@@ -1,24 +1,106 @@
 import 'package:flutter/material.dart';
 
-/// Brand seed color - used for both light and dark themes.
-const Color kWellGreen = Color(0xFF097333);
-const Color kNestOrange = Color(0xFFEF5026);
-const Color kAccentYellow = Color(0xFFFDB813);
+/// Brand color palette
+const Color kPrimaryGreen = Color(0xFF097333);
+const Color kAccentOrange = Color(0xFFEF5026);
+const Color kAccentYellow = Color(0xFFF9BD21);
+const Color kBackgroundCream = Color(0xFFFDFBF7);
+const Color kSurfaceWarmGray = Color(0xFFEAE6DF);
+const Color kImagePlaceholderGreen = Color(0xFFE8F1EC);
+const Color kBodyTextDark = Color(0xFF333333);
+const Color kCaptionGray = Color(0xFF666666);
 
-/// Light theme
+/// Legacy aliases (for gradual migration)
+const Color kWellGreen = kPrimaryGreen;
+const Color kNestOrange = kAccentOrange;
+
+/// Light theme — warm, organic, vibrant, premium
 ThemeData get lightTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
+  fontFamily: 'HelveticaNow',
   colorScheme: ColorScheme.fromSeed(
-    seedColor: kWellGreen,
+    seedColor: kPrimaryGreen,
     brightness: Brightness.light,
-    primary: kWellGreen,
+    primary: kPrimaryGreen,
+    secondary: kAccentOrange,
+    surface: kSurfaceWarmGray,
+    onSurface: kBodyTextDark,
   ),
-  scaffoldBackgroundColor: Colors.white,
+  scaffoldBackgroundColor: kBackgroundCream,
+  cardColor: kSurfaceWarmGray,
   appBarTheme: const AppBarTheme(
-    backgroundColor: kWellGreen,
-    foregroundColor: Colors.white,
+    backgroundColor: kBackgroundCream,
+    foregroundColor: kPrimaryGreen,
     elevation: 0,
+    iconTheme: IconThemeData(color: kPrimaryGreen),
+    titleTextStyle: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 28,
+      fontWeight: FontWeight.bold,
+      color: kPrimaryGreen,
+    ),
+  ),
+  textTheme: const TextTheme(
+    displayLarge: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 32,
+      fontWeight: FontWeight.bold,
+      color: kPrimaryGreen,
+    ),
+    headlineMedium: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 28,
+      fontWeight: FontWeight.bold,
+      color: kPrimaryGreen,
+    ),
+    titleLarge: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: kPrimaryGreen,
+    ),
+    titleMedium: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: kPrimaryGreen,
+    ),
+    bodyLarge: TextStyle(
+      fontFamily: 'HelveticaNow',
+      fontSize: 16,
+      fontWeight: FontWeight.normal,
+      color: kBodyTextDark,
+    ),
+    bodyMedium: TextStyle(
+      fontFamily: 'HelveticaNow',
+      fontSize: 14,
+      fontWeight: FontWeight.normal,
+      color: kBodyTextDark,
+    ),
+    labelSmall: TextStyle(
+      fontFamily: 'HelveticaNow',
+      fontSize: 12,
+      fontWeight: FontWeight.bold,
+      color: kBodyTextDark,
+    ),
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: kPrimaryGreen,
+      foregroundColor: Colors.white,
+      minimumSize: const Size(double.infinity, 48),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold),
+    ),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    hintStyle: TextStyle(color: kPrimaryGreen.withOpacity(0.5), fontSize: 16),
   ),
 );
 
@@ -26,53 +108,62 @@ ThemeData get lightTheme => ThemeData(
 ThemeData get darkTheme => ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
+  fontFamily: 'HelveticaNow',
   colorScheme: ColorScheme.fromSeed(
-    seedColor: kWellGreen,
+    seedColor: kPrimaryGreen,
     brightness: Brightness.dark,
-    primary: kWellGreen,
+    primary: kPrimaryGreen,
+    secondary: kAccentOrange,
     surface: const Color(0xFF1E1E1E),
+    onSurface: Colors.white,
   ),
   scaffoldBackgroundColor: const Color(0xFF121212),
+  cardColor: const Color(0xFF2C2C2C),
   appBarTheme: const AppBarTheme(
     backgroundColor: Color(0xFF1E1E1E),
     foregroundColor: Colors.white,
     elevation: 0,
+    titleTextStyle: TextStyle(
+      fontFamily: 'Recoleta',
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    ),
   ),
-  cardColor: const Color(0xFF2C2C2C),
 );
 
-/// Font families: Recoleta (main), Helvetica Now (sub).
+/// Font families
 const String kFontRecoleta = 'Recoleta';
 const String kFontHelveticaNow = 'HelveticaNow';
 
-/// Brand colors and shared design tokens for consistency.
+/// Brand colors and shared design tokens
 class AppColors {
-  static const Color wellGreen = kWellGreen;
-  static const Color nestOrange = kNestOrange;
-  static const Color accentYellow = Color(0xFFFDB813);
-  static const Color lightGrey = Color(0xFFF5F5F5);
-  static const Color bodyText = Color(0xFF333333);
-  static const Color captionText = Color(0xFF666666);
-  /// Background color (cream/beige)
-  static const Color background = Color(0xFFFFEECC);
+  static const Color primaryGreen = kPrimaryGreen;
+  static const Color accentOrange = kAccentOrange;
+  static const Color accentYellow = kAccentYellow;
+  static const Color backgroundCream = kBackgroundCream;
+  static const Color surfaceWarmGray = kSurfaceWarmGray;
+  static const Color imagePlaceholderGreen = kImagePlaceholderGreen;
+  static const Color bodyText = kBodyTextDark;
+  static const Color captionText = kCaptionGray;
+  static const Color wellGreen = kPrimaryGreen;
+  static const Color nestOrange = kAccentOrange;
 }
 
-/// Standardized animation durations to avoid stutter and ensure smooth UX.
+/// Standardized animation durations
 class AppDurations {
   static const Duration short = Duration(milliseconds: 200);
   static const Duration medium = Duration(milliseconds: 300);
   static const Duration long = Duration(milliseconds: 400);
 }
 
-/// Standardized curves for consistent feel.
+/// Standardized curves
 class AppCurves {
   static const Curve standard = Curves.easeInOut;
 }
 
-/// Minimum tap target size for accessibility (48x48 logical pixels).
 const double kMinTapTargetSize = 48.0;
 
-/// Main typography (Recoleta) – headings, titles, app name.
 TextStyle recoleta({
   double? fontSize,
   FontWeight fontWeight = FontWeight.w400,
@@ -85,7 +176,6 @@ TextStyle recoleta({
       color: color,
     );
 
-/// Sub typography (Helvetica Now) – body, captions, labels.
 TextStyle helveticaNow({
   double? fontSize,
   FontWeight fontWeight = FontWeight.w400,

@@ -73,16 +73,21 @@ class RecipeService {
     required String title,
     required String instructions,
     required int prepTime,
+    List<Map<String, dynamic>>? ingredients,
   }) async {
+    final body = <String, dynamic>{
+      'category_id': categoryId,
+      'title': title.trim(),
+      'instructions': instructions.trim(),
+      'prep_time': prepTime,
+    };
+    if (ingredients != null && ingredients.isNotEmpty) {
+      body['ingredients'] = ingredients;
+    }
     final response = await http.post(
       Uri.parse('$_baseUrl/recipes'),
       headers: _headers,
-      body: jsonEncode({
-        'category_id': categoryId,
-        'title': title.trim(),
-        'instructions': instructions.trim(),
-        'prep_time': prepTime,
-      }),
+      body: jsonEncode(body),
     );
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -122,12 +127,14 @@ class RecipeService {
     String? title,
     String? instructions,
     int? prepTime,
+    List<Map<String, dynamic>>? ingredients,
   }) async {
     final body = <String, dynamic>{};
     if (categoryId != null) body['category_id'] = categoryId;
     if (title != null) body['title'] = title.trim();
     if (instructions != null) body['instructions'] = instructions.trim();
     if (prepTime != null) body['prep_time'] = prepTime;
+    if (ingredients != null) body['ingredients'] = ingredients;
     final response = await http.put(
       Uri.parse('$_baseUrl/recipes/$id'),
       headers: _headers,

@@ -1,13 +1,19 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/services/user_service.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
+import 'package:my_app/screens/post_detail_screen.dart';
+import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
 
 class FeedPage extends StatefulWidget {
@@ -76,11 +82,29 @@ class _FeedPageState extends State<FeedPage> {
             },
             color: wellGreen,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
+                  AppSpacing.gapV8,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                    child: WellnestHeader(),
+                  ),
+                  AppSpacing.gapV16,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                    child: const Text(
+                      'Feed',
+                      style: TextStyle(
+                        fontFamily: 'Recoleta',
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                  ),
                   if (AuthService.instance.isLoggedIn) ...[
                     _buildCreatePostBox(),
                     const SizedBox(height: 20),
@@ -119,7 +143,7 @@ class _FeedPageState extends State<FeedPage> {
     if (initials.isEmpty) initials = '?';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -140,7 +164,7 @@ class _FeedPageState extends State<FeedPage> {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: wellGreen.withOpacity(0.2),
+                  backgroundColor: const Color(0xFFFFEECC),
                   child: Text(
                     initials.isEmpty ? '?' : initials,
                     style: const TextStyle(
@@ -155,14 +179,14 @@ class _FeedPageState extends State<FeedPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: AppColors.imagePlaceholderGreen,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Text(
                       "What's on your mind?",
                       style: TextStyle(
                         fontSize: 17,
-                        color: Colors.grey.shade600,
+                        color: kPrimaryGreen.withOpacity(0.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -246,8 +270,15 @@ class _FeedPageState extends State<FeedPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDB813),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -256,13 +287,23 @@ class _FeedPageState extends State<FeedPage> {
           Row(
             children: [
               Expanded(
-                child: Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (context) => PostDetailScreen(post: post),
+                    ),
+                  ),
+                  child: Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ),
               ),
               if (post.recipeId != null)
                 TextButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
+                      fullscreenDialog: true,
                       builder: (context) => RecipeDetailScreen(recipeId: post.recipeId!),
                     ),
                   ),
@@ -271,20 +312,38 @@ class _FeedPageState extends State<FeedPage> {
             ],
           ),
           const SizedBox(height: 5),
-          Text(post.content),
-          if (post.imageUrl.isNotEmpty) ...[
-            const SizedBox(height: 15),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(15),
-              child: Image.network(
-                post.imageUrl,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey, height: 180),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                fullscreenDialog: true,
+                builder: (context) => PostDetailScreen(post: post),
               ),
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(post.content),
+                if (post.imageUrl.isNotEmpty) ...[
+                  const SizedBox(height: 15),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.network(
+                      post.imageUrl,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.imagePlaceholderGreen,
+                      height: 180,
+                      child: Icon(Icons.restaurant_menu, size: 48, color: wellGreen),
+                    ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           if (AuthService.instance.isLoggedIn) ...[
             const SizedBox(height: 12),
             Row(
@@ -455,12 +514,47 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
 
   final TextEditingController _controller = TextEditingController();
   XFile? _selectedImage;
+  Recipe? _selectedRecipe;
   bool _posting = false;
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickRecipeFromSaved() async {
+    if (!AuthService.instance.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to attach a recipe')),
+      );
+      return;
+    }
+    try {
+      final data = await SavedRecipeService.instance.fetchSavedRecipes();
+      if (!mounted) return;
+      final recipes = data.recipes;
+      if (recipes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Save some recipes first to attach them here')),
+        );
+        return;
+      }
+      final picked = await Navigator.push<Recipe>(
+        context,
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (ctx) => _PickRecipePage(recipes: recipes),
+        ),
+      );
+      if (picked != null && mounted) setState(() => _selectedRecipe = picked);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
   }
 
   Future<void> _pickImage() async {
@@ -475,7 +569,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     if (_posting) return;
     setState(() => _posting = true);
     try {
-      final post = await widget.apiService.createPost(content: content);
+      final post = await widget.apiService.createPost(
+        content: content,
+        recipeId: _selectedRecipe?.id,
+      );
       if (_selectedImage != null) {
         await widget.apiService.uploadPostImage(post.id, _selectedImage!);
       }
@@ -525,15 +622,54 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               enabled: !_posting,
               decoration: InputDecoration(
                 hintText: "What's on your mind?",
-                hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 17),
+                hintStyle: TextStyle(color: wellGreen.withOpacity(0.5), fontSize: 17),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
+            if (_selectedRecipe != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEECC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: wellGreen.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.restaurant, color: wellGreen, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedRecipe!.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1a1a1a),
+                            ),
+                          ),
+                          Text(
+                            '${_selectedRecipe!.prepTime} min',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _posting ? null : () => setState(() => _selectedRecipe = null),
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (_selectedImage != null) ...[
               const SizedBox(height: 12),
               Stack(
@@ -566,6 +702,15 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                   icon: const Icon(Icons.photo_library_outlined, color: nestOrange, size: 24),
                   label: const Text('Add Photo', style: TextStyle(color: nestOrange, fontWeight: FontWeight.w600)),
                 ),
+                if (AuthService.instance.isLoggedIn)
+                  TextButton.icon(
+                    onPressed: _posting ? null : _pickRecipeFromSaved,
+                    icon: Icon(Icons.bookmark_outline, color: wellGreen, size: 24),
+                    label: Text(
+                      _selectedRecipe != null ? 'Change Recipe' : 'Attach Recipe',
+                      style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -597,7 +742,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
         if (!snapshot.hasData) {
           return Container(
             height: 180,
-            color: Colors.grey.shade200,
+            color: AppColors.imagePlaceholderGreen,
             child: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -608,6 +753,43 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
           fit: BoxFit.cover,
         );
       },
+    );
+  }
+}
+
+class _PickRecipePage extends StatelessWidget {
+  final List<Recipe> recipes;
+
+  const _PickRecipePage({required this.recipes});
+
+  static const Color _wellGreen = Color(0xFF097333);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Attach recipe from saved'),
+        backgroundColor: _wellGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: ListView.builder(
+        itemCount: recipes.length,
+        itemBuilder: (_, i) {
+          final r = recipes[i];
+          return ListTile(
+            leading: r.displayImageUrl != null && r.displayImageUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(r.displayImageUrl!, width: 48, height: 48, fit: BoxFit.cover),
+                  )
+                : Icon(Icons.restaurant, color: _wellGreen),
+            title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text('${r.prepTime} min'),
+            onTap: () => Navigator.pop(context, r),
+          );
+        },
+      ),
     );
   }
 }

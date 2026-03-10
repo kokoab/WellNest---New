@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/screens/custom_bottom_nav.dart';
-import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/screens/profile_page.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/category_service.dart';
@@ -13,6 +15,10 @@ import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/vote_service.dart';
+import 'package:my_app/services/saved_recipe_service.dart';
+import 'package:my_app/screens/saved_recipes_screen.dart';
+import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/widgets/wellnest_header.dart';
 import 'feed_page.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -25,12 +31,15 @@ class UserDashboard extends StatefulWidget {
 class _UserDashboardState extends State<UserDashboard> {
   int _currentIndex = 0; 
   int _recipeGridKey = 0;
+  int _feedRefreshKey = 0;
+  int _savedRefreshKey = 0;
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      RecipeGridView(key: ValueKey(_recipeGridKey)), 
-      const FeedPage(),
+      RecipeGridView(key: ValueKey(_recipeGridKey)),
+      FeedPage(key: ValueKey('feed_$_feedRefreshKey')),
+      SavedRecipesScreen(key: ValueKey('saved_$_savedRefreshKey')),
       const ProfilePage(),
     ];
     return Scaffold(
@@ -46,7 +55,9 @@ class _UserDashboardState extends State<UserDashboard> {
                 final result = await RecipeFormScreen.showAsModal(context);
                 if (result == true && mounted) setState(() => _recipeGridKey++);
               },
-              backgroundColor: const Color(0xFF097333),
+              backgroundColor: AppColors.accentOrange,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
               child: const Icon(Icons.add),
             )
           : null,
@@ -54,7 +65,9 @@ class _UserDashboardState extends State<UserDashboard> {
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() {
-            _currentIndex = index; // Swaps the visible page and updates the nav UI
+            _currentIndex = index;
+            if (index == 1) _feedRefreshKey++;
+            if (index == 2) _savedRefreshKey++;
           });
         },
       ),
@@ -85,6 +98,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   RecipeRatingsResponse? _expandedRatings;
   RecipeRating? _expandedUserRating;
   bool _expandedLiked = false;
+  bool _expandedSaved = false;
   bool _expandedLoading = false;
   int? _pendingStars;
   bool _submittingRating = false;
@@ -171,11 +185,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildRecipeImagePlaceholder(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      color: colorScheme.surfaceContainerHighest,
+      color: AppColors.imagePlaceholderGreen,
       child: Center(
-        child: Icon(Icons.restaurant, size: 48, color: colorScheme.onSurfaceVariant),
+        child: Icon(Icons.restaurant_menu, size: 48, color: kPrimaryGreen),
       ),
     );
   }
@@ -188,36 +201,26 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Compact Pinterest-style header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Icon(Icons.menu, color: nestOrange, size: 28),
-                    Image.asset('lib/assets/images/logo1.png', height: 36),
-                    NotificationsDropdown(
-                      iconColor: nestOrange,
-                      child: const Icon(Icons.notifications, color: nestOrange, size: 28),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
+                const WellnestHeader(),
+                AppSpacing.gapV8,
                 // Search bar
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search recipes...',
-                    prefixIcon: const Icon(Icons.search, color: wellGreen, size: 22),
+                    prefixIcon: const Icon(Icons.search, color: kPrimaryGreen, size: 22),
                     filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                   ),
                   onChanged: (value) {
                     _searchDebounce?.cancel();
@@ -258,8 +261,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 if (_categories.isNotEmpty) const SizedBox(height: 10),
                 Text(
                   'Discover',
-                  style: TextStyle(
-                    fontSize: 24,
+                  style: const TextStyle(
+                    fontFamily: 'Recoleta',
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: wellGreen,
                   ),
@@ -310,14 +314,14 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     }
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
-    final padding = width > 900 ? 24.0 : 16.0;
-    const gap = 12.0;
+    const padding = AppSpacing.md;
+    const gap = 16.0;
 
     return RefreshIndicator(
       onRefresh: _load,
       color: wellGreen,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: padding),
+        padding: const EdgeInsets.symmetric(horizontal: padding),
         child: MasonryGridView.count(
           crossAxisCount: crossAxisCount,
           mainAxisSpacing: gap,
@@ -337,10 +341,11 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     if (isExpanded) {
       setState(() {
         _expandedIndex = -1;
-        _expandedRecipe = null;
-        _expandedRatings = null;
-        _expandedUserRating = null;
-        _pendingStars = null;
+_expandedRecipe = null;
+      _expandedRatings = null;
+      _expandedUserRating = null;
+      _expandedSaved = false;
+      _pendingStars = null;
       });
       return;
     }
@@ -360,6 +365,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ratings = await RatingService.instance.fetchRatings(recipe.id);
         if (AuthService.instance.isLoggedIn) {
           userRating = await RatingService.instance.fetchUserRating(recipe.id);
+          _expandedSaved = await SavedRecipeService.instance.isSaved(recipe.id);
         }
       } catch (_) {}
       if (!mounted) return;
@@ -380,52 +386,52 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildRecipeCard(Recipe recipe, int index) {
-    final isExpanded = _expandedIndex == index;
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
-    final horizontalPadding = width > 900 ? 24.0 : 16.0;
+    const horizontalPadding = AppSpacing.md;
     const gap = 12.0;
     final cardWidth = (width - 2 * horizontalPadding - (crossAxisCount - 1) * gap) / crossAxisCount;
-    // Pinterest-style varied pin heights (0.8, 1.0, 1.15, 1.3, 1.1...)
     final aspectRatios = [0.85, 1.05, 1.25, 1.0, 1.2];
     final aspect = aspectRatios[index % aspectRatios.length];
-    final normalHeight = cardWidth * aspect + 72; // +72 for text area below image
-    const expandedHeight = 620.0;
     final ratingsCount = recipe.ratingsCount ?? 0;
 
-    return GestureDetector(
-      onTap: () => _onCardTap(recipe, index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-        height: isExpanded ? expandedHeight : normalHeight,
+    return AnimatedPressScale(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
+          ),
+        );
+        if (mounted) _load();
+      },
+      child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+            const BoxShadow(
+              color: Color(0x14097333),
               blurRadius: 12,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: isExpanded
-            ? _buildExpandedCard(recipe, wellGreen)
-            : _buildCollapsedCard(recipe, cardWidth * aspect, ratingsCount),
+        child: _buildCollapsedCard(recipe, cardWidth, aspect, ratingsCount),
       ),
     );
   }
 
-  Widget _buildCollapsedCard(Recipe recipe, double imageHeight, int ratingsCount) {
+  Widget _buildCollapsedCard(Recipe recipe, double cardWidth, double aspect, int ratingsCount) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Image on top (Pinterest pin style)
-        SizedBox(
-          height: imageHeight,
-          width: double.infinity,
+        // Image on top - AspectRatio ensures proper sizing without overflow
+        AspectRatio(
+          aspectRatio: 1 / aspect,
           child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
               ? Image.network(
                   recipe.displayImageUrl!,
@@ -433,7 +439,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
-                      color: Colors.grey.shade100,
+                      color: AppColors.imagePlaceholderGreen,
                       child: Center(
                         child: CircularProgressIndicator(
                           color: wellGreen,
@@ -458,33 +464,54 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               Text(
                 recipe.title,
                 style: TextStyle(
-                  color: Colors.grey.shade900,
+                  fontFamily: 'Recoleta',
+                  color: kPrimaryGreen,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              AppSpacing.gapV4,
+              if (recipe.category != null) ...[
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: AppSpacing.xs / 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1A097333),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        recipe.category!.name,
+                        style: const TextStyle(
+                          color: kPrimaryGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                AppSpacing.gapV4,
+              ],
               Row(
                 children: [
                   Icon(Icons.schedule, size: 12, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
+                  AppSpacing.gapH4,
                   Text(
                     '${recipe.prepTime} min',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
-                  if (recipe.category != null) ...[
-                    Text(' · ', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                    Text(
-                      recipe.category!.name,
-                      style: TextStyle(color: wellGreen, fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                  ],
                   if (ratingsCount > 0) ...[
                     Text(' · ', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                     Icon(Icons.star, size: 12, color: accentYellow),
-                    const SizedBox(width: 2),
+                    AppSpacing.gapH4,
                     Text(
                       '$ratingsCount',
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
@@ -499,6 +526,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     );
   }
 
+  // ignore: unused_element - kept for potential future use
   Widget _buildExpandedCard(Recipe recipe, Color bgColor) {
     final fullRecipe = _expandedRecipe ?? recipe;
     if (_expandedLoading) {
@@ -545,7 +573,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               'By ${fullRecipe.userDisplayName}',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
-          if (AuthService.instance.isLoggedIn) _buildExpandedLikeButton(fullRecipe),
+          if (AuthService.instance.isLoggedIn) ...[
+            _buildExpandedLikeButton(fullRecipe),
+            _buildExpandedSaveButton(fullRecipe),
+          ],
           const SizedBox(height: 12),
           _buildExpandedRatingSection(fullRecipe),
           const SizedBox(height: 12),
@@ -594,6 +625,53 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           ),
           Text(
             _expandedLiked ? 'Liked' : 'Like',
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedSaveButton(Recipe recipe) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () async {
+              if (!AuthService.instance.isLoggedIn) return;
+              try {
+                if (_expandedSaved) {
+                  await SavedRecipeService.instance.unsaveRecipe(recipe.id);
+                  if (mounted) setState(() => _expandedSaved = false);
+                } else {
+                  await SavedRecipeService.instance.saveRecipe(recipe.id);
+                  if (mounted) setState(() => _expandedSaved = true);
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_expandedSaved ? 'Saved to favorites' : 'Removed from favorites'),
+                      backgroundColor: wellGreen,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                  );
+                }
+              }
+            },
+            icon: Icon(
+              _expandedSaved ? Icons.bookmark : Icons.bookmark_border,
+              color: _expandedSaved ? wellGreen : Colors.grey.shade600,
+              size: 24,
+            ),
+          ),
+          Text(
+            _expandedSaved ? 'Saved' : 'Save',
             style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
           ),
         ],

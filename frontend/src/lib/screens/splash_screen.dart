@@ -1,87 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/theme/app_theme.dart';
 
 class WellnestSplashScreen extends StatelessWidget {
   const WellnestSplashScreen({super.key});
 
-  // Your Brand Colors
-  static const Color wellGreen = Color(0xFF097333); 
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color buttonYellow = Color(0xFFFDB813);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5), // Light grey from image
+      backgroundColor: kBackgroundCream,
       body: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(flex: 3),
-              
-              // Logo Asset
               Image.asset(
-                'lib/assets/images/logo1.png', 
-                height: 160,
+                'lib/assets/images/logo1.png',
+                height: 140,
                 fit: BoxFit.contain,
               ),
-              
               const SizedBox(height: 20),
-              
-              // App Name with split colors
               RichText(
                 text: const TextSpan(
                   style: TextStyle(
-                    fontSize: 48,
+                    fontFamily: 'Recoleta',
+                    fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: -1.0,
+                    letterSpacing: -0.5,
                   ),
                   children: [
-                    TextSpan(text: 'well', style: TextStyle(color: wellGreen)),
-                    TextSpan(text: 'nest', style: TextStyle(color: nestOrange)),
+                    TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
+                    TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
                   ],
                 ),
               ),
-              
               const SizedBox(height: 12),
-              
-              // Tagline
-              const Text(
+              Text(
                 'A Free healthy Recipe Mobile App\nfor Everyday Wellness',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: wellGreen,
-                  height: 1.4,
-                ),
+                style: TextStyle(fontSize: 14, color: kPrimaryGreen.withValues(alpha: 0.9), height: 1.4),
               ),
-              
               const Spacer(flex: 2),
-              
-              // Get Started Button
-              OutlinedButton(
-                onPressed: () {
-                  // NAVIGATION: Move to Login Screen
-                  Navigator.pushNamed(context, '/login');
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: wellGreen, width: 1.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/register'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccentOrange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
                   ),
-                ),
-                child: const Text(
-                  'Get Started',
-                  style: TextStyle(
-                    color: buttonYellow,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  child: const Text('Sign Up'),
                 ),
               ),
-              
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryGreen,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  child: const Text('Log In'),
+                ),
+              ),
               const Spacer(flex: 1),
             ],
           ),

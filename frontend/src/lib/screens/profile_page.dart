@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/providers/theme_provider.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/models/recipe.dart';
-import 'package:my_app/widgets/notifications_dropdown.dart';
+import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/api_service.dart';
@@ -82,21 +84,11 @@ class _ProfilePageState extends State<ProfilePage> {
         color: wellGreen,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         child: Column(
           children: [
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Icon(Icons.menu, color: nestOrange, size: 35),
-                Image.asset('lib/assets/images/logo1.png', height: 50),
-                NotificationsDropdown(
-                  iconColor: nestOrange,
-                  child: const Icon(Icons.notifications, color: nestOrange, size: 35),
-                ),
-              ],
-            ),
+            const WellnestHeader(),
             const SizedBox(height: 30),
 
             if (_loading)
@@ -112,6 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: nestOrange)),
                     const SizedBox(height: 16),
                     FilledButton(
+                      key: ValueKey('retry_${Theme.of(context).brightness}'),
                       onPressed: _load,
                       style: FilledButton.styleFrom(backgroundColor: wellGreen),
                       child: const Text('Retry'),
@@ -122,7 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
             else ...[
               CircleAvatar(
                 radius: 60,
-                backgroundColor: wellGreen.withOpacity(0.2),
+                backgroundColor: const Color(0xFFFFEECC),
                 child: Text(
                   _displayInitials(),
                   style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: wellGreen),
@@ -155,40 +148,23 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 30),
 
               if (AuthService.instance.isLoggedIn)
-                OutlinedButton(
-                  onPressed: () async {
-                    final result = await RecipeFormScreen.showAsModal(context);
-                    if (result == true && mounted) _load();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: wellGreen, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    key: ValueKey('add_recipe_${Theme.of(context).brightness}'),
+                    onPressed: () async {
+                      final result = await RecipeFormScreen.showAsModal(context);
+                      if (result == true && mounted) _load();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Add new Recipe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
-                  child: const Text(
-                    'Add new Recipe',
-                    style: TextStyle(color: wellGreen, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
                 ),
-              if (AuthService.instance.isLoggedIn) const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await AuthService.instance.logout();
-                  if (context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                  }
-                },
-                icon: const Icon(Icons.logout, size: 20, color: nestOrange),
-                label: const Text(
-                  'Logout',
-                  style: TextStyle(color: nestOrange, fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: nestOrange, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                ),
-              ),
               const SizedBox(height: 40),
 
               const Align(
@@ -223,6 +199,27 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
+              const SizedBox(height: 32),
+              if (AuthService.instance.isLoggedIn)
+                TextButton.icon(
+                  key: ValueKey('logout_${Theme.of(context).brightness}'),
+                  onPressed: () async {
+                    await AuthService.instance.logout();
+                    if (context.mounted) {
+                      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                    }
+                  },
+                  icon: Icon(Icons.logout, size: 18, color: nestOrange),
+                  label: Text(
+                    'Logout',
+                    style: TextStyle(
+                      fontFamily: 'HelveticaNow',
+                      fontWeight: FontWeight.bold,
+                      color: nestOrange,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 100),
             ],
           ],
@@ -234,39 +231,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildThemeToggle(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: wellGreen.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: wellGreen.withOpacity(0.3)),
+    return ListTile(
+      key: ValueKey('theme_${themeProvider.isDarkMode}'),
+      leading: Icon(Icons.dark_mode_outlined, color: wellGreen, size: 24),
+      title: Text(
+        'Dark Mode',
+        style: TextStyle(
+          fontFamily: 'HelveticaNow',
+          fontSize: 16,
+          color: Colors.grey.shade800,
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                color: wellGreen,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                themeProvider.isDarkMode ? 'Dark Mode' : 'Light Mode',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: wellGreen,
-                ),
-              ),
-            ],
-          ),
-          Switch.adaptive(
-            value: themeProvider.isDarkMode,
-            onChanged: (_) => themeProvider.toggleTheme(),
-          ),
-        ],
+      trailing: Switch(
+        value: themeProvider.isDarkMode,
+        onChanged: (_) => themeProvider.toggleTheme(),
       ),
     );
   }
@@ -299,7 +277,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => RecipeDetailScreen(recipeId: recipe.id)),
+        MaterialPageRoute(fullscreenDialog: true, builder: (context) => RecipeDetailScreen(recipeId: recipe.id)),
       ),
       child: Container(
         width: 160,

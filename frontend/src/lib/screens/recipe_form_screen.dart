@@ -45,6 +45,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   final _instructionsController = TextEditingController();
   final _prepTimeController = TextEditingController();
 
+  List<Map<String, String>> _ingredients = []; // [{name, quantity, unit}]
+
   List<Category> _categories = [];
   int? _selectedCategoryId;
   bool _loadingCategories = true;
@@ -64,6 +66,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       _instructionsController.text = widget.recipe!.instructions;
       _prepTimeController.text = '${widget.recipe!.prepTime}';
       _selectedCategoryId = widget.recipe!.categoryId;
+      if (widget.recipe!.ingredients != null && widget.recipe!.ingredients!.isNotEmpty) {
+        _ingredients = widget.recipe!.ingredients!.map((i) => {
+          'name': i.name,
+          'quantity': i.quantity.toInt() == i.quantity ? i.quantity.toInt().toString() : i.quantity.toString(),
+          'unit': i.unit,
+        }).toList();
+      }
+    }
+    if (_ingredients.isEmpty) {
+      _ingredients.add({'name': '', 'quantity': '1', 'unit': ''});
     }
     _loadCategories();
   }
@@ -144,6 +156,14 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     final title = _titleController.text.trim();
     final instructions = _instructionsController.text.trim();
     final prepTime = int.tryParse(_prepTimeController.text.trim()) ?? 0;
+    final ingredients = _ingredients
+        .where((i) => (i['name'] ?? '').trim().isNotEmpty)
+        .map((i) => {
+              'name': (i['name'] ?? '').trim(),
+              'quantity': double.tryParse((i['quantity'] ?? '1').trim()) ?? 1,
+              'unit': (i['unit'] ?? '').trim().isEmpty ? 'unit' : (i['unit'] ?? '').trim(),
+            })
+        .toList();
     setState(() => _saving = true);
     try {
       if (_isEditing) {
@@ -153,6 +173,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           title: title,
           instructions: instructions,
           prepTime: prepTime,
+          ingredients: ingredients,
         );
         if (_pickedImage != null) {
           await RecipeService.instance.uploadRecipeImage(widget.recipe!.id, _pickedImage!);
@@ -163,6 +184,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           title: title,
           instructions: instructions,
           prepTime: prepTime,
+          ingredients: ingredients,
         );
         if (_pickedImage != null) {
           await RecipeService.instance.uploadRecipeImage(recipeId, _pickedImage!);
@@ -184,6 +206,83 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         _saving = false;
       });
     }
+  }
+
+  Widget _buildIngredientsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Ingredients',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...List.generate(_ingredients.length, (i) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    initialValue: _ingredients[i]['name'],
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Flour',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => _ingredients[i]['name'] = v,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 60,
+                  child: TextFormField(
+                    initialValue: _ingredients[i]['quantity'],
+                    decoration: InputDecoration(
+                      hintText: 'Qty',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      isDense: true,
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => _ingredients[i]['quantity'] = v,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 70,
+                  child: TextFormField(
+                    initialValue: _ingredients[i]['unit'],
+                    decoration: InputDecoration(
+                      hintText: 'e.g. cup',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => _ingredients[i]['unit'] = v,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.remove_circle_outline, color: nestOrange, size: 22),
+                  onPressed: _ingredients.length > 1
+                      ? () => setState(() => _ingredients.removeAt(i))
+                      : null,
+                ),
+              ],
+            ),
+          );
+        }),
+        TextButton.icon(
+          onPressed: () => setState(() => _ingredients.add({'name': '', 'quantity': '1', 'unit': ''})),
+          icon: Icon(Icons.add, color: wellGreen, size: 20),
+          label: Text('Add ingredient', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
   }
 
   Widget _buildImageSection() {
@@ -300,6 +399,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           ),
           const SizedBox(height: 16),
           _buildImageSection(),
+          const SizedBox(height: 16),
+          _buildIngredientsSection(),
           const SizedBox(height: 16),
           TextFormField(
             controller: _titleController,

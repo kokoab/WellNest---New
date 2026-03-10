@@ -28,3 +28,18 @@ flutter:
 
   assets:
     - lib/assets/images/
+    - fonts/
+
+  fonts:
+    - family: Recoleta
+      fonts:
+        - asset: fonts/fonnts.com-recoleta-bold.otf
+          weight: 700
+        - asset: fonts/fonnts.com-recoleta-semibold.otf
+          weight: 600
+    - family: HelveticaNow
+      fonts:
+        - asset: fonts/HelveticaNowDisplay-Regular.ttf
+          weight: 400
+        - asset: fonts/HelveticaNowDisplay-Bold.ttf
+          weight: 700

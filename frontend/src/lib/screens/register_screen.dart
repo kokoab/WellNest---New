@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -24,22 +26,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color wellGreen = Color(0xFF097333);
-    const Color nestOrange = Color(0xFFEF5026);
-    const Color accentYellow = Color(0xFFFDB813);
+    const Color wellGreen = kPrimaryGreen;
+    const Color nestOrange = kAccentOrange;
 
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: kBackgroundCream,
       appBar: AppBar(
-        title: Text(
-          "Register Form",
-          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16),
-        ),
-        backgroundColor: colorScheme.surface,
+        title: const Text("Register", style: TextStyle(fontSize: 16, color: kPrimaryGreen)),
+        backgroundColor: kBackgroundCream,
         elevation: 0,
+        foregroundColor: kPrimaryGreen,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurfaceVariant),
+          icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
           onPressed: () {
             // Navigate back to Login
             Navigator.pop(context);
@@ -51,7 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 10),
               // Logo, re-use existing
@@ -64,38 +62,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // App Name with split colors
-              Center(
-                child: RichText(
-                  text: const TextSpan(
-                    style: TextStyle(
-                      fontSize: 36,
-                      // Uncomment if you setup the font
-                      // fontFamily: 'Recoleta',
-                      fontWeight: FontWeight.bold,
-                    ),
-                    children: [
-                      TextSpan(text: 'well', style: TextStyle(color: wellGreen)),
-                      TextSpan(
-                          text: 'nest', style: TextStyle(color: nestOrange)),
-                    ],
-                  ),
+              const Text(
+                'Create Account',
+                style: TextStyle(
+                  fontFamily: 'Recoleta',
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryGreen,
                 ),
               ),
               const SizedBox(height: 32),
-              // Form Fields (Fullname, Email, Password — backend uses first_name, last_name, email, password)
-              _buildField("Fullname:", wellGreen, accentYellow, controller: _fullNameController),
-              const SizedBox(height: 20),
-              _buildField("Email:", wellGreen, accentYellow, controller: _emailController, keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 20),
-              _buildField("Password:", wellGreen, accentYellow, controller: _passwordController, obscureText: true),
-              const SizedBox(height: 32),
+              // Form Fields (labels left-aligned)
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildField("Fullname:", controller: _fullNameController),
+                    AppSpacing.gapV16,
+                    _buildField("Email:", controller: _emailController, keyboardType: TextInputType.emailAddress),
+                    AppSpacing.gapV16,
+                    _buildField("Password:", controller: _passwordController, obscureText: true),
+                  ],
+                ),
+              ),
+              AppSpacing.gapV24,
               // Sign-up Button
-              Align(
-                alignment: Alignment.centerRight,
+              SizedBox(
+                width: double.infinity,
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Color(0xFF097333))
-                    : OutlinedButton(
+                    ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
+                    : ElevatedButton(
                         onPressed: () async {
                           final fullName = _fullNameController.text.trim();
                           final email = _emailController.text.trim();
@@ -126,52 +123,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           Navigator.pushReplacementNamed(context, '/dashboard');
                         },
-                  style: OutlinedButton.styleFrom(
-                    side:
-                        const BorderSide(color: Color(0xFF097333), width: 1.2),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: nestOrange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
                   ),
-                  child: const Text(
-                    'Sign-up',
-                    style: TextStyle(
-                      color: accentYellow,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: const Text('Sign Up'),
                 ),
               ),
-              const SizedBox(height: 40),
+              AppSpacing.gapV24,
               // Connect: Navigate back to Login
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     "Already have an account? ",
-                    style: TextStyle(color: wellGreen),
+                    style: TextStyle(color: wellGreen, fontFamily: 'HelveticaNow'),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      // Navigate back to Login
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF097333)),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Text(
-                        "Login",
-                        style: TextStyle(
-                          color: accentYellow,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+                    child: Text(
+                      "Login",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'HelveticaNow',
                       ),
                     ),
                   ),
@@ -185,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildField(String label, Color labelColor, Color borderColor,
+  Widget _buildField(String label,
       {bool obscureText = false, TextEditingController? controller, TextInputType? keyboardType}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,27 +171,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Text(
           label,
           style: TextStyle(
-            color: labelColor,
+            color: kPrimaryGreen,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapV8,
         TextFormField(
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
           decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30),
-              borderSide: BorderSide(color: borderColor),
-            ),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            hintText: label == 'Fullname:' ? 'Your full name' : label == 'Email:' ? 'Your email' : 'Your password',
+            hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
           ),
         ),
       ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,22 +24,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color wellGreen = Color(0xFF097333);
-    const Color nestOrange = Color(0xFFEF5026);
-    const Color accentYellow = Color(0xFFFDB813);
+    const Color wellGreen = kPrimaryGreen;
+    const Color nestOrange = kAccentOrange;
 
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: kBackgroundCream,
       appBar: AppBar(
-        title: Text(
-          "LoginForm",
-          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16),
-        ),
-        backgroundColor: colorScheme.surface,
+        title: const Text("Login", style: TextStyle(fontSize: 16, color: kPrimaryGreen)),
+        backgroundColor: kBackgroundCream,
         elevation: 0,
+        foregroundColor: kPrimaryGreen,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurfaceVariant),
+          icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
           onPressed: () {
             // Navigate back to the Splash/Welcome screen
             Navigator.pop(context);
@@ -49,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
               // Logo placeholder, re-use existing
@@ -62,85 +60,75 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // App Name with split colors and custom Recoleta font if you set it up
-              Center(
-                child: RichText(
-                  text: const TextSpan(
-                    style: TextStyle(
-                      fontSize: 48,
-                      // Uncomment if you setup the font
-                      // fontFamily: 'Recoleta',
-                      fontWeight: FontWeight.bold,
+              const Text(
+                'Log In',
+                style: TextStyle(
+                  fontFamily: 'Recoleta',
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryGreen,
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Form fields (labels left-aligned)
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Email:",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    children: [
-                      TextSpan(text: 'well', style: TextStyle(color: wellGreen)),
-                      TextSpan(
-                          text: 'nest', style: TextStyle(color: nestOrange)),
-                    ],
-                  ),
+                    AppSpacing.gapV8,
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        hintText: 'Enter your email',
+                        hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                      ),
+                    ),
+                    AppSpacing.gapV16,
+                    const Text(
+                      "Password:",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    AppSpacing.gapV8,
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        hintText: 'Enter your password',
+                        hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 48),
-              // Username Field
-              const Text(
-                "Email:",
-                style: TextStyle(
-                  color: wellGreen,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: accentYellow),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: accentYellow),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Password Field
-              const Text(
-                "Password:",
-                style: TextStyle(
-                  color: wellGreen,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: accentYellow),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: accentYellow),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
+              AppSpacing.gapV24,
               // Enter Button
-              Align(
-                alignment: Alignment.centerRight,
+              SizedBox(
+                width: double.infinity,
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Color(0xFF097333))
-                    : OutlinedButton(
+                    ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
+                    : ElevatedButton(
                         onPressed: () async {
                           final email = _emailController.text.trim();
                           final password = _passwordController.text;
@@ -162,81 +150,37 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                           Navigator.pushReplacementNamed(context, '/dashboard');
                         },
-                        style: OutlinedButton.styleFrom(
-                          side:
-                              const BorderSide(color: Color(0xFF097333), width: 1.2),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: nestOrange,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
                         ),
-                        child: const Text(
-                          'Enter',
-                          style: TextStyle(
-                            color: accentYellow,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: const Text('Enter'),
                       ),
               ),
+              AppSpacing.gapV24,
               // Connect: Navigate to Register page
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "Dont have an account? ",
-                    style: TextStyle(color: wellGreen),
+                  Text(
+                    "Don't have an account? ",
+                    style: TextStyle(color: wellGreen, fontFamily: 'HelveticaNow'),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      // Navigate to Register
-                      Navigator.pushNamed(context, '/register');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF097333)),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Text(
-                        "Signup",
-                        style: TextStyle(
-                          color: accentYellow,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    onTap: () => Navigator.pushNamed(context, '/register'),
+                    child: Text(
+                      "Signup",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'HelveticaNow',
                       ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 48),
-              // Admin Login Button
-              Center(
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/admin_login');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side:
-                        const BorderSide(color: Color(0xFF097333), width: 1.2),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 48, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text(
-                    'Admin Login',
-                    style: TextStyle(
-                      color: accentYellow,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ),
               const SizedBox(height: 20),
             ],

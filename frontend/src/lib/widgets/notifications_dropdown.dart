@@ -265,6 +265,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       Navigator.push(
         context,
         MaterialPageRoute(
+          fullscreenDialog: true,
           builder: (context) => RecipeDetailScreen(recipeId: recipeId),
         ),
       );

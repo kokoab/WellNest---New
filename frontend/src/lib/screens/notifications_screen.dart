@@ -67,6 +67,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
+          fullscreenDialog: true,
           builder: (context) => RecipeDetailScreen(recipeId: recipeId),
         ),
       );
