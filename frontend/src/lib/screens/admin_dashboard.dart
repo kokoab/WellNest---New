@@ -561,43 +561,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 25),
-                // --- SEARCH BAR (filter users) ---
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentYellow.withOpacity(0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    decoration: InputDecoration(
-                      hintText: "Search by name or email...",
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      prefixIcon: const Icon(Icons.search, color: wellGreen),
-                      filled: true,
-                      fillColor: Colors.white,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(
-                          color: accentYellow,
-                          width: 1.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(
-                          color: nestOrange,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
+
                 // --- STATISTICS ---
                 Row(
                   children: [
@@ -645,6 +609,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   onPressed: _exportingInsightsCsv ? null : _exportInsightsCsv,
                   style: FilledButton.styleFrom(
                     backgroundColor: wellGreen,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 12,
@@ -660,10 +625,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ),
                         )
                       : const Icon(Icons.download_rounded, size: 22),
-                  label: Text(
-                    _exportingInsightsCsv
-                        ? 'Exporting…'
-                        : 'Export Insights (Users, Recipes, Popular)',
+                  label: const Text(
+                    'Export Insights (Users, Recipes, Popular)',
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 25),
@@ -726,6 +690,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         : _exportUsersCsv,
                                     style: FilledButton.styleFrom(
                                       backgroundColor: wellGreen,
+                                      foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 10,
                                         vertical: 8,
@@ -749,6 +714,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                           ? 'Exporting…'
                                           : 'Export CSV',
                                       overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -893,6 +861,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             : _exportReportsCsv,
                         style: FilledButton.styleFrom(
                           backgroundColor: wellGreen,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 8,
@@ -911,6 +880,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         label: Text(
                           _exportingReportsCsv ? 'Exporting…' : 'Export CSV',
                           overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white),
                         ),
                       ),
                       if (_reports.isNotEmpty) ...[
@@ -1033,6 +1003,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       onPressed: () => _showCategoryFormDialog(),
                       style: FilledButton.styleFrom(
                         backgroundColor: wellGreen,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 8,
@@ -1167,7 +1138,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: wellGreen),
+            style: FilledButton.styleFrom(
+              backgroundColor: wellGreen,
+              foregroundColor: Colors.white,
+            ),
             child: Text(existing == null ? 'Create' : 'Save'),
           ),
         ],
