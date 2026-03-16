@@ -7,6 +7,7 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
+import 'package:my_app/widgets/initials_avatar.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -88,6 +89,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: const Text('Post', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         backgroundColor: wellGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white, size: 26),
         elevation: 0,
       ),
       body: Column(
@@ -106,18 +108,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: const Color(0xFFF9BD21).withOpacity(0.3),
-                              child: Text(
-                                _getInitials(_post.userName),
-                                style: const TextStyle(
-                                  color: wellGreen,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
+                            InitialsAvatar(name: _post.userName, size: 48),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -134,7 +125,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '2 hours ago',
+                                    formatPostTime(_post.createdAt),
                                     style: TextStyle(
                                       fontFamily: 'HelveticaNow',
                                       fontSize: 12,

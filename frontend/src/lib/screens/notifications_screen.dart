@@ -119,6 +119,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: const Text('Notifications'),
         backgroundColor: wellGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white, size: 26),
         elevation: 0,
         actions: [
           if (_unreadCount > 0)

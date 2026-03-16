@@ -105,6 +105,7 @@ class ReportController extends Controller
                 $user->id,
                 $request->user()->name,
                 $validated['reason'],
+                $validated['details'] ?? null,
             ));
         }
 

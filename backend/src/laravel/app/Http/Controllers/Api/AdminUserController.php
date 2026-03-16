@@ -89,6 +89,7 @@ class AdminUserController extends Controller
 
         $user->delete();
 
+        ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $admin->id, $user);
         return response()->json(null, 204);
     }
 }

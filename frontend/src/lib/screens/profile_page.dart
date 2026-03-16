@@ -8,6 +8,7 @@ import 'package:my_app/models/recipe.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
+import 'package:my_app/screens/conversations_list_screen.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/recipe_service.dart';
@@ -147,7 +148,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 30),
 
-              if (AuthService.instance.isLoggedIn)
+              if (AuthService.instance.isLoggedIn) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -165,6 +166,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: const Text('Add new Recipe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pushNamed('/conversations'),
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Messages'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: wellGreen,
+                      side: const BorderSide(color: wellGreen),
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 40),
 
               const Align(

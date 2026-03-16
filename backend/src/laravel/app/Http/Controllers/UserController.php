@@ -3,10 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
+    /**
+     * GET /api/users/search?q=... — search users by name (for starting a chat). Excludes current user.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $q = $request->get('q', '');
+        $q = trim((string) $q);
+        $userId = Auth::id();
+
+        if ($q === '') {
+            return response()->json(['data' => []], 200);
+        }
+
+        $users = User::query()
+            ->where('id', '!=', $userId)
+            ->where(function ($query) use ($q) {
+                $query->where('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhereRaw("CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,'')) LIKE ?", ["%{$q}%"]);
+            })
+            ->select('id', 'first_name', 'last_name')
+            ->limit(20)
+            ->get()
+            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]);
+
+        return response()->json(['data' => $users], 200);
+    }
+
     /**
      * Display a listing of the resource.
      */

@@ -5,6 +5,7 @@ class Post {
   final String userName;
   final String content;
   final String imageUrl;
+  final String? createdAt;
 
   Post({
     required this.id,
@@ -13,6 +14,7 @@ class Post {
     required this.userName,
     required this.content,
     required this.imageUrl,
+    this.createdAt,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class Post {
       userName: userName,
       content: json['content'] as String? ?? '',
       imageUrl: json['image_url'] as String? ?? '',
+      createdAt: json['created_at'] as String?,
     );
   }
 }

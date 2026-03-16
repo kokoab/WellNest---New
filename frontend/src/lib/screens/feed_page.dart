@@ -13,6 +13,7 @@ import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
 
@@ -285,7 +286,19 @@ class _FeedPageState extends State<FeedPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (context) => PostDetailScreen(post: post),
+                  ),
+                ),
+                child: InitialsAvatar(name: post.userName, size: 44),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
                   onTap: () => Navigator.push(
@@ -295,7 +308,17 @@ class _FeedPageState extends State<FeedPage> {
                       builder: (context) => PostDetailScreen(post: post),
                     ),
                   ),
-                  child: Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatPostTime(post.createdAt),
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (post.recipeId != null)
@@ -771,6 +794,7 @@ class _PickRecipePage extends StatelessWidget {
         title: const Text('Attach recipe from saved'),
         backgroundColor: _wellGreen,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white, size: 26),
         elevation: 0,
       ),
       body: ListView.builder(

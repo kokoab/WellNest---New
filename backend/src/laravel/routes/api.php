@@ -17,6 +17,13 @@ use App\Http\Controllers\Api\RecipeRatingController;
 use App\Models\User;
 use App\Http\Controllers\Api\AdminModerationController;
 use App\Http\Controllers\Api\Activity\LogController;
+use App\Http\Controllers\Api\SavedRecipeController;
+use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MessageAttachmentController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Broadcast;
+
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -35,6 +42,7 @@ Route::get('posts/{post}', function (Post $post) {
         'content' => $post->content,
         'image_url' => $post->image_url ?? '',
         'recipe_id' => $post->recipe_id,
+        'created_at' => $post->created_at?->toIso8601String(),
         'user' => ['name' => $post->user->name ?? ''],
     ]);
 });
@@ -78,7 +86,42 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
+    Route::get('users/search', [UserController::class, 'search']);
     Route::post('users/{user}/report', [ReportController::class, 'reportUser']);
+
+    Route::post('recipes/{recipe}/save', [SavedRecipeController::class, 'save']);
+    Route::delete('recipes/{recipe}/save', [SavedRecipeController::class, 'unsave']);
+    Route::get('saved-recipes', [SavedRecipeController::class, 'index']);
+    Route::get('recipes/{recipe}/saved', [SavedRecipeController::class, 'check']);
+
+    Route::get('conversations', [ConversationController::class, 'index']);
+    Route::get('conversations/{conversation}', [ConversationController::class, 'show']);
+    Route::post('conversations', [ConversationController::class, 'create']);
+    Route::put('conversations/{conversation}', [ConversationController::class, 'update']);
+    Route::delete('conversations/{conversation}', [ConversationController::class, 'delete']);
+
+    Route::get('conversations/{conversation}/messages', [MessageController::class, 'indexByConversation']);
+    Route::post('conversations/{conversation}/messages', [MessageController::class, 'store']);
+    Route::patch('conversations/{conversation}/messages/read', [MessageController::class, 'markConversationAsRead']);
+
+    Route::get('messages', [MessageController::class, 'index']);
+    Route::get('messages/{message}', [MessageController::class, 'show']);
+    Route::post('messages', [MessageController::class, 'create']);
+    Route::put('messages/{message}', [MessageController::class, 'update']);
+    Route::delete('messages/{message}', [MessageController::class, 'delete']);
+    Route::patch('messages/{message}/read', [MessageController::class, 'markAsRead']);
+    Route::post('messages/{message}/attachments', [MessageAttachmentController::class, 'upload']);
+
+    Route::get('message-attachments', [MessageAttachmentController::class, 'index']);
+    Route::get('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'show']);
+    Route::post('message-attachments', [MessageAttachmentController::class, 'create']);
+    Route::put('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'update']);
+    Route::delete('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'delete']);
+
+    // In your auth:sanctum group in routes/api.php
+    Route::post('/broadcasting/auth', function (Request $request) {
+        return Broadcast::auth($request);
+    });
 });
 
 // Admin-only routes (auth:sanctum + admin)

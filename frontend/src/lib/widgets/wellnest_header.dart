@@ -33,9 +33,20 @@ class WellnestHeader extends StatelessWidget {
             ),
           ],
         ),
-        NotificationsDropdown(
-          iconColor: AppColors.accentOrange,
-          child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: () => Navigator.of(context).pushNamed('/conversations'),
+              icon: Icon(Icons.chat_bubble_outline, color: AppColors.accentOrange, size: iconSize),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            NotificationsDropdown(
+              iconColor: AppColors.accentOrange,
+              child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
+            ),
+          ],
         ),
       ],
     );

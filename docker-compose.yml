@@ -2,7 +2,7 @@ services:
   # MySQL Database
   database:
     image: mysql:8.0
-    container_name: laravel_db
+    container_name: laravel_db_wellnest
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${DB_DATABASE}
@@ -25,7 +25,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: laravel_app
+    container_name: laravel_app_wellnest
     restart: unless-stopped
     working_dir: /var/www/laravel
     volumes:
@@ -47,7 +47,7 @@ services:
   # Nginx web server
   backend_nginx:
     image: nginx:alpine
-    container_name: laravel_nginx
+    container_name: laravel_nginx_wellnest
     restart: unless-stopped
     ports:
       - "8080:80" # This is your entry point from the host
