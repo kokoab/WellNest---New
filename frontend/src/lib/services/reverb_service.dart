@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../config/app_config.dart';
@@ -24,7 +26,10 @@ class ReverbService {
     );
   }
 
-  Future<Map<String, String>> _authorizer(String channelName, String socketId) async {
+  Future<Map<String, String>> _authorizer(
+    String channelName,
+    String socketId,
+  ) async {
     final token = AuthService.instance.token;
     if (token == null || token.isEmpty) return {};
     return {'Authorization': 'Bearer $token'};
@@ -35,7 +40,22 @@ class ReverbService {
     if (_initialized) return;
     if (!AuthService.instance.isLoggedIn) return;
     await _client.connect();
+    await _waitForConnected();
     _initialized = true;
+  }
+
+  /// Wait for the WebSocket to be fully connected (socketId set) before subscribing.
+  /// Without this, subscribeToPrivateChannel throws and we silently catch it.
+  Future<void> _waitForConnected() async {
+    final client = _client;
+    if (client.connectionState == ConnectionState.connected) return;
+    final state = await client.onConnectionStateChange
+        .where((s) => s == ConnectionState.connected || s == ConnectionState.error)
+        .first
+        .timeout(const Duration(seconds: 10));
+    if (state != ConnectionState.connected) {
+      throw ConnectionException('Reverb did not connect in time');
+    }
   }
 
   /// Disconnect (e.g. on logout).
@@ -50,6 +70,7 @@ class ReverbService {
 
   /// Subscribe to new messages in a conversation. [onMessage] receives the payload from the backend (map with 'message' key).
   /// Call [unsubscribeFromConversation] when leaving the conversation screen.
+  /// Pusher protocol sends event data as a JSON string; we parse it to a map before calling [onMessage].
   Future<void> subscribeToConversation(
     int conversationId,
     void Function(Map<String, dynamic> payload) onMessage,
@@ -59,11 +80,19 @@ class ReverbService {
 
     final channelName = 'private-conversation.$conversationId';
     final channel = _client.subscribeToPrivateChannel(channelName);
-    channel.bind('message.new', (String eventName, dynamic data) {
+    void handleEvent(String eventName, dynamic data) {
+      Map<String, dynamic>? payload;
       if (data is Map<String, dynamic>) {
-        onMessage(data);
+        payload = data;
+      } else if (data is String) {
+        try {
+          payload = jsonDecode(data) as Map<String, dynamic>?;
+        } catch (_) {}
       }
-    });
+      if (payload != null) onMessage(payload);
+    }
+    channel.bind('message.new', handleEvent);
+    channel.bind('message.deleted', handleEvent);
     _channels[conversationId] = channel;
   }
 
@@ -76,5 +105,6 @@ class ReverbService {
   }
 
   /// Optional: expose connection state for UI (e.g. "Live" / "Reconnecting").
-  Stream<ConnectionState> get connectionState => _client.onConnectionStateChange;
+  Stream<ConnectionState> get connectionState =>
+      _client.onConnectionStateChange;
 }

@@ -5,7 +5,7 @@ import 'package:my_app/models/admin_user.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/models/report.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
-import 'package:my_app/services/admin_auth_service.dart';
+import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
@@ -49,6 +49,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void initState() {
     super.initState();
+    // If admin role is not present (e.g. after hot restart or user login),
+    // send them back to the normal login instead of hammering the API.
+    if (!AuthService.instance.isAdmin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (r) => false,
+        );
+      });
+      return;
+    }
     _loadUsers();
     _loadReports();
     _loadRecipeTotal();
@@ -155,22 +168,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
       for (final r in _reports) {
         final type = r.reportable?.type ?? '';
         final id = r.reportable?.id ?? 0;
-        final label = r.reportableLabel.replaceAll(',', ' ').replaceAll('\n', ' ');
-        rows.add([
-          r.id,
-          _escapeCsv(r.reporter),
-          _escapeCsv(r.reason),
-          _escapeCsv(r.details),
-          _escapeCsv(r.status),
-          _escapeCsv(r.createdAt),
-          _escapeCsv(type),
-          id,
-          _escapeCsv(label),
-        ].join(','));
+        final label = r.reportableLabel
+            .replaceAll(',', ' ')
+            .replaceAll('\n', ' ');
+        rows.add(
+          [
+            r.id,
+            _escapeCsv(r.reporter),
+            _escapeCsv(r.reason),
+            _escapeCsv(r.details),
+            _escapeCsv(r.status),
+            _escapeCsv(r.createdAt),
+            _escapeCsv(type),
+            id,
+            _escapeCsv(label),
+          ].join(','),
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'content_reports_export.csv', mimeType: 'text/csv');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'content_reports_export.csv',
+        mimeType: 'text/csv',
+      );
       await Share.shareXFiles(
         [xfile],
         subject: 'WellNest Content Reports Export',
@@ -178,7 +199,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reports exported'), backgroundColor: wellGreen),
+        const SnackBar(
+          content: Text('Reports exported'),
+          backgroundColor: wellGreen,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -232,11 +256,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final cat = r.category?.name ?? '';
         final avg = r.averageRating?.toStringAsFixed(1) ?? '0';
         final cnt = r.ratingsCount ?? 0;
-        rows.add('${i + 1},${r.id},${_escapeCsv(r.title)},${_escapeCsv(cat)},$avg,$cnt');
+        rows.add(
+          '${i + 1},${r.id},${_escapeCsv(r.title)},${_escapeCsv(cat)},$avg,$cnt',
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'admin_insights_export.csv', mimeType: 'text/csv');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'admin_insights_export.csv',
+        mimeType: 'text/csv',
+      );
       await Share.shareXFiles(
         [xfile],
         subject: 'WellNest Admin Insights Report',
@@ -244,7 +274,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insights report exported'), backgroundColor: wellGreen),
+        const SnackBar(
+          content: Text('Insights report exported'),
+          backgroundColor: wellGreen,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -265,11 +298,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final rows = <String>['id,name,email,status'];
       for (final u in _users) {
-        rows.add('${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}');
+        rows.add(
+          '${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}',
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'users_export.csv', mimeType: 'text/csv');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'users_export.csv',
+        mimeType: 'text/csv',
+      );
       await Share.shareXFiles(
         [xfile],
         subject: 'WellNest Users Export',
@@ -277,7 +316,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Users exported'), backgroundColor: wellGreen),
+        const SnackBar(
+          content: Text('Users exported'),
+          backgroundColor: wellGreen,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -296,7 +338,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (_searchQuery.trim().isEmpty) return _users;
     final q = _searchQuery.trim().toLowerCase();
     return _users.where((u) {
-      return u.email.toLowerCase().contains(q) || u.name.toLowerCase().contains(q);
+      return u.email.toLowerCase().contains(q) ||
+          u.name.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -309,7 +352,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: nestOrange),
@@ -331,7 +377,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: wellGreen),
@@ -350,7 +399,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(status == 'active' ? 'Account activated' : 'Account deactivated'),
+          content: Text(
+            status == 'active' ? 'Account activated' : 'Account deactivated',
+          ),
           backgroundColor: wellGreen,
         ),
       );
@@ -375,7 +426,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -393,7 +447,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       await AdminUserService.instance.deleteUser(userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account deleted'), backgroundColor: wellGreen),
+        const SnackBar(
+          content: Text('Account deleted'),
+          backgroundColor: wellGreen,
+        ),
       );
       _loadUsers();
     } catch (e) {
@@ -414,11 +471,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-              await _loadUsers();
-              await _loadReports();
-              await _loadRecipeTotal();
-              await _loadActivityLogs();
-            },
+            await _loadUsers();
+            await _loadReports();
+            await _loadRecipeTotal();
+            await _loadActivityLogs();
+          },
           color: wellGreen,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -438,15 +495,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       children: [
                         NotificationsDropdown(
                           iconColor: nestOrange,
-                          child: const Icon(Icons.notifications, color: nestOrange, size: 28),
+                          child: const Icon(
+                            Icons.notifications,
+                            color: nestOrange,
+                            size: 28,
+                          ),
                         ),
                         IconButton(
                           onPressed: () async {
-                        await AdminAuthService.instance.logoutAdmin();
-                        if (!context.mounted) return;
-                        Navigator.pushNamedAndRemoveUntil(context, '/admin_login', (r) => false);
+                            await AuthService.instance.logout();
+                            if (!context.mounted) return;
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/login',
+                              (r) => false,
+                            );
                           },
-                          icon: const Icon(Icons.logout, color: nestOrange, size: 28),
+                          icon: const Icon(
+                            Icons.logout,
+                            color: nestOrange,
+                            size: 28,
+                          ),
                         ),
                       ],
                     ),
@@ -489,11 +558,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       fillColor: Colors.white,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: accentYellow, width: 1.5),
+                        borderSide: const BorderSide(
+                          color: accentYellow,
+                          width: 1.5,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: nestOrange, width: 2),
+                        borderSide: const BorderSide(
+                          color: nestOrange,
+                          width: 2,
+                        ),
                       ),
                     ),
                   ),
@@ -513,7 +588,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Expanded(
                       child: _buildModernStatCard(
                         "Active",
-                        _loading ? '…' : '${_users.where((u) => u.isActive).length}',
+                        _loading
+                            ? '…'
+                            : '${_users.where((u) => u.isActive).length}',
                         Icons.person_rounded,
                       ),
                     ),
@@ -544,16 +621,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   onPressed: _exportingInsightsCsv ? null : _exportInsightsCsv,
                   style: FilledButton.styleFrom(
                     backgroundColor: wellGreen,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                   ),
                   icon: _exportingInsightsCsv
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Icon(Icons.download_rounded, size: 22),
-                  label: Text(_exportingInsightsCsv ? 'Exporting…' : 'Export Insights (Users, Recipes, Popular)'),
+                  label: Text(
+                    _exportingInsightsCsv
+                        ? 'Exporting…'
+                        : 'Export Insights (Users, Recipes, Popular)',
+                  ),
                 ),
                 const SizedBox(height: 25),
                 // --- ACTIVITY LOGS & EXPORT ---
@@ -575,43 +662,73 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Manage Users',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: wellGreen,
+                          const Expanded(
+                            child: Text(
+                              'Manage Users',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: wellGreen,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           if (_loading)
                             const SizedBox(
                               width: 24,
                               height: 24,
-                              child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                color: wellGreen,
+                                strokeWidth: 2,
+                              ),
                             )
                           else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: _loadUsers,
-                                  icon: const Icon(Icons.refresh_rounded, color: wellGreen),
-                                ),
-                                FilledButton.icon(
-                                  onPressed: _exportingUsersCsv ? null : _exportUsersCsv,
-                                  style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                                  icon: _exportingUsersCsv
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.download_rounded, size: 18),
-                                  label: Text(_exportingUsersCsv ? 'Exporting…' : 'Export CSV'),
-                                ),
-                              ],
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed: _loadUsers,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      color: wellGreen,
+                                    ),
+                                  ),
+                                  FilledButton.icon(
+                                    onPressed: _exportingUsersCsv
+                                        ? null
+                                        : _exportUsersCsv,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: wellGreen,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    icon: _exportingUsersCsv
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.download_rounded,
+                                            size: 18,
+                                          ),
+                                    label: Text(
+                                      _exportingUsersCsv
+                                          ? 'Exporting…'
+                                          : 'Export CSV',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                         ],
                       ),
@@ -636,7 +753,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               const SizedBox(height: 16),
                               FilledButton(
                                 onPressed: _loadUsers,
-                                style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: wellGreen,
+                                ),
                                 child: const Text('Retry'),
                               ),
                             ],
@@ -646,8 +765,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            _searchQuery.isEmpty ? 'No users yet' : 'No users match your search',
-                            style: const TextStyle(color: Colors.grey, fontSize: 16),
+                            _searchQuery.isEmpty
+                                ? 'No users yet'
+                                : 'No users match your search',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
                           ),
                         )
                       else
@@ -702,51 +826,77 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Content Moderation',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: wellGreen,
+              const Expanded(
+                child: Text(
+                  'Content Moderation',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               if (_reportsLoading)
                 const SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: wellGreen,
+                    strokeWidth: 2,
+                  ),
                 )
               else
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: _loadReports,
-                      icon: const Icon(Icons.refresh_rounded, color: wellGreen),
-                    ),
-                    FilledButton.icon(
-                      onPressed: _exportingReportsCsv ? null : _exportReportsCsv,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                      icon: _exportingReportsCsv
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download_rounded, size: 18),
-                      label: Text(_exportingReportsCsv ? 'Exporting…' : 'Export CSV'),
-                    ),
-                    if (_reports.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       IconButton(
-                        onPressed: _confirmDeleteAllReports,
-                        icon: const Icon(Icons.delete_sweep_rounded, color: nestOrange, size: 24),
-                        tooltip: 'Delete all reports',
+                        onPressed: _loadReports,
+                        icon: const Icon(Icons.refresh_rounded, color: wellGreen),
                       ),
+                      FilledButton.icon(
+                        onPressed: _exportingReportsCsv
+                            ? null
+                            : _exportReportsCsv,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: wellGreen,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                        ),
+                        icon: _exportingReportsCsv
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download_rounded, size: 18),
+                        label: Text(
+                          _exportingReportsCsv ? 'Exporting…' : 'Export CSV',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_reports.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: _confirmDeleteAllReports,
+                          icon: const Icon(
+                            Icons.delete_sweep_rounded,
+                            color: nestOrange,
+                            size: 24,
+                          ),
+                          tooltip: 'Delete all reports',
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
             ],
           ),
@@ -754,9 +904,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           if (_reportsLoading && _reports.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(
-                child: CircularProgressIndicator(color: wellGreen),
-              ),
+              child: Center(child: CircularProgressIndicator(color: wellGreen)),
             )
           else if (_reportsError != null)
             Padding(
@@ -794,8 +942,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 onRemoveContent: r.isRecipeReport || r.isPostReport
                     ? () => _handleReportAction(r.id, 'remove-content')
                     : null,
-                onSuspendUser:
-                    r.isUserReport ? () => _handleReportAction(r.id, 'suspend-user') : null,
+                onSuspendUser: r.isUserReport
+                    ? () => _handleReportAction(r.id, 'suspend-user')
+                    : null,
               ),
             ),
           const SizedBox(height: 10),
@@ -821,21 +970,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Activity Logs & Reports',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: wellGreen,
+              const Expanded(
+                child: Text(
+                  'Activity Logs & Reports',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               if (_logsLoading)
                 const SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: wellGreen,
+                    strokeWidth: 2,
+                  ),
                 )
               else
                 IconButton(
@@ -860,7 +1015,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Text(_logsError!, textAlign: TextAlign.center, style: const TextStyle(color: nestOrange)),
+                  Text(
+                    _logsError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: nestOrange),
+                  ),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _loadActivityLogs,
@@ -873,10 +1032,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
           else if (_activityLogs.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('No activity logs yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+              child: Text(
+                'No activity logs yet',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
             )
           else
-            ..._activityLogs.take(15).map(
+            ..._activityLogs
+                .take(15)
+                .map(
                   (log) => Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
@@ -888,7 +1052,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.history_rounded, color: nestOrange, size: 20),
+                        Icon(
+                          Icons.history_rounded,
+                          color: nestOrange,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -907,12 +1075,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               const SizedBox(height: 4),
                               Text(
                                 '${log.category} · ${log.action}${log.actorName != null ? ' · ${log.actorName}' : ''}',
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
                               ),
                               if (log.createdAt != null)
                                 Text(
                                   log.createdAt!,
-                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 11,
+                                  ),
                                 ),
                             ],
                           ),
@@ -936,7 +1110,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           'Permanently delete all pending reports? This cannot be undone.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -950,7 +1127,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       await AdminModerationService.instance.deleteAllReports();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All reports deleted'), backgroundColor: wellGreen),
+        const SnackBar(
+          content: Text('All reports deleted'),
+          backgroundColor: wellGreen,
+        ),
       );
       _loadReports();
     } catch (e) {
@@ -971,28 +1151,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
           await AdminModerationService.instance.dismiss(reportId);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report dismissed'), backgroundColor: wellGreen),
+            const SnackBar(
+              content: Text('Report dismissed'),
+              backgroundColor: wellGreen,
+            ),
           );
           break;
         case 'approve':
           await AdminModerationService.instance.approve(reportId);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report approved'), backgroundColor: wellGreen),
+            const SnackBar(
+              content: Text('Report approved'),
+              backgroundColor: wellGreen,
+            ),
           );
           break;
         case 'remove-content':
           await AdminModerationService.instance.removeContent(reportId);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Content removed'), backgroundColor: wellGreen),
+            const SnackBar(
+              content: Text('Content removed'),
+              backgroundColor: wellGreen,
+            ),
           );
           break;
         case 'suspend-user':
           await AdminModerationService.instance.suspendUser(reportId);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User suspended'), backgroundColor: wellGreen),
+            const SnackBar(
+              content: Text('User suspended'),
+              backgroundColor: wellGreen,
+            ),
           );
           break;
       }
@@ -1016,7 +1208,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: lightGrey),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -1026,11 +1222,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 15),
           Text(
             value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: wellGreen),
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: wellGreen,
+            ),
           ),
           Text(
             title,
-            style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1073,9 +1277,16 @@ class _UserTile extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: wellGreen.withOpacity(0.2),
                 child: Text(
-                  (user.name.isNotEmpty ? user.name[0] : user.email.isNotEmpty ? user.email[0] : '?')
+                  (user.name.isNotEmpty
+                          ? user.name[0]
+                          : user.email.isNotEmpty
+                          ? user.email[0]
+                          : '?')
                       .toUpperCase(),
-                  style: const TextStyle(color: wellGreen, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: wellGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1108,20 +1319,41 @@ class _UserTile extends StatelessWidget {
               if (user.isActive)
                 TextButton.icon(
                   onPressed: () => onDeactivate(user),
-                  icon: const Icon(Icons.person_off, size: 18, color: nestOrange),
-                  label: const Text('Deactivate', style: TextStyle(color: nestOrange)),
+                  icon: const Icon(
+                    Icons.person_off,
+                    size: 18,
+                    color: nestOrange,
+                  ),
+                  label: const Text(
+                    'Deactivate',
+                    style: TextStyle(color: nestOrange),
+                  ),
                 )
               else
                 TextButton.icon(
                   onPressed: () => onActivate(user),
-                  icon: const Icon(Icons.person_add, size: 18, color: wellGreen),
-                  label: const Text('Activate', style: TextStyle(color: wellGreen)),
+                  icon: const Icon(
+                    Icons.person_add,
+                    size: 18,
+                    color: wellGreen,
+                  ),
+                  label: const Text(
+                    'Activate',
+                    style: TextStyle(color: wellGreen),
+                  ),
                 ),
               const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => onDelete(user),
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: Colors.red,
+                ),
+                label: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -1169,8 +1401,8 @@ class _ReportTile extends StatelessWidget {
                 report.isUserReport
                     ? Icons.person
                     : report.isRecipeReport
-                        ? Icons.restaurant_menu
-                        : Icons.article,
+                    ? Icons.restaurant_menu
+                    : Icons.article,
                 color: nestOrange,
                 size: 24,
               ),
@@ -1192,17 +1424,26 @@ class _ReportTile extends StatelessWidget {
                     if (report.reporter != null)
                       Text(
                         'Reported by ${report.reporter}',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                     if (report.reason != null && report.reason!.isNotEmpty)
                       Text(
                         'Reason: ${report.reason}',
-                        style: const TextStyle(color: Colors.black54, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 13,
+                        ),
                       ),
                     if (report.details != null && report.details!.isNotEmpty)
                       Text(
                         report.details!,
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1234,24 +1475,44 @@ class _ReportTile extends StatelessWidget {
               TextButton.icon(
                 onPressed: onDismiss,
                 icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                label: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
+                label: const Text(
+                  'Dismiss',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
               TextButton.icon(
                 onPressed: onApprove,
-                icon: const Icon(Icons.check_circle_outline, size: 16, color: wellGreen),
-                label: const Text('Approve', style: TextStyle(color: wellGreen)),
+                icon: const Icon(
+                  Icons.check_circle_outline,
+                  size: 16,
+                  color: wellGreen,
+                ),
+                label: const Text(
+                  'Approve',
+                  style: TextStyle(color: wellGreen),
+                ),
               ),
               if (onRemoveContent != null)
                 TextButton.icon(
                   onPressed: onRemoveContent,
-                  icon: const Icon(Icons.delete_outline, size: 16, color: nestOrange),
-                  label: const Text('Remove', style: TextStyle(color: nestOrange)),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: nestOrange,
+                  ),
+                  label: const Text(
+                    'Remove',
+                    style: TextStyle(color: nestOrange),
+                  ),
                 ),
               if (onSuspendUser != null)
                 TextButton.icon(
                   onPressed: onSuspendUser,
                   icon: const Icon(Icons.block, size: 16, color: Colors.red),
-                  label: const Text('Suspend', style: TextStyle(color: Colors.red)),
+                  label: const Text(
+                    'Suspend',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
             ],
           ),
@@ -1273,7 +1534,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive ? wellGreen.withOpacity(0.15) : Colors.orange.withOpacity(0.2),
+        color: isActive
+            ? wellGreen.withOpacity(0.15)
+            : Colors.orange.withOpacity(0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

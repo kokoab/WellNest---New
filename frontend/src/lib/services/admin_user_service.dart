@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/admin_user.dart';
-import 'admin_auth_service.dart';
+import 'auth_service.dart';
 
 /// API calls for admin user management (list, update status, delete).
 class AdminUserService {
@@ -15,7 +15,7 @@ class AdminUserService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        ...AdminAuthService.instance.authHeaders,
+        ...AuthService.instance.authHeaders,
       };
 
   /// GET /api/admin/users — returns list of users.

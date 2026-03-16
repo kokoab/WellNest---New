@@ -3,19 +3,17 @@
 namespace App\Events;
 
 use App\Models\Message;
-use Illuminate\Broadcasting\Channel;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class NewMessageEvent implements ShouldBroadcastNow
+class MessageDeletedEvent implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable, SerializesModels;
 
     public function __construct(
-        public Message $message  // or a plain array if you prefer
+        public Message $message
     ) {}
 
     public function broadcastOn(): array
@@ -25,16 +23,15 @@ class NewMessageEvent implements ShouldBroadcastNow
         ];
     }
 
-    /** Name of the event the frontend will listen for (e.g. "message.new"). */
     public function broadcastAs(): string
     {
-        return 'message.new';
+        return 'message.deleted';
     }
 
-    /** Payload sent to the client. */
     public function broadcastWith(): array
     {
         $this->message->load('user:id,first_name,last_name', 'attachments');
+
         return [
             'message' => [
                 'id' => $this->message->id,
@@ -43,6 +40,7 @@ class NewMessageEvent implements ShouldBroadcastNow
                 'content' => $this->message->content,
                 'read_at' => $this->message->read_at?->toIso8601String(),
                 'created_at' => $this->message->created_at->toIso8601String(),
+                'deleted_at' => $this->message->deleted_at?->toIso8601String(),
                 'user' => [
                     'id' => $this->message->user->id,
                     'name' => $this->message->user->name,

@@ -148,7 +148,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                             return;
                           }
-                          Navigator.pushReplacementNamed(context, '/dashboard');
+                          // If this account is an admin, route to admin dashboard instead.
+                          if (AuthService.instance.isAdmin) {
+                            Navigator.pushReplacementNamed(context, '/admin_dashboard');
+                          } else {
+                            Navigator.pushReplacementNamed(context, '/dashboard');
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: nestOrange,

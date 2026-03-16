@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:my_app/providers/theme_provider.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/screens/admin_dashboard.dart';
-import 'package:my_app/screens/admin_login.dart';
 import 'package:my_app/screens/user_dashboard.dart';
 import 'package:my_app/screens/login_screen.dart';
 import 'package:my_app/screens/register_screen.dart';
@@ -33,7 +32,6 @@ class MyApp extends StatelessWidget {
           routes: {
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
-            '/admin_login': (context) => const AdminLoginScreen(),
             '/admin_dashboard': (context) => const AdminDashboard(),
             '/dashboard': (context) => const UserDashboard(),
             '/saved-recipes': (context) => const SavedRecipesScreen(),

@@ -5,6 +5,7 @@ class ChatMessage {
   final int userId;
   final String content;
   final String? readAt;
+  final String? deletedAt;
   final String createdAt;
   final ChatMessageUser? user;
   final List<Map<String, dynamic>> attachments;
@@ -15,10 +16,13 @@ class ChatMessage {
     required this.userId,
     required this.content,
     this.readAt,
+    this.deletedAt,
     required this.createdAt,
     this.user,
     List<Map<String, dynamic>>? attachments,
   }) : attachments = attachments ?? [];
+
+  bool get isDeleted => deletedAt != null && deletedAt!.isNotEmpty;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic>? userMap;
@@ -37,6 +41,7 @@ class ChatMessage {
       userId: (json['user_id'] as num).toInt(),
       content: json['content'] as String? ?? '',
       readAt: json['read_at'] as String?,
+      deletedAt: json['deleted_at'] as String?,
       createdAt: json['created_at'] as String? ?? '',
       user: userMap != null ? ChatMessageUser.fromJson(userMap) : null,
       attachments: att,

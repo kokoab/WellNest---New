@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../models/recipe.dart';
 import 'auth_service.dart';
-import 'admin_auth_service.dart';
 
 /// API calls for recipes. List/show are public; create/update/delete require auth.
 class RecipeService {
@@ -18,9 +17,8 @@ class RecipeService {
   Map<String, String> get _headersForRead => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        if (AuthService.instance.authHeaders.isNotEmpty) ...AuthService.instance.authHeaders,
-        if (AuthService.instance.authHeaders.isEmpty && AdminAuthService.instance.authHeaders.isNotEmpty)
-          ...AdminAuthService.instance.authHeaders,
+        if (AuthService.instance.authHeaders.isNotEmpty)
+          ...AuthService.instance.authHeaders,
       };
 
   Map<String, String> get _headers => {

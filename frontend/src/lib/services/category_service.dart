@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/category.dart';
 import 'auth_service.dart';
-import 'admin_auth_service.dart';
 
 /// API calls for categories. GET uses auth; create/update/delete require admin.
 class CategoryService {
@@ -14,11 +13,7 @@ class CategoryService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> _headers({required bool admin}) {
-    final auth = admin
-        ? AdminAuthService.instance.authHeaders
-        : (AuthService.instance.authHeaders.isNotEmpty
-            ? AuthService.instance.authHeaders
-            : AdminAuthService.instance.authHeaders);
+    final auth = AuthService.instance.authHeaders;
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

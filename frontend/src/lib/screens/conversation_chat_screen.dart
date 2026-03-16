@@ -83,7 +83,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       ) {
         if (!mounted) return;
         setState(() {
-          if (!_messages.any((m) => m.id == message.id)) {
+          final idx = _messages.indexWhere((m) => m.id == message.id);
+          if (idx >= 0) {
+            _messages[idx] = message;
+          } else {
             _messages.insert(0, message);
           }
         });
@@ -248,6 +251,48 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     );
   }
 
+  Future<void> _onDoubleTapMyMessage(ChatMessage m) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsend message?'),
+        content: const Text(
+          'The other person will see that you deleted this message.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Unsend'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirm != true) return;
+    try {
+      final updated = await _service.deleteMessage(m.id);
+      if (mounted) {
+        setState(() {
+          final idx = _messages.indexWhere((e) => e.id == m.id);
+          if (idx >= 0) _messages[idx] = updated;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<void> _pickAndSendAttachment() async {
     if (_sending || _uploadingAttachment || _pickingImage) return;
     setState(() => _pickingImage = true);
@@ -366,72 +411,88 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       final isMe =
                           _currentUserId != null && m.userId == _currentUserId;
                       final attachmentOnly =
-                          m.attachments.isNotEmpty && m.content.trim().isEmpty;
+                          !m.isDeleted &&
+                          m.attachments.isNotEmpty &&
+                          m.content.trim().isEmpty;
+                      final canUnsend = isMe && !m.isDeleted;
+                      final bubble = Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: attachmentOnly ? 0 : 14,
+                          vertical: attachmentOnly ? 0 : 10,
+                        ),
+                        decoration: attachmentOnly
+                            ? null
+                            : BoxDecoration(
+                                color: isMe
+                                    ? AppColors.primaryGreen.withOpacity(0.9)
+                                    : (isDark
+                                          ? Colors.grey.shade700
+                                          : Colors.grey.shade700),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (m.user != null && !isMe)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  m.user!.name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            if (m.attachments.isNotEmpty && !m.isDeleted)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: attachmentOnly ? 0 : 6,
+                                ),
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: [
+                                    for (final att in m.attachments)
+                                      _buildAttachmentPreview(att),
+                                  ],
+                                ),
+                              ),
+                            if (m.content.trim().isNotEmpty)
+                              Text(
+                                m.content,
+                                style: TextStyle(
+                                  color: m.isDeleted
+                                      ? (isDark
+                                            ? Colors.grey.shade400
+                                            : Colors.grey.shade400)
+                                      : Colors.white,
+                                  fontSize: 21,
+                                  fontStyle: m.isDeleted
+                                      ? FontStyle.italic
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
                       return Align(
                         alignment: isMe
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: attachmentOnly ? 0 : 14,
-                            vertical: attachmentOnly ? 0 : 10,
-                          ),
-                          decoration: attachmentOnly
-                              ? null
-                              : BoxDecoration(
-                                  color: isMe
-                                      ? AppColors.primaryGreen.withOpacity(0.9)
-                                      : (isDark
-                                            ? Colors.grey.shade700
-                                            : Colors.grey.shade700),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (m.user != null && !isMe)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    m.user!.name,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ),
-                              if (m.attachments.isNotEmpty)
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: attachmentOnly ? 0 : 6,
-                                  ),
-                                  child: Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
-                                    children: [
-                                      for (final att in m.attachments)
-                                        _buildAttachmentPreview(att),
-                                    ],
-                                  ),
-                                ),
-                              if (m.content.trim().isNotEmpty)
-                                Text(
-                                  m.content,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 21,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                        child: canUnsend
+                            ? GestureDetector(
+                                onDoubleTap: () => _onDoubleTapMyMessage(m),
+                                child: bubble,
+                              )
+                            : bubble,
                       );
                     },
                   ),

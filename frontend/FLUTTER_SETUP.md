@@ -22,7 +22,13 @@ brew install flutter
 docker compose up -d database backend_app backend_nginx
 ```
 
-Backend URL: **http://localhost:8080** (or **http://localhost** if you mapped port 80).
+For **real-time chat** (messages appearing live), also start Reverb (WebSocket server on port 8081):
+
+```bash
+docker compose up -d reverb
+```
+
+Backend URL: **http://localhost:8080**. Reverb: **localhost:8081** (Flutter uses this automatically).
 
 ### 3. Open the frontend project
 
@@ -51,6 +57,18 @@ flutter run -d chrome --dart-define=BASE_URL=http://localhost:8080
    ```
 
    Use `http://10.0.2.2:8080` so the **emulator** (Android) can reach your **Mac’s** backend (10.0.2.2 = host from inside the emulator). Use `:80` if your backend is on port 80.
+
+**iOS simulator:**
+
+The iOS simulator runs on your Mac, so it uses the same loopback as Chrome. Use `localhost`:
+
+```bash
+cd frontend/src
+flutter devices   # list devices; pick an iPhone simulator id
+flutter run -d <ios-simulator-id> --dart-define=BASE_URL=http://localhost:8080
+```
+
+If you use the default `BASE_URL` (10.0.2.2), login and API calls can be very slow or time out because that address is for Android emulator, not the iOS simulator.
 
 **Physical Android phone:**
 

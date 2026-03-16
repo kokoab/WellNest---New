@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/notification.dart';
 import 'auth_service.dart';
-import 'admin_auth_service.dart';
 
 class NotificationService {
   NotificationService._();
@@ -19,15 +18,11 @@ class NotificationService {
     };
     if (AuthService.instance.authHeaders.isNotEmpty) {
       h.addAll(AuthService.instance.authHeaders);
-    } else if (AdminAuthService.instance.authHeaders.isNotEmpty) {
-      h.addAll(AdminAuthService.instance.authHeaders);
     }
     return h;
   }
 
-  bool get _hasAuth =>
-      AuthService.instance.authHeaders.isNotEmpty ||
-      AdminAuthService.instance.authHeaders.isNotEmpty;
+  bool get _hasAuth => AuthService.instance.authHeaders.isNotEmpty;
 
   Future<List<AppNotification>> fetchNotifications({
     int page = 1,

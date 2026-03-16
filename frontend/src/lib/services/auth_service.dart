@@ -9,9 +9,12 @@ class AuthService {
   static AuthService get instance => _instance;
 
   String? _token;
+  String? _role;
 
   String? get token => _token;
   bool get isLoggedIn => _token != null;
+  String? get role => _role;
+  bool get isAdmin => (_role ?? '').toLowerCase() == 'admin';
 
   void setToken(String token) {
     _token = token;
@@ -80,9 +83,15 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
-        if (token == null || token.isEmpty)
+        if (token == null || token.isEmpty) {
           return 'Invalid response from server';
+        }
         setToken(token);
+        // Capture role (if backend includes user.role) so we can route admins.
+        final user = data['user'];
+        if (user is Map<String, dynamic>) {
+          _role = (user['role'] as String?) ?? _role;
+        }
         return null;
       }
       if (response.statusCode == 401 || response.statusCode == 403) {

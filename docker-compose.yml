@@ -38,6 +38,13 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_APP_ID=${REVERB_APP_ID:-1}
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-wellnest}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-dev-secret-change-in-production}
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8081
+      - REVERB_SCHEME=http
     depends_on:
       database:
         condition: service_healthy
@@ -57,6 +64,41 @@ services:
       - ./backend/nginx:/etc/nginx/conf.d
     depends_on:
       - backend_app
+    networks:
+      - backend
+
+  # Laravel Reverb (WebSocket server for real-time chat/broadcasting)
+  reverb:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: laravel_reverb_wellnest
+    restart: unless-stopped
+    working_dir: /var/www/laravel
+    volumes:
+      - ./backend/src:/var/www
+      - ./backend/storage:/var/www/laravel/storage
+    command: ["php", "artisan", "reverb:start"]
+    environment:
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=database
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REVERB_APP_ID=${REVERB_APP_ID:-1}
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-wellnest}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-dev-secret-change-in-production}
+      - REVERB_SERVER_HOST=0.0.0.0
+      - REVERB_SERVER_PORT=8081
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8081
+      - REVERB_SCHEME=http
+    ports:
+      - "8081:8081"
+    depends_on:
+      database:
+        condition: service_healthy
     networks:
       - backend
 

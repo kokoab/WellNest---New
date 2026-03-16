@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/activity_log.dart';
-import 'admin_auth_service.dart';
+import 'auth_service.dart';
 
 /// API calls for admin activity logs (list and CSV export).
 class AdminActivityLogService {
@@ -15,7 +15,7 @@ class AdminActivityLogService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        ...AdminAuthService.instance.authHeaders,
+        ...AuthService.instance.authHeaders,
       };
 
   /// GET /api/admin/activity-logs — paginated. Optional category, action.

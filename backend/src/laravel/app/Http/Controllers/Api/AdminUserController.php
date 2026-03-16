@@ -16,7 +16,7 @@ class AdminUserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->is_admin) {
+        if (! $user || ($user->role ?? '') !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -39,7 +39,7 @@ class AdminUserController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         $admin = $request->user();
-        if (! $admin || ! $admin->is_admin) {
+        if (! $admin || ($admin->role ?? '') !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -74,7 +74,7 @@ class AdminUserController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $admin = $request->user();
-        if (! $admin || ! $admin->is_admin) {
+        if (! $admin || ($admin->role ?? '') !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

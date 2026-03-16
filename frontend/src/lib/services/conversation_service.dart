@@ -136,6 +136,20 @@ class ConversationService {
     await ReverbService.instance.unsubscribeFromConversation(conversationId);
   }
 
+  /// DELETE /api/messages/{messageId} — unsend (delete) own message. Other user sees "{user} deleted this message".
+  Future<ChatMessage> deleteMessage(int messageId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/messages/$messageId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw Exception(data?['message'] as String? ?? 'Failed to delete message');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return ChatMessage.fromJson(data);
+  }
+
   /// Mark all messages in a conversation as read.
   Future<void> markConversationAsRead(int conversationId) async {
     await http.patch(
