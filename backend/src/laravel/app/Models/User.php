@@ -8,6 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Report;
+use App\Models\SavedRecipe;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\MessageAttachment;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -76,5 +81,16 @@ class User extends Authenticatable
     public function reports()
     {
         return $this->morphMany(Report::class, 'reportable');
+    }
+    public function savedRecipes()
+    {
+        return $this->belongsToMany(Recipe::class, 'saved_recipes')
+            ->withTimestamps();
+    }
+    public function conversations(): HasMany
+    {
+        return Conversation::where('user1_id', $this->id)
+            ->orWhere('user2_id', $this->id)
+            ->orderByDesc('last_message_at');
     }
 }

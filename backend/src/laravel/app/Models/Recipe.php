@@ -53,4 +53,9 @@ class Recipe extends Model
     {
         return $this->hasMany(RecipeRating::class);
     }
+    public function savedRecipes()
+    {
+        return $this->belongsToMany(User::class, 'saved_recipes')
+            ->withTimestamps();
+    }
 }

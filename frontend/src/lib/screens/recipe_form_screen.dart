@@ -513,6 +513,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         title: Text(
           _isEditing ? 'Edit Recipe' : 'New Recipe',
           style: const TextStyle(color: Colors.white),

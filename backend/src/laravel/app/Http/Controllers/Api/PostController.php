@@ -77,6 +77,7 @@ class PostController extends Controller
                 'recipe_id' => $p->recipe_id,
                 'content' => $p->content,
                 'image_url' => $p->image_url ?? '',
+                'created_at' => $p->created_at?->toIso8601String(),
                 'user' => ['id' => $p->user->id ?? null, 'name' => trim(($p->user->first_name ?? '') . ' ' . ($p->user->last_name ?? ''))],
             ]);
     }

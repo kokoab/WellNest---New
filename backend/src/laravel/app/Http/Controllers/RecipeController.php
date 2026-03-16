@@ -53,21 +53,42 @@ class RecipeController extends Controller
      */
     public function create(Request $request)
     {
-        //
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'title' => 'required|string|max:255',
             'instructions' => 'required|string',
             'prep_time' => 'required|integer',
+            'ingredients' => 'nullable|array',
+            'ingredients.*.name' => 'required|string|max:255',
+            'ingredients.*.quantity' => 'nullable|numeric|min:0',
+            'ingredients.*.unit' => 'nullable|string|max:50',
         ]);
 
         $validated['user_id'] = $request->user()->id;
+        $ingredientsData = $validated['ingredients'] ?? [];
+        unset($validated['ingredients']);
+
         $recipe = Recipe::create($validated);
+        $this->syncIngredients($recipe, $ingredientsData);
         ActivityLogService::log('recipe', 'create', 'Recipe created successfully', $request->user()->id, $recipe);
         return response()->json([
             'message' => 'Recipe created successfully',
             'id' => $recipe->id,
         ], 201);
+    }
+
+    protected function syncIngredients(Recipe $recipe, array $ingredientsData): void
+    {
+        $recipe->ingredients()->detach();
+        foreach ($ingredientsData as $item) {
+            $name = trim($item['name'] ?? '');
+            if ($name === '') continue;
+            $ingredient = \App\Models\Ingredient::firstOrCreate(['name' => $name]);
+            $quantity = (int) round((float) ($item['quantity'] ?? 0));
+            if ($quantity < 1) $quantity = 1;
+            $unit = trim($item['unit'] ?? '') ?: 'unit';
+            $recipe->ingredients()->attach($ingredient->id, ['quantity' => $quantity, 'unit' => $unit]);
+        }
     }
 
 
@@ -97,15 +118,27 @@ class RecipeController extends Controller
      */
     public function update(Request $request, Recipe $recipe): JsonResponse
     {
-        //
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+        }
+
         $validated = $request->validate([
             'category_id' => 'sometimes|exists:categories,id',
             'title' => 'sometimes|string|max:255',
             'instructions' => 'sometimes|string',
             'prep_time' => 'sometimes|integer',
+            'ingredients' => 'nullable|array',
+            'ingredients.*.name' => 'required|string|max:255',
+            'ingredients.*.quantity' => 'nullable|numeric|min:0',
+            'ingredients.*.unit' => 'nullable|string|max:50',
         ]);
 
+        $ingredientsData = $validated['ingredients'] ?? null;
+        unset($validated['ingredients']);
         $recipe->update($validated);
+        if ($ingredientsData !== null) {
+            $this->syncIngredients($recipe, $ingredientsData);
+        }
         ActivityLogService::log('recipe', 'update', 'Recipe updated successfully', $request->user()->id, $recipe);
         return response()->json(['message' => 'Recipe updated successfully'], 200);
     }
@@ -115,6 +148,11 @@ class RecipeController extends Controller
      */
     public function delete(Recipe $recipe, Request $request): JsonResponse
     {
+
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+        }
+
         foreach ($recipe->images as $image) {
             Storage::disk('public')->delete($image->path);
         }
@@ -128,6 +166,10 @@ class RecipeController extends Controller
      */
     public function uploadImage(Request $request, Recipe $recipe): JsonResponse
     {
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+        }
+
         $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ]);

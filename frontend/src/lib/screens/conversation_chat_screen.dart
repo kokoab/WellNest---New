@@ -1,0 +1,509 @@
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:my_app/config/app_config.dart';
+import 'package:my_app/models/chat_message.dart';
+import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/services/conversation_service.dart';
+import 'package:my_app/services/user_service.dart';
+import 'package:my_app/theme/app_theme.dart';
+
+/// Single conversation: messages list + input. Subscribes to Reverb for live new messages.
+class ConversationChatScreen extends StatefulWidget {
+  final int conversationId;
+  final String otherUserName;
+
+  const ConversationChatScreen({
+    super.key,
+    required this.conversationId,
+    required this.otherUserName,
+  });
+
+  @override
+  State<ConversationChatScreen> createState() => _ConversationChatScreenState();
+}
+
+class _ConversationChatScreenState extends State<ConversationChatScreen> {
+  final ConversationService _service = ConversationService();
+  final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  List<ChatMessage> _messages = [];
+  bool _loading = true;
+  String? _error;
+  bool _sending = false;
+  bool _uploadingAttachment = false;
+  bool _pickingImage = false;
+  int? _currentUserId;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+    _loadMessages();
+    _subscribeLive();
+    _service.markConversationAsRead(widget.conversationId);
+  }
+
+  Future<void> _loadCurrentUser() async {
+    if (!AuthService.instance.isLoggedIn) return;
+    final user = await UserService.instance.fetchCurrentUser();
+    if (mounted && user != null) setState(() => _currentUserId = user.id);
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await _service.fetchMessages(widget.conversationId);
+      final list = ConversationService.messagesFromResponse(data);
+      if (mounted)
+        setState(() {
+          _messages = list;
+          _loading = false;
+          if (_currentUserId == null && list.isNotEmpty)
+            _currentUserId = list.first.userId;
+        });
+    } catch (e) {
+      if (mounted)
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+    }
+  }
+
+  Future<void> _subscribeLive() async {
+    try {
+      await _service.subscribeToLiveMessages(widget.conversationId, (
+        ChatMessage message,
+      ) {
+        if (!mounted) return;
+        setState(() {
+          if (!_messages.any((m) => m.id == message.id)) {
+            _messages.insert(0, message);
+          }
+        });
+      });
+    } catch (_) {
+      // Reverb optional; app still works without it
+    }
+  }
+
+  @override
+  void dispose() {
+    _service.unsubscribeFromLiveMessages(widget.conversationId);
+    _textController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    _textController.clear();
+    try {
+      final sent = await _service.sendMessage(widget.conversationId, text);
+      if (mounted) {
+        setState(() {
+          if (!_messages.any((m) => m.id == sent.id)) {
+            _messages.insert(0, sent);
+          }
+          _sending = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  static const double _previewSize = 200;
+
+  void _showAttachmentModal(String imageUrl) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(ctx).pop(),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      size: 64,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: IconButton.filled(
+                onPressed: () => Navigator.of(ctx).pop(),
+                icon: const Icon(Icons.close),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentPreview(Map<String, dynamic> att) {
+    final path = att['file_path'] as String?;
+    final name = att['file_name'] as String? ?? '';
+    final type = (att['file_type'] as String? ?? '').toLowerCase();
+    // Prefer path + app base URL so images load on device/emulator (server file_url may be localhost).
+    final fullUrl = path != null && path.isNotEmpty
+        ? '${AppConfig.baseUrl}/storage/$path'
+        : null;
+    if (fullUrl != null && (type.contains('image') || type.isEmpty)) {
+      return GestureDetector(
+        onTap: () => _showAttachmentModal(fullUrl),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            fullUrl,
+            width: _previewSize,
+            height: _previewSize,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: _previewSize,
+                height: _previewSize,
+                color: Colors.black12,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                              (loadingProgress.expectedTotalBytes!).toDouble()
+                        : null,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) => Container(
+              width: _previewSize,
+              height: _previewSize,
+              color: Colors.black12,
+              child: const Icon(
+                Icons.broken_image,
+                size: 48,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white24,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.insert_drive_file, color: Colors.white70, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            name.isNotEmpty ? name : 'Attachment',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickAndSendAttachment() async {
+    if (_sending || _uploadingAttachment || _pickingImage) return;
+    setState(() => _pickingImage = true);
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (!mounted) return;
+      setState(() => _pickingImage = false);
+      if (picked == null) return;
+      setState(() => _uploadingAttachment = true);
+      try {
+        final bytes = await picked.readAsBytes();
+        final text = _textController.text.trim();
+        if (text.isNotEmpty) _textController.clear();
+        final content = text;
+        final sent = await _service.sendMessage(widget.conversationId, content);
+        final attachmentData = await _service.uploadMessageAttachment(
+          sent.id,
+          bytes,
+          picked.name,
+        );
+        if (!mounted) return;
+        final updatedAttachments = [...sent.attachments, attachmentData];
+        final updatedMessage = ChatMessage.fromJson({
+          'id': sent.id,
+          'conversation_id': sent.conversationId,
+          'user_id': sent.userId,
+          'content': sent.content,
+          'read_at': sent.readAt,
+          'created_at': sent.createdAt,
+          'user': sent.user != null
+              ? {'id': sent.user!.id, 'name': sent.user!.name}
+              : null,
+          'attachments': updatedAttachments,
+        });
+        setState(() {
+          _messages.removeWhere((m) => m.id == sent.id);
+          _messages.insert(0, updatedMessage);
+          _uploadingAttachment = false;
+        });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _uploadingAttachment = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _pickingImage = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InitialsAvatar(name: widget.otherUserName, size: 32),
+            const SizedBox(width: 10),
+            Text(
+              widget.otherUserName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 23,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: false,
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: _loadMessages,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _messages.isEmpty
+                ? const Center(child: Text('No messages yet. Say hello!'))
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final m = _messages[index];
+                      final isMe =
+                          _currentUserId != null && m.userId == _currentUserId;
+                      final attachmentOnly =
+                          m.attachments.isNotEmpty && m.content.trim().isEmpty;
+                      return Align(
+                        alignment: isMe
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: attachmentOnly ? 0 : 14,
+                            vertical: attachmentOnly ? 0 : 10,
+                          ),
+                          decoration: attachmentOnly
+                              ? null
+                              : BoxDecoration(
+                                  color: isMe
+                                      ? AppColors.primaryGreen.withOpacity(0.9)
+                                      : (isDark
+                                            ? Colors.grey.shade700
+                                            : Colors.grey.shade700),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (m.user != null && !isMe)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    m.user!.name,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? Colors.grey.shade400
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                              if (m.attachments.isNotEmpty)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: attachmentOnly ? 0 : 6,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: [
+                                      for (final att in m.attachments)
+                                        _buildAttachmentPreview(att),
+                                    ],
+                                  ),
+                                ),
+                              if (m.content.trim().isNotEmpty)
+                                Text(
+                                  m.content,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 21,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  IconButton(
+                    onPressed:
+                        (_sending || _uploadingAttachment || _pickingImage)
+                        ? null
+                        : _pickAndSendAttachment,
+                    icon: _uploadingAttachment
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.attach_file),
+                    style: IconButton.styleFrom(
+                      foregroundColor: AppColors.primaryGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      style: const TextStyle(fontSize: 17),
+                      decoration: const InputDecoration(
+                        hintText: 'Type a message...',
+                        hintStyle: TextStyle(fontSize: 17),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      maxLines: null,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed:
+                        (_sending || _uploadingAttachment || _pickingImage)
+                        ? null
+                        : _send,
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
