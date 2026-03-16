@@ -110,6 +110,70 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     }
   }
 
+  Future<void> _addCategoryFromForm() async {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Category'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final name = nameController.text.trim();
+    final desc = descController.text.trim();
+    if (name.isEmpty || desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Name and description are required'),
+        ),
+      );
+      return;
+    }
+    try {
+      final created =
+          await CategoryService.instance.createCategory(name, desc);
+      if (!mounted) return;
+      setState(() {
+        _categories = [..._categories, created];
+        _selectedCategoryId = created.id;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   String? _validateTitle(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return 'Title is required';
@@ -382,20 +446,37 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          DropdownButtonFormField<int>(
-            value: _categories.isEmpty ? null : _selectedCategoryId,
-            decoration: InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
-            hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
-            items: _categories
-                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                .toList(),
-            onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
-            validator: (v) => v == null ? 'Select a category' : null,
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _categories.isEmpty ? null : _selectedCategoryId,
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    border:
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  hint: Text(
+                      _categories.isEmpty ? 'No categories yet' : 'Select a category'),
+                  items: _categories
+                      .map((c) =>
+                          DropdownMenuItem(value: c.id, child: Text(c.name)))
+                      .toList(),
+                  onChanged: _categories.isEmpty
+                      ? null
+                      : (v) => setState(() => _selectedCategoryId = v),
+                  validator: (v) => v == null ? 'Select a category' : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Add category',
+                onPressed: _addCategoryFromForm,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           _buildImageSection(),

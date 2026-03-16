@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:my_app/models/activity_log.dart';
 import 'package:my_app/models/admin_user.dart';
+import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/models/report.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
@@ -10,6 +11,7 @@ import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/services/category_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 
@@ -45,6 +47,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
+  List<Category> _categories = [];
+  bool _categoriesLoading = true;
+  String? _categoriesError;
 
   @override
   void initState() {
@@ -54,11 +59,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (!AuthService.instance.isAdmin) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-          (r) => false,
-        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
       });
       return;
     }
@@ -66,6 +67,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _loadReports();
     _loadRecipeTotal();
     _loadActivityLogs();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    if (!mounted) return;
+    setState(() {
+      _categoriesLoading = true;
+      _categoriesError = null;
+    });
+    try {
+      final list = await CategoryService.instance.fetchCategories(admin: true);
+      if (!mounted) return;
+      setState(() {
+        _categories = list;
+        _categoriesLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _categoriesError = e.toString().replaceFirst('Exception: ', '');
+        _categoriesLoading = false;
+      });
+    }
   }
 
   Future<void> _loadReports() async {
@@ -788,6 +812,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
                 const SizedBox(height: 25),
+                // --- CATEGORY MANAGEMENT SECTION ---
+                _buildCategoriesSection(),
+                const SizedBox(height: 25),
                 // --- CONTENT MODERATION SECTION ---
                 _buildModerationSection(),
                 const SizedBox(height: 40),
@@ -855,7 +882,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       IconButton(
                         onPressed: _loadReports,
-                        icon: const Icon(Icons.refresh_rounded, color: wellGreen),
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: wellGreen,
+                        ),
                       ),
                       FilledButton.icon(
                         onPressed: _exportingReportsCsv
@@ -951,6 +981,235 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildCategoriesSection() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: accentYellow,
+        borderRadius: BorderRadius.circular(35),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accentYellow, accentYellow.withOpacity(0.8)],
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Categories',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (_categoriesLoading)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: wellGreen,
+                    strokeWidth: 2,
+                  ),
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _loadCategories,
+                      icon: const Icon(Icons.refresh_rounded, color: wellGreen),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => _showCategoryFormDialog(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: wellGreen,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add', overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_categoriesLoading && _categories.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator(color: wellGreen)),
+            )
+          else if (_categoriesError != null)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text(
+                    _categoriesError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: nestOrange),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _loadCategories,
+                    style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_categories.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'No categories yet. Add one to get started.',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            )
+          else
+            ..._categories.map(
+              (c) => _CategoryTile(
+                category: c,
+                onEdit: () => _showCategoryFormDialog(existing: c),
+                onDelete: () => _confirmDeleteCategory(c),
+              ),
+            ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteCategory(Category category) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete category?'),
+        content: Text(
+          'Delete category "${category.name}"? This will remove it from the list for new recipes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await CategoryService.instance.deleteCategory(category.id);
+      await _loadCategories();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Category deleted'),
+          backgroundColor: wellGreen,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showCategoryFormDialog({Category? existing}) async {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final descController = TextEditingController(
+      text: existing?.description ?? '',
+    );
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(existing == null ? 'Add Category' : 'Edit Category'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: wellGreen),
+            child: Text(existing == null ? 'Create' : 'Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != true || !mounted) return;
+    final name = nameController.text.trim();
+    final desc = descController.text.trim();
+    if (name.isEmpty || desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Name and description are required'),
+          backgroundColor: nestOrange,
+        ),
+      );
+      return;
+    }
+    try {
+      if (existing == null) {
+        await CategoryService.instance.createCategory(name, desc);
+      } else {
+        await CategoryService.instance.updateCategory(existing.id, name, desc);
+      }
+      await _loadCategories();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            existing == null ? 'Category created' : 'Category updated',
+          ),
+          backgroundColor: wellGreen,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    }
   }
 
   Widget _buildActivityLogsSection() {
@@ -1546,6 +1805,94 @@ class _StatusChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: isActive ? wellGreen : Colors.orange.shade800,
         ),
+      ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  final Category category;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _CategoryTile({
+    required this.category,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  static const Color wellGreen = Color(0xFF097333);
+  static const Color nestOrange = Color(0xFFEF5026);
+  static const Color lightGrey = Color(0xFFF5F5F5);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: lightGrey),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: wellGreen.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.category_rounded,
+              color: wellGreen,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  category.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  category.description,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Wrap(
+            spacing: 4,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, size: 20, color: wellGreen),
+                tooltip: 'Edit',
+                onPressed: onEdit,
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: Colors.red,
+                ),
+                tooltip: 'Delete',
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

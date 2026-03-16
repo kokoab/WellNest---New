@@ -122,6 +122,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/broadcasting/auth', function (Request $request) {
         return Broadcast::auth($request);
     });
+    // Category CRUD – allow any authenticated user to manage categories.
+    // Admin dashboard uses these for category management; recipe form can also
+    // create categories via the same endpoints.
+    Route::post('categories', [CategoryController::class, 'create']);
+    Route::put('categories/{category}', [CategoryController::class, 'update']);
+    Route::delete('categories/{category}', [CategoryController::class, 'delete']);
 });
 
 // Admin-only routes (auth:sanctum + admin)
@@ -130,10 +136,6 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/users', [AdminUserController::class, 'index']);
     Route::patch('admin/users/{id}/status', [AdminUserController::class, 'updateStatus']);
     Route::delete('admin/users/{id}', [AdminUserController::class, 'destroy']);
-
-    Route::post('categories', [CategoryController::class, 'create']);
-    Route::put('categories/{category}', [CategoryController::class, 'update']);
-    Route::delete('categories/{category}', [CategoryController::class, 'delete']);
 
     Route::get('admin/reports', [AdminModerationController::class, 'index']);
     Route::patch('admin/reports/{report}/approve', [AdminModerationController::class, 'approve']);
