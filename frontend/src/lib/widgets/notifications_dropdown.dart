@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/notification.dart';
 import '../services/notification_service.dart';
@@ -28,11 +29,27 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   int _unreadCount = 0;
   bool _loading = true;
   bool _isOpen = false;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchUnreadCount();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      _fetchUnreadCount();
+    });
   }
 
   Future<void> _fetchUnreadCount() async {
@@ -229,36 +246,79 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     }
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool showLoading = true}) async {
+    if (!mounted) return;
+    if (showLoading) setState(() => _loading = true);
     try {
       final results = await Future.wait([
         NotificationService.instance.fetchNotifications(perPage: 15),
         NotificationService.instance.getUnreadCount(),
       ]);
       if (!mounted) return;
-      _notifications = results[0] as List<AppNotification>;
-      _unreadCount = results[1] as int;
+      setState(() {
+        _notifications = results[0] as List<AppNotification>;
+        _unreadCount = results[1] as int;
+        _loading = false;
+      });
+      _overlayEntry?.markNeedsBuild();
     } catch (_) {
-      _notifications = [];
+      if (mounted) setState(() {
+        _notifications = [];
+        _loading = false;
+      });
+      _overlayEntry?.markNeedsBuild();
     }
-    _loading = false;
+  }
+
+  void _updateUI() {
+    if (mounted) setState(() {});
     _overlayEntry?.markNeedsBuild();
   }
 
   Future<void> _markAsRead(AppNotification n) async {
     if (n.isRead) return;
-    await NotificationService.instance.markAsRead(n.id);
-    _load();
+    // Optimistic: show as read immediately for instant feedback
+    final idx = _notifications.indexWhere((x) => x.id == n.id);
+    if (idx >= 0) {
+      _notifications[idx] = AppNotification(
+        id: n.id,
+        type: n.type,
+        message: n.message,
+        data: n.data,
+        readAt: DateTime.now().toIso8601String(),
+        createdAt: n.createdAt,
+      );
+      _unreadCount = (_unreadCount - 1).clamp(0, 999);
+      _updateUI();
+    }
+    unawaited(NotificationService.instance.markAsRead(n.id));
+    unawaited(_load(showLoading: false)); // Sync in background
   }
 
   Future<void> _markAllAsRead() async {
-    await NotificationService.instance.markAllAsRead();
-    _load();
+    if (_unreadCount == 0) return;
+    // Optimistic: clear unread styling immediately for instant feedback
+    _notifications = _notifications.map((n) {
+      if (!n.isRead) {
+        return AppNotification(
+          id: n.id,
+          type: n.type,
+          message: n.message,
+          data: n.data,
+          readAt: DateTime.now().toIso8601String(),
+          createdAt: n.createdAt,
+        );
+      }
+      return n;
+    }).toList();
+    _unreadCount = 0;
+    _updateUI();
+    unawaited(NotificationService.instance.markAllAsRead());
+    unawaited(_load(showLoading: false)); // Sync in background
   }
 
   void _onTapNotification(AppNotification n) {
-    _markAsRead(n);
+    unawaited(_markAsRead(n));
     final recipeId = n.data['recipe_id'] as int?;
     _hideOverlay();
     if (recipeId != null && context.mounted) {
@@ -331,11 +391,6 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       _isOpen = false;
     }
     super.deactivate();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   @override

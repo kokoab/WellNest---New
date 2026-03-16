@@ -33,14 +33,16 @@ class _UserDashboardState extends State<UserDashboard> {
   int _recipeGridKey = 0;
   int _feedRefreshKey = 0;
   int _savedRefreshKey = 0;
+  final List<bool> _tabHasBeenBuilt = [false, false, false, false];
 
   @override
   Widget build(BuildContext context) {
+    _tabHasBeenBuilt[_currentIndex] = true;
     final pages = [
-      RecipeGridView(key: ValueKey(_recipeGridKey)),
-      FeedPage(key: ValueKey('feed_$_feedRefreshKey')),
-      SavedRecipesScreen(key: ValueKey('saved_$_savedRefreshKey')),
-      const ProfilePage(),
+      _tabHasBeenBuilt[0] ? RecipeGridView(key: ValueKey(_recipeGridKey)) : const SizedBox.shrink(),
+      _tabHasBeenBuilt[1] ? FeedPage(key: ValueKey('feed_$_feedRefreshKey')) : const SizedBox.shrink(),
+      _tabHasBeenBuilt[2] ? SavedRecipesScreen(key: ValueKey('saved_$_savedRefreshKey')) : const SizedBox.shrink(),
+      _tabHasBeenBuilt[3] ? const ProfilePage() : const SizedBox.shrink(),
     ];
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -61,15 +63,17 @@ class _UserDashboardState extends State<UserDashboard> {
               child: const Icon(Icons.add),
             )
           : null,
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            if (index == 1) _feedRefreshKey++;
-            if (index == 2) _savedRefreshKey++;
-          });
-        },
+      bottomNavigationBar: RepaintBoundary(
+        child: CustomBottomNav(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+              if (index == 1) _feedRefreshKey++;
+              if (index == 2) _savedRefreshKey++;
+            });
+          },
+        ),
       ),
     );
   }
@@ -106,6 +110,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  int _loadRecipesGeneration = 0;
 
   TextEditingController _getReviewController(int recipeId) {
     _reviewControllers[recipeId] ??= TextEditingController();
@@ -128,6 +133,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   Future<void> _load() async {
     if (!mounted) return;
+    _searchQuery = _searchController.text.trim(); // Sync with text field (e.g. before debounce fired)
+    _loadRecipesGeneration++; // Invalidate any in-flight _loadRecipes
     setState(() {
       _loading = true;
       _error = null;
@@ -158,30 +165,49 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   Future<void> _loadRecipes() async {
     if (!mounted) return;
+    final generation = ++_loadRecipesGeneration;
+    final searchAtRequest = _searchQuery;
+    final categoryAtRequest = _selectedCategoryId;
     setState(() {
       _loading = true;
-      // Clear list so only search/filter results appear (no stale recipes)
+      // Clear list only when applying filters, so stale results don't flash
       if (_searchQuery.isNotEmpty || _selectedCategoryId != null) {
         _recipes = [];
       }
     });
     try {
       final resp = await RecipeService.instance.fetchRecipes(
-        categoryId: _selectedCategoryId,
-        search: _searchQuery.isEmpty ? null : _searchQuery,
+        categoryId: categoryAtRequest,
+        search: searchAtRequest.isEmpty ? null : searchAtRequest,
       );
       if (!mounted) return;
+      // Ignore stale response: user may have typed/changed filter before this completed
+      if (generation != _loadRecipesGeneration) return;
       setState(() {
         _recipes = resp.recipes;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
+      if (generation != _loadRecipesGeneration) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
     }
+  }
+
+  bool get _hasActiveFilters =>
+      _searchQuery.isNotEmpty || _selectedCategoryId != null;
+
+  void _clearAllFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _selectedCategoryId = null;
+    });
+    _loadRecipes();
   }
 
   Widget _buildRecipeImagePlaceholder(BuildContext context) {
@@ -200,20 +226,31 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-            child: Column(
+          RepaintBoundary(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Compact Pinterest-style header
                 const WellnestHeader(),
                 AppSpacing.gapV8,
-                // Search bar
+                // Search bar with clear button
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search recipes...',
+                    hintText: 'Search by name or ingredients...',
                     prefixIcon: const Icon(Icons.search, color: kPrimaryGreen, size: 22),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                              _loadRecipes();
+                            },
+                          )
+                        : null,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -223,6 +260,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                   ),
                   onChanged: (value) {
+                    setState(() {}); // Rebuild to show/hide clear button
                     _searchDebounce?.cancel();
                     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
                       if (!mounted) return;
@@ -231,33 +269,71 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                     });
                   },
                 ),
-                const SizedBox(height: 10),
-                // Horizontal filter chips (Pinterest-style)
-                if (_categories.isNotEmpty)
-                  SizedBox(
-                    height: 36,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _FilterChip(
-                          label: 'All',
-                          selected: _selectedCategoryId == null,
-                          onTap: () {
-                            setState(() => _selectedCategoryId = null);
-                            _loadRecipes();
-                          },
+                const SizedBox(height: 12),
+                // Filter section: category chips + Clear filters
+                if (_categories.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Category',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
                         ),
-                        ..._categories.map((c) => _FilterChip(
-                              label: c.name,
-                              selected: _selectedCategoryId == c.id,
-                              onTap: () {
-                                setState(() => _selectedCategoryId = c.id);
-                                _loadRecipes();
-                              },
-                            )),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _FilterChip(
+                                label: 'All',
+                                selected: _selectedCategoryId == null,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCategoryId = null;
+                                    _searchQuery = _searchController.text.trim();
+                                  });
+                                  _loadRecipes();
+                                },
+                              ),
+                              ..._categories.map((c) => _FilterChip(
+                                    label: c.name,
+                                    selected: _selectedCategoryId == c.id,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedCategoryId = c.id;
+                                        _searchQuery = _searchController.text.trim();
+                                      });
+                                      _loadRecipes();
+                                    },
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (_hasActiveFilters) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _clearAllFilters,
+                        icon: Icon(Icons.filter_list_off, size: 18, color: nestOrange),
+                        label: Text(
+                          'Clear filters',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: nestOrange),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                ],
                 if (_categories.isNotEmpty) const SizedBox(height: 10),
                 Text(
                   'Discover',
@@ -271,6 +347,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 const SizedBox(height: 8),
               ],
             ),
+          ),
           ),
           Expanded(child: _buildContent()),
         ],
@@ -303,12 +380,39 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     }
     if (_recipes.isEmpty) {
       return Center(
-        child: Text(
-          _searchQuery.isNotEmpty || _selectedCategoryId != null
-              ? 'No recipes match your search or filter.'
-              : 'No recipes yet. Add one to get started.',
-          style: const TextStyle(color: Colors.grey),
-          textAlign: TextAlign.center,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _hasActiveFilters ? Icons.search_off : Icons.restaurant_menu,
+                size: 56,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _hasActiveFilters
+                    ? 'No recipes match your filters'
+                    : 'No recipes yet. Add one to get started.',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              if (_hasActiveFilters) ...[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _clearAllFilters,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Clear filters'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: wellGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -327,9 +431,11 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           mainAxisSpacing: gap,
           crossAxisSpacing: gap,
           itemCount: _recipes.length,
+          addRepaintBoundaries: true,
+          addAutomaticKeepAlives: false,
           itemBuilder: (context, index) {
             final recipe = _recipes[index];
-            return _buildRecipeCard(recipe, index);
+            return RepaintBoundary(child: _buildRecipeCard(recipe, index));
           },
         ),
       ),
@@ -406,6 +512,7 @@ _expandedRecipe = null;
         );
         if (mounted) _load();
       },
+      semanticLabel: 'View recipe, ${recipe.title}',
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -436,6 +543,8 @@ _expandedRecipe = null;
               ? Image.network(
                   recipe.displayImageUrl!,
                   fit: BoxFit.cover,
+                  cacheWidth: 400,
+                  cacheHeight: 500,
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(

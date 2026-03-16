@@ -36,12 +36,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: kBackgroundCream,
         elevation: 0,
         foregroundColor: kPrimaryGreen,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
-          onPressed: () {
-            // Navigate back to Login
-            Navigator.pop(context);
-          },
+        leading: Semantics(
+          button: true,
+          label: 'Back to login',
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
       ),
       body: SingleChildScrollView(

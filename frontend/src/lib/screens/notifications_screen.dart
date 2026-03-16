@@ -49,13 +49,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markAsRead(AppNotification n) async {
     if (n.isRead) return;
+    // Optimistic: show as read immediately for instant feedback
+    final idx = _notifications.indexWhere((x) => x.id == n.id);
+    if (idx >= 0) {
+      setState(() {
+        _notifications[idx] = AppNotification(
+          id: n.id,
+          type: n.type,
+          message: n.message,
+          data: n.data,
+          readAt: DateTime.now().toIso8601String(),
+          createdAt: n.createdAt,
+        );
+        _unreadCount = (_unreadCount - 1).clamp(0, 999);
+      });
+    }
     await NotificationService.instance.markAsRead(n.id);
-    _load();
+    if (mounted) _load();
   }
 
   Future<void> _markAllAsRead() async {
+    if (_unreadCount == 0) return;
+    // Optimistic: clear unread styling immediately for instant feedback
+    setState(() {
+      _notifications = _notifications.map((n) {
+        if (!n.isRead) {
+          return AppNotification(
+            id: n.id,
+            type: n.type,
+            message: n.message,
+            data: n.data,
+            readAt: DateTime.now().toIso8601String(),
+            createdAt: n.createdAt,
+          );
+        }
+        return n;
+      }).toList();
+      _unreadCount = 0;
+    });
     await NotificationService.instance.markAllAsRead();
-    _load();
+    if (mounted) _load();
   }
 
   void _onTapNotification(AppNotification n) {

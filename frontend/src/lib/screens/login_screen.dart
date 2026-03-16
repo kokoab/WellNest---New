@@ -22,6 +22,21 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _submitLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) return;
+    setState(() => _isLoading = true);
+    final error = await AuthService.instance.login(email, password);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    Navigator.pushReplacementNamed(context, '/dashboard');
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color wellGreen = kPrimaryGreen;
@@ -34,12 +49,13 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: kBackgroundCream,
         elevation: 0,
         foregroundColor: kPrimaryGreen,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
-          onPressed: () {
-            // Navigate back to the Splash/Welcome screen
-            Navigator.pop(context);
-          },
+        leading: Semantics(
+          button: true,
+          label: 'Back',
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -85,16 +101,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     AppSpacing.gapV8,
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        hintText: 'Enter your email',
-                        hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                    Semantics(
+                      textField: true,
+                      label: 'Email',
+                      hint: 'Enter your email',
+                      child: TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          hintText: 'Enter your email',
+                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                        ),
                       ),
                     ),
                     AppSpacing.gapV16,
@@ -107,16 +129,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     AppSpacing.gapV8,
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        hintText: 'Enter your password',
-                        hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                    Semantics(
+                      textField: true,
+                      label: 'Password',
+                      hint: 'Enter your password',
+                      child: TextFormField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) _submitLogin();
+                        },
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          hintText: 'Enter your password',
+                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                        ),
                       ),
                     ),
                   ],
@@ -124,32 +155,16 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               AppSpacing.gapV24,
               // Enter Button
-              SizedBox(
-                width: double.infinity,
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
-                    : ElevatedButton(
-                        onPressed: () async {
-                          final email = _emailController.text.trim();
-                          final password = _passwordController.text;
-                          if (email.isEmpty || password.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Enter email and password')),
-                            );
-                            return;
-                          }
-                          setState(() => _isLoading = true);
-                          final error = await AuthService.instance.login(email, password);
-                          if (!mounted) return;
-                          setState(() => _isLoading = false);
-                          if (error != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error)),
-                            );
-                            return;
-                          }
-                          Navigator.pushReplacementNamed(context, '/dashboard');
-                        },
+              Semantics(
+                button: true,
+                label: 'Log in',
+                enabled: !_isLoading,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
+                      : ElevatedButton(
+                          onPressed: _submitLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: nestOrange,
                           foregroundColor: Colors.white,
@@ -159,6 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: const Text('Enter'),
                       ),
+                ),
               ),
               AppSpacing.gapV24,
               // Connect: Navigate to Register page

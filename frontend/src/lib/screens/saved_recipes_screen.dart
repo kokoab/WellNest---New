@@ -131,11 +131,12 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
         itemCount: _recipes.length,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           final recipe = _recipes[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _buildRecipeCard(recipe),
+            child: RepaintBoundary(child: _buildRecipeCard(recipe)),
           );
         },
       ),
@@ -157,6 +158,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
         );
         if (mounted) _load();
       },
+      semanticLabel: 'View recipe, ${recipe.title}',
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -182,6 +184,8 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                     ? Image.network(
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,
+                        cacheWidth: 180,
+                        cacheHeight: 180,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Container(

@@ -28,7 +28,9 @@ class _FeedPageState extends State<FeedPage> {
   static const Color nestOrange = Color(0xFFEF5026);
 
   final ApiService _apiService = ApiService();
-  late Future<List<Post>> _postsFuture;
+  List<Post> _posts = [];
+  bool _loading = true;
+  Object? _loadError;
   final Map<int, bool> _postLiked = {};
   CurrentUser? _currentUser;
   final Map<int, List<PostComment>> _postComments = {};
@@ -58,81 +60,134 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _loadPosts() async {
-    setState(() => _postsFuture = _apiService.fetchPosts());
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final posts = await _apiService.fetchPosts();
+      if (!mounted) return;
+      setState(() {
+        _posts = posts;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+        _loading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading && _posts.isEmpty) {
+      return const SafeArea(
+        child: Center(child: CircularProgressIndicator(color: Color(0xFF097333))),
+      );
+    }
+    if (_loadError != null && _posts.isEmpty) {
+      return SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Error: $_loadError', textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () {
+                    setState(() => _loadError = null);
+                    _loadPosts();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final posts = _posts;
+
     return SafeArea(
-      child: FutureBuilder<List<Post>>(
-        future: _postsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF097333)));
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
-
-          final posts = snapshot.data ?? [];
-
-          return RefreshIndicator(
+      child: RefreshIndicator(
             onRefresh: () async {
               await _loadPosts();
               await _loadUser();
             },
             color: wellGreen,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppSpacing.gapV8,
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                    child: WellnestHeader(),
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppSpacing.gapV8,
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                          child: WellnestHeader(),
+                        ),
+                        AppSpacing.gapV16,
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                          child: Text(
+                            'Feed',
+                            style: TextStyle(
+                              fontFamily: 'Recoleta',
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                        ),
+                        if (AuthService.instance.isLoggedIn) ...[
+                          _buildCreatePostBox(),
+                          const SizedBox(height: 20),
+                        ],
+                      ],
+                    ),
                   ),
-                  AppSpacing.gapV16,
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                    child: const Text(
-                      'Feed',
-                      style: TextStyle(
-                        fontFamily: 'Recoleta',
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryGreen,
+                ),
+                ),
+                if (posts.isEmpty && !AuthService.instance.isLoggedIn)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: Text('No posts yet. Sign in to create one!')),
+                    ),
+                  )
+                else if (posts.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: Text('No posts yet. Share something!')),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => RepaintBoundary(child: _buildFeedCard(posts[index])),
+                        childCount: posts.length,
                       ),
                     ),
                   ),
-                  if (AuthService.instance.isLoggedIn) ...[
-                    _buildCreatePostBox(),
-                    const SizedBox(height: 20),
-                  ],
-                  if (posts.isEmpty && !AuthService.instance.isLoggedIn)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Sign in to create one!')),
-                    )
-                  else if (posts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Share something!')),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: posts.length,
-                      itemBuilder: (context, index) => _buildFeedCard(posts[index]),
-                    ),
-                const SizedBox(height: 100),
-                ],
-              ),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
             ),
-          );
-        },
-      ),
+          ),
     );
   }
 
@@ -333,6 +388,8 @@ class _FeedPageState extends State<FeedPage> {
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      cacheWidth: 800,
+                      cacheHeight: 360,
                       errorBuilder: (context, error, stackTrace) => Container(
                       color: AppColors.imagePlaceholderGreen,
                       height: 180,
@@ -781,7 +838,7 @@ class _PickRecipePage extends StatelessWidget {
             leading: r.displayImageUrl != null && r.displayImageUrl!.isNotEmpty
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(r.displayImageUrl!, width: 48, height: 48, fit: BoxFit.cover),
+                    child: Image.network(r.displayImageUrl!, width: 48, height: 48, fit: BoxFit.cover, cacheWidth: 96, cacheHeight: 96),
                   )
                 : Icon(Icons.restaurant, color: _wellGreen),
             title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),

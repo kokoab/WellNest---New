@@ -187,16 +187,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 )
               else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < _myRecipes.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(right: i < _myRecipes.length - 1 ? 15 : 0),
-                          child: _buildRecipeMiniCard(_myRecipes[i]),
-                        ),
-                    ],
+                SizedBox(
+                  height: 200,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _myRecipes.length,
+                    itemBuilder: (context, index) => Padding(
+                      padding: EdgeInsets.only(right: index < _myRecipes.length - 1 ? 15 : 0),
+                      child: RepaintBoundary(child: _buildRecipeMiniCard(_myRecipes[index])),
+                    ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -298,6 +297,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,
                         width: double.infinity,
+                        cacheWidth: 320,
+                        cacheHeight: 360,
                         errorBuilder: (_, __, ___) => _placeholderImage(),
                       )
                     : _placeholderImage(),

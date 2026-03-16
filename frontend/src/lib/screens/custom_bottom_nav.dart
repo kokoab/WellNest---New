@@ -34,10 +34,10 @@ class CustomBottomNav extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Expanded(child: _NavItem(icon: Icons.grid_view_rounded, active: currentIndex == 0, onTap: () => onTap(0))),
-            Expanded(child: _NavItem(icon: Icons.dynamic_feed_rounded, active: currentIndex == 1, onTap: () => onTap(1))),
-            Expanded(child: _NavItem(icon: Icons.bookmark_rounded, active: currentIndex == 2, onTap: () => onTap(2))),
-            Expanded(child: _NavItem(icon: Icons.person_rounded, active: currentIndex == 3, onTap: () => onTap(3))),
+            Expanded(child: _NavItem(icon: Icons.grid_view_rounded, label: 'Discover', active: currentIndex == 0, onTap: () => onTap(0))),
+            Expanded(child: _NavItem(icon: Icons.dynamic_feed_rounded, label: 'Feed', active: currentIndex == 1, onTap: () => onTap(1))),
+            Expanded(child: _NavItem(icon: Icons.bookmark_rounded, label: 'Saved recipes', active: currentIndex == 2, onTap: () => onTap(2))),
+            Expanded(child: _NavItem(icon: Icons.person_rounded, label: 'Profile', active: currentIndex == 3, onTap: () => onTap(3))),
           ],
         ),
       ),
@@ -47,11 +47,13 @@ class CustomBottomNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final String label;
   final bool active;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
+    required this.label,
     required this.active,
     required this.onTap,
   });
@@ -59,13 +61,17 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const activeColor = AppColors.primaryGreen;
-    final inactiveColor = AppColors.primaryGreen.withOpacity(0.4);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: AnimatedContainer(
+    final inactiveColor = AppColors.primaryGreen.withValues(alpha: 0.5);
+    return Semantics(
+      button: true,
+      label: label,
+      selected: active,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -80,6 +86,7 @@ class _NavItem extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

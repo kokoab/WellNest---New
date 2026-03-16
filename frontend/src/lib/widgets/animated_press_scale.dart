@@ -3,14 +3,18 @@ import 'package:my_app/theme/app_theme.dart';
 
 /// Wraps a child with a press-scale micro-interaction.
 /// Scales down to 0.95 on tap down and back to 1.0 on release/cancel.
+/// Provide [semanticLabel] for screen readers when the child has no text.
 class AnimatedPressScale extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
+  /// Optional label for accessibility (e.g. "View recipe").
+  final String? semanticLabel;
 
   const AnimatedPressScale({
     super.key,
     required this.child,
     this.onTap,
+    this.semanticLabel,
   });
 
   @override
@@ -58,7 +62,7 @@ class _AnimatedPressScaleState extends State<AnimatedPressScale>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final gesture = GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
@@ -72,5 +76,14 @@ class _AnimatedPressScaleState extends State<AnimatedPressScale>
         child: widget.child,
       ),
     );
+    if (widget.semanticLabel != null) {
+      return Semantics(
+        button: true,
+        label: widget.semanticLabel,
+        enabled: widget.onTap != null,
+        child: gesture,
+      );
+    }
+    return gesture;
   }
 }

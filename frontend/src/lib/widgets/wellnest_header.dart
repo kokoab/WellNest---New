@@ -33,9 +33,13 @@ class WellnestHeader extends StatelessWidget {
             ),
           ],
         ),
-        NotificationsDropdown(
-          iconColor: AppColors.accentOrange,
-          child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
+        Semantics(
+          button: true,
+          label: 'Notifications',
+          child: NotificationsDropdown(
+            iconColor: AppColors.accentOrange,
+            child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
+          ),
         ),
       ],
     );
