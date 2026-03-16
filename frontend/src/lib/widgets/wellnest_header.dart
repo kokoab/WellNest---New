@@ -3,9 +3,8 @@ import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
-/// Logo + "Wellnest" on the left, notification bell on the right.
+/// Logo + "Wellnest" on the left, notification bell + chat on the right.
 class WellnestHeader extends StatelessWidget {
-  /// Logo height and icon size for consistency across all pages.
   static const double logoHeight = 40.0;
   static const double iconSize = 28.0;
   static const double fontSize = 22.0;
@@ -17,10 +16,14 @@ class WellnestHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        /// LEFT SIDE (Logo + Title)
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('lib/assets/images/logo1.png', height: logoHeight),
+            Image.asset(
+              'lib/assets/images/logo1.png',
+              height: logoHeight,
+            ),
             const SizedBox(width: 10),
             Text(
               'Wellnest',
@@ -33,28 +36,33 @@ class WellnestHeader extends StatelessWidget {
             ),
           ],
         ),
-        Semantics(
-          button: true,
-          label: 'Notifications',
-          child: NotificationsDropdown(
-            iconColor: AppColors.accentOrange,
-            child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
-          ),
+
+        /// RIGHT SIDE (Chat + Notifications)
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              onPressed: () => Navigator.of(context).pushNamed('/conversations'),
-              icon: Icon(Icons.chat_bubble_outline, color: AppColors.accentOrange, size: iconSize),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed('/conversations'),
+              icon: Icon(
+                Icons.chat_bubble_outline,
+                color: AppColors.accentOrange,
+                size: iconSize,
+              ),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              constraints:
+                  const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
+
             NotificationsDropdown(
               iconColor: AppColors.accentOrange,
-              child: Icon(Icons.notifications, color: AppColors.accentOrange, size: iconSize),
+              child: Icon(
+                Icons.notifications,
+                color: AppColors.accentOrange,
+                size: iconSize,
+              ),
             ),
           ],
->>>>>>> 4920c2f48a8398edddc773b30af14325362f738e
         ),
       ],
     );
