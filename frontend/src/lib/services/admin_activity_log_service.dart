@@ -4,11 +4,11 @@ import '../config/app_config.dart';
 import '../models/activity_log.dart';
 import 'admin_auth_service.dart';
 
-/// API calls for admin activity logs (list and CSV export).
-class AdminActivityLogService {
-  AdminActivityLogService._();
-  static final AdminActivityLogService _instance = AdminActivityLogService._();
-  static AdminActivityLogService get instance => _instance;
+/// API calls for admin audit logs (list and CSV export).
+class AdminAuditLogService {
+  AdminAuditLogService._();
+  static final AdminAuditLogService _instance = AdminAuditLogService._();
+  static AdminAuditLogService get instance => _instance;
 
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
@@ -18,7 +18,7 @@ class AdminActivityLogService {
         ...AdminAuthService.instance.authHeaders,
       };
 
-  /// GET /api/admin/activity-logs — paginated. Optional category, action.
+  /// GET /api/admin/audit-logs — paginated. Optional category, action.
   Future<ActivityLogListResponse> fetchLogs({
     int page = 1,
     String? category,
@@ -27,7 +27,7 @@ class AdminActivityLogService {
     final params = <String, String>{'page': '$page'};
     if (category != null && category.isNotEmpty) params['category'] = category;
     if (action != null && action.isNotEmpty) params['action'] = action;
-    final uri = Uri.parse('$_baseUrl/admin/activity-logs').replace(queryParameters: params);
+    final uri = Uri.parse('$_baseUrl/admin/audit-logs').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -42,12 +42,12 @@ class AdminActivityLogService {
     _throwFromResponse(response);
   }
 
-  /// GET /api/admin/activity-logs/export — returns CSV bytes. Optional category (default 'all').
+  /// GET /api/admin/audit-logs/export — returns CSV bytes. Optional category (default 'all').
   /// Caller is responsible for saving/sharing the file (e.g. via path_provider + share_plus).
   Future<List<int>> exportCsv({String category = 'all'}) async {
     final uri = category == 'all'
-        ? Uri.parse('$_baseUrl/admin/activity-logs/export')
-        : Uri.parse('$_baseUrl/admin/activity-logs/export').replace(queryParameters: {'category': category});
+        ? Uri.parse('$_baseUrl/admin/audit-logs/export')
+        : Uri.parse('$_baseUrl/admin/audit-logs/export').replace(queryParameters: {'category': category});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       return response.bodyBytes;

@@ -30,6 +30,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'profile_photo_url',
         'status',
         'is_admin',
     ];

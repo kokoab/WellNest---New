@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
@@ -8,7 +9,6 @@ import 'package:my_app/models/recipe.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
-import 'package:my_app/screens/conversations_list_screen.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/recipe_service.dart';
@@ -30,6 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Recipe> _myRecipes = [];
   List<Post> _myPosts = [];
   bool _loading = true;
+  bool _uploadingPhoto = false;
   String? _error;
 
   @override
@@ -97,31 +98,35 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: EdgeInsets.symmetric(vertical: 60),
                 child: Center(child: CircularProgressIndicator(color: wellGreen)),
               )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: nestOrange)),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: ValueKey('retry_${Theme.of(context).brightness}'),
-                      onPressed: _load,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
             else ...[
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: const Color(0xFFFFEECC),
-                child: Text(
-                  _displayInitials(),
-                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: wellGreen),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: nestOrange.withOpacity(0.1),
+                      border: Border.all(color: nestOrange),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: nestOrange, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: nestOrange, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              
+              _buildProfileAvatar(),
               const SizedBox(height: 10),
               Text(
                 _user?.displayName ?? 'Guest',
@@ -270,6 +275,113 @@ class _ProfilePageState extends State<ProfilePage> {
     final first = _user!.firstName.isNotEmpty ? _user!.firstName[0] : '';
     final last = _user!.lastName.isNotEmpty ? _user!.lastName[0] : '';
     return '${first.toUpperCase()}${last.toUpperCase()}'.trim();
+  }
+
+  Widget _buildProfileAvatar() {
+    final photoUrl = _user?.displayProfilePhotoUrl;
+    return GestureDetector(
+      onTap: AuthService.instance.isLoggedIn && !_uploadingPhoto ? _pickAndUploadProfilePhoto : null,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: 60,
+            backgroundColor: const Color(0xFFFFEECC),
+            child: photoUrl != null && photoUrl.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      photoUrl,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      cacheWidth: 240,
+                      cacheHeight: 240,
+                      errorBuilder: (_, __, ___) => _initialsContent(),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                        );
+                      },
+                    ),
+                  )
+                : _initialsContent(),
+          ),
+          if (AuthService.instance.isLoggedIn && !_uploadingPhoto)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: wellGreen,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                ),
+                child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+              ),
+            ),
+          if (_uploadingPhoto)
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black38,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _initialsContent() {
+    return Text(
+      _displayInitials(),
+      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: wellGreen),
+    );
+  }
+
+  Future<void> _pickAndUploadProfilePhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (image == null || !mounted) return;
+    setState(() {
+      _uploadingPhoto = true;
+    });
+    try {
+      await UserService.instance.uploadProfilePhoto(image);
+      if (!mounted) return;
+      // Only refresh the user data, not the entire page
+      final user = await UserService.instance.fetchCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg), backgroundColor: nestOrange),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingPhoto = false);
+      }
+    }
   }
 
   Widget _buildStatColumn(String value, String label) {

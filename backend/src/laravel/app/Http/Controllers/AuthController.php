@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Services\ActivityLogService;
 
 class AuthController extends Controller
@@ -111,5 +112,39 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Profile updated', 'user' => $user]);
+    }
+
+    public function uploadProfilePhoto(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+        ]);
+
+        $user = $request->user();
+
+        // Delete existing profile photo if any
+        if ($user->profile_photo_url) {
+            $path = parse_url($user->profile_photo_url, PHP_URL_PATH);
+            if ($path && str_starts_with($path, '/storage/')) {
+                $relativePath = substr($path, strlen('/storage/'));
+                Storage::disk('public')->delete($relativePath);
+            }
+        }
+
+        $file = $request->file('image');
+        $path = $file->store('profile-photos', 'public');
+        $baseUrl = rtrim(config('app.url'), '/');
+        $imageUrl = $baseUrl . '/storage/' . $path;
+
+        $user->profile_photo_url = $imageUrl;
+        $user->save();
+
+        ActivityLogService::log('user_account_updates', 'account_update_profile_photo', 'Profile photo updated', $user->id, $user);
+
+        return response()->json([
+            'message' => 'Profile photo uploaded successfully',
+            'profile_photo_url' => $imageUrl,
+            'user' => $user->fresh(),
+        ], 201);
     }
 }

@@ -10,8 +10,12 @@ import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/theme/app_spacing.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
+
+// ─── Nav sections ─────────────────────────────────────────────────────────────
+enum _Section { overview, users, moderation, auditLogs }
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -20,12 +24,11 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
-  // Brand Colors
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color accentYellow = Color(0xFFFDB813);
-  static const Color lightGrey = Color(0xFFF5F5F5);
+class _AdminDashboardState extends State<AdminDashboard>
+    with SingleTickerProviderStateMixin {
+  // ── state ──────────────────────────────────────────────────────────────────
+  _Section _currentSection = _Section.overview;
+  bool _sidebarCollapsed = false;
 
   List<AdminUser> _users = [];
   bool _loading = true;
@@ -39,9 +42,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _recipeTotal = 0;
   bool _recipeTotalLoading = true;
 
-  List<ActivityLog> _activityLogs = [];
+  List<ActivityLog> _auditLogs = [];
   bool _logsLoading = true;
   String? _logsError;
+
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
@@ -49,53 +53,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void initState() {
     super.initState();
+    _loadAll();
+  }
+
+  void _loadAll() {
     _loadUsers();
     _loadReports();
     _loadRecipeTotal();
-    _loadActivityLogs();
+    _loadAuditLogs();
   }
 
+  // ── loaders ────────────────────────────────────────────────────────────────
   Future<void> _loadReports() async {
     if (!mounted) return;
-    setState(() {
-      _reportsLoading = true;
-      _reportsError = null;
-    });
+    setState(() { _reportsLoading = true; _reportsError = null; });
     try {
       final list = await AdminModerationService.instance.fetchReports();
       if (!mounted) return;
-      setState(() {
-        _reports = list;
-        _reportsLoading = false;
-      });
+      setState(() { _reports = list; _reportsLoading = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _reportsError = e.toString().replaceFirst('Exception: ', '');
-        _reportsLoading = false;
-      });
+      setState(() { _reportsError = e.toString().replaceFirst('Exception: ', ''); _reportsLoading = false; });
     }
   }
 
   Future<void> _loadUsers() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       final list = await AdminUserService.instance.fetchUsers();
       if (!mounted) return;
-      setState(() {
-        _users = list;
-        _loading = false;
-      });
+      setState(() { _users = list; _loading = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _loading = false;
-      });
+      setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }
   }
 
@@ -105,38 +96,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final res = await RecipeService.instance.fetchRecipes(page: 1);
       if (!mounted) return;
-      setState(() {
-        _recipeTotal = res.total;
-        _recipeTotalLoading = false;
-      });
+      setState(() { _recipeTotal = res.total; _recipeTotalLoading = false; });
     } catch (_) {
       if (!mounted) return;
       setState(() => _recipeTotalLoading = false);
     }
   }
 
-  Future<void> _loadActivityLogs() async {
+  Future<void> _loadAuditLogs() async {
     if (!mounted) return;
-    setState(() {
-      _logsLoading = true;
-      _logsError = null;
-    });
+    setState(() { _logsLoading = true; _logsError = null; });
     try {
-      final res = await AdminActivityLogService.instance.fetchLogs(page: 1);
+      final res = await AdminAuditLogService.instance.fetchLogs(page: 1);
       if (!mounted) return;
-      setState(() {
-        _activityLogs = res.logs;
-        _logsLoading = false;
-      });
+      setState(() { _auditLogs = res.logs; _logsLoading = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _logsError = e.toString().replaceFirst('Exception: ', '');
-        _logsLoading = false;
-      });
+      setState(() { _logsError = e.toString().replaceFirst('Exception: ', ''); _logsLoading = false; });
     }
   }
 
+  // ── CSV helpers ────────────────────────────────────────────────────────────
   String _escapeCsv(String? s) {
     if (s == null || s.isEmpty) return '';
     if (s.contains(',') || s.contains('"') || s.contains('\n')) {
@@ -149,45 +129,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (_exportingReportsCsv) return;
     setState(() => _exportingReportsCsv = true);
     try {
-      final rows = <String>[
-        'id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label',
-      ];
+      final rows = <String>['id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label'];
       for (final r in _reports) {
         final type = r.reportable?.type ?? '';
         final id = r.reportable?.id ?? 0;
         final label = r.reportableLabel.replaceAll(',', ' ').replaceAll('\n', ' ');
-        rows.add([
-          r.id,
-          _escapeCsv(r.reporter),
-          _escapeCsv(r.reason),
-          _escapeCsv(r.details),
-          _escapeCsv(r.status),
-          _escapeCsv(r.createdAt),
-          _escapeCsv(type),
-          id,
-          _escapeCsv(label),
-        ].join(','));
+        rows.add([r.id, _escapeCsv(r.reporter), _escapeCsv(r.reason), _escapeCsv(r.details), _escapeCsv(r.status), _escapeCsv(r.createdAt), _escapeCsv(type), id, _escapeCsv(label)].join(','));
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
       final xfile = XFile.fromData(bytes, name: 'content_reports_export.csv', mimeType: 'text/csv');
-      await Share.shareXFiles(
-        [xfile],
-        subject: 'WellNest Content Reports Export',
-        text: 'Content moderation reports CSV export',
-      );
+      await Share.shareXFiles([xfile], subject: 'WellNest Content Reports Export');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reports exported'), backgroundColor: wellGreen),
-      );
+      _showSnack('Reports exported');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _exportingReportsCsv = false);
     }
@@ -200,8 +157,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final totalUsers = _users.length;
       final activeUsers = _users.where((u) => u.isActive).length;
       final totalRecipes = _recipeTotal;
-
-      // Fetch multiple pages of recipes to find most popular (by ratings_count)
       final allRecipes = <Recipe>[];
       for (var page = 1; page <= 5; page++) {
         final res = await RecipeService.instance.fetchRecipes(page: page);
@@ -212,21 +167,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final aCount = a.ratingsCount ?? 0;
         final bCount = b.ratingsCount ?? 0;
         if (aCount != bCount) return bCount.compareTo(aCount);
-        final aRate = a.averageRating ?? 0;
-        final bRate = b.averageRating ?? 0;
-        return bRate.compareTo(aRate);
+        return (b.averageRating ?? 0).compareTo(a.averageRating ?? 0);
       });
       final topRecipes = allRecipes.take(25).toList();
-
-      final rows = <String>[
-        'Metric,Value',
-        'Total Users,$totalUsers',
-        'Active Users,$activeUsers',
-        'Total Recipes,$totalRecipes',
-        '',
-        'Most Popular Recipes',
-        'rank,id,title,category,average_rating,ratings_count',
-      ];
+      final rows = <String>['Metric,Value', 'Total Users,$totalUsers', 'Active Users,$activeUsers', 'Total Recipes,$totalRecipes', '', 'Most Popular Recipes', 'rank,id,title,category,average_rating,ratings_count'];
       for (var i = 0; i < topRecipes.length; i++) {
         final r = topRecipes[i];
         final cat = r.category?.name ?? '';
@@ -237,23 +181,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
       final xfile = XFile.fromData(bytes, name: 'admin_insights_export.csv', mimeType: 'text/csv');
-      await Share.shareXFiles(
-        [xfile],
-        subject: 'WellNest Admin Insights Report',
-        text: 'Total users, recipes, active users, and most popular recipes',
-      );
+      await Share.shareXFiles([xfile], subject: 'WellNest Admin Insights Report');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insights report exported'), backgroundColor: wellGreen),
-      );
+      _showSnack('Insights report exported');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _exportingInsightsCsv = false);
     }
@@ -270,75 +203,41 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
       final xfile = XFile.fromData(bytes, name: 'users_export.csv', mimeType: 'text/csv');
-      await Share.shareXFiles(
-        [xfile],
-        subject: 'WellNest Users Export',
-        text: 'Registered users list',
-      );
+      await Share.shareXFiles([xfile], subject: 'WellNest Users Export');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Users exported'), backgroundColor: wellGreen),
-      );
+      _showSnack('Users exported');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _exportingUsersCsv = false);
     }
   }
 
+  // ── user actions ───────────────────────────────────────────────────────────
   List<AdminUser> get _filteredUsers {
     if (_searchQuery.trim().isEmpty) return _users;
     final q = _searchQuery.trim().toLowerCase();
-    return _users.where((u) {
-      return u.email.toLowerCase().contains(q) || u.name.toLowerCase().contains(q);
-    }).toList();
+    return _users.where((u) => u.email.toLowerCase().contains(q) || u.name.toLowerCase().contains(q)).toList();
   }
 
   Future<void> _confirmDeactivate(AdminUser user) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Deactivate account?'),
-        content: Text(
-          'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: nestOrange),
-            child: const Text('Deactivate'),
-          ),
-        ],
-      ),
+    final ok = await _showConfirmDialog(
+      title: 'Deactivate account?',
+      content: 'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
+      actionLabel: 'Deactivate',
+      actionColor: kAccentOrange,
     );
     if (ok != true || !mounted) return;
     await _updateStatus(user.id, 'inactive');
   }
 
   Future<void> _confirmActivate(AdminUser user) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Activate account?'),
-        content: Text(
-          'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: wellGreen),
-            child: const Text('Activate'),
-          ),
-        ],
-      ),
+    final ok = await _showConfirmDialog(
+      title: 'Activate account?',
+      content: 'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
+      actionLabel: 'Activate',
+      actionColor: kPrimaryGreen,
     );
     if (ok != true || !mounted) return;
     await _updateStatus(user.id, 'active');
@@ -348,605 +247,74 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       await AdminUserService.instance.updateUserStatus(userId, status);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(status == 'active' ? 'Account activated' : 'Account deactivated'),
-          backgroundColor: wellGreen,
-        ),
-      );
+      _showSnack(status == 'active' ? 'Account activated' : 'Account deactivated');
       _loadUsers();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
   }
 
   Future<void> _confirmDelete(AdminUser user) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete account permanently?'),
-        content: Text(
-          'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final ok = await _showConfirmDialog(
+      title: 'Delete account permanently?',
+      content: 'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
+      actionLabel: 'Delete',
+      actionColor: Colors.red,
     );
     if (ok != true || !mounted) return;
-    await _deleteUser(user.id);
-  }
-
-  Future<void> _deleteUser(int userId) async {
     try {
-      await AdminUserService.instance.deleteUser(userId);
+      await AdminUserService.instance.deleteUser(user.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account deleted'), backgroundColor: wellGreen),
-      );
+      _showSnack('Account deleted');
       _loadUsers();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-              await _loadUsers();
-              await _loadReports();
-              await _loadRecipeTotal();
-              await _loadActivityLogs();
-            },
-          color: wellGreen,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // --- APP BAR ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildIconButton(Icons.grid_view_rounded),
-                    Image.asset('lib/assets/images/logo1.png', height: 45),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        NotificationsDropdown(
-                          iconColor: nestOrange,
-                          child: const Icon(Icons.notifications, color: nestOrange, size: 28),
-                        ),
-                        IconButton(
-                          onPressed: () async {
-                        await AdminAuthService.instance.logoutAdmin();
-                        if (!context.mounted) return;
-                        Navigator.pushNamedAndRemoveUntil(context, '/admin_login', (r) => false);
-                          },
-                          icon: const Icon(Icons.logout, color: nestOrange, size: 28),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                // --- WELCOME TEXT ---
-                const Text(
-                  "Admin Console",
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: wellGreen,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const Text(
-                  "Manage your WellNest community",
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const SizedBox(height: 25),
-                // --- SEARCH BAR (filter users) ---
-                TextField(
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  decoration: InputDecoration(
-                    hintText: 'Search users by name or email...',
-                    prefixIcon: const Icon(Icons.search, color: wellGreen),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                // --- STATISTICS ---
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildModernStatCard(
-                        "Users",
-                        _loading ? '…' : '${_users.length}',
-                        Icons.people_alt_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: _buildModernStatCard(
-                        "Active",
-                        _loading ? '…' : '${_users.where((u) => u.isActive).length}',
-                        Icons.person_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildModernStatCard(
-                        "Recipes",
-                        _recipeTotalLoading ? '…' : '$_recipeTotal',
-                        Icons.restaurant_menu_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: _buildModernStatCard(
-                        "Reports",
-                        _reportsLoading ? '…' : '${_reports.length}',
-                        Icons.flag_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _exportingInsightsCsv ? null : _exportInsightsCsv,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: wellGreen,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  icon: _exportingInsightsCsv
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Icon(Icons.download_rounded, size: 22),
-                  label: Text(_exportingInsightsCsv ? 'Exporting…' : 'Export Insights (Users, Recipes, Popular)'),
-                ),
-                const SizedBox(height: 25),
-                // --- ACTIVITY LOGS & EXPORT ---
-                _buildActivityLogsSection(),
-                const SizedBox(height: 25),
-                // --- MANAGE USERS SECTION ---
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: accentYellow,
-                    borderRadius: BorderRadius.circular(35),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [accentYellow, accentYellow.withOpacity(0.8)],
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Manage Users',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: wellGreen,
-                            ),
-                          ),
-                          if (_loading)
-                            const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: _loadUsers,
-                                  icon: const Icon(Icons.refresh_rounded, color: wellGreen),
-                                ),
-                                FilledButton.icon(
-                                  onPressed: _exportingUsersCsv ? null : _exportUsersCsv,
-                                  style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                                  icon: _exportingUsersCsv
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.download_rounded, size: 18),
-                                  label: Text(_exportingUsersCsv ? 'Exporting…' : 'Export CSV'),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      if (_loading && _users.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(
-                            child: CircularProgressIndicator(color: wellGreen),
-                          ),
-                        )
-                      else if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: nestOrange),
-                              ),
-                              const SizedBox(height: 16),
-                              FilledButton(
-                                onPressed: _loadUsers,
-                                style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        )
-                      else if (_filteredUsers.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            _searchQuery.isEmpty ? 'No users yet' : 'No users match your search',
-                            style: const TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        )
-                      else
-                        ..._filteredUsers.map(
-                          (user) => _UserTile(
-                            user: user,
-                            onDeactivate: _confirmDeactivate,
-                            onActivate: _confirmActivate,
-                            onDelete: _confirmDelete,
-                          ),
-                        ),
-                      const SizedBox(height: 10),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 25),
-                // --- CONTENT MODERATION SECTION ---
-                _buildModerationSection(),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIconButton(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: lightGrey,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Icon(icon, color: nestOrange, size: 28),
-    );
-  }
-
-  Widget _buildModerationSection() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: accentYellow,
-        borderRadius: BorderRadius.circular(35),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [accentYellow, accentYellow.withOpacity(0.8)],
-        ),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Content Moderation',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: wellGreen,
-                ),
-              ),
-              if (_reportsLoading)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
-                )
-              else
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: _loadReports,
-                      icon: const Icon(Icons.refresh_rounded, color: wellGreen),
-                    ),
-                    FilledButton.icon(
-                      onPressed: _exportingReportsCsv ? null : _exportReportsCsv,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                      icon: _exportingReportsCsv
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download_rounded, size: 18),
-                      label: Text(_exportingReportsCsv ? 'Exporting…' : 'Export CSV'),
-                    ),
-                    if (_reports.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: _confirmDeleteAllReports,
-                        icon: const Icon(Icons.delete_sweep_rounded, color: nestOrange, size: 24),
-                        tooltip: 'Delete all reports',
-                      ),
-                    ],
-                  ],
-                ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (_reportsLoading && _reports.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: CircularProgressIndicator(color: wellGreen),
-              ),
-            )
-          else if (_reportsError != null)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Text(
-                    _reportsError!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: nestOrange),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _loadReports,
-                    style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          else if (_reports.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No pending reports',
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            )
-          else
-            ..._reports.map(
-              (r) => _ReportTile(
-                report: r,
-                onDismiss: () => _handleReportAction(r.id, 'dismiss'),
-                onApprove: () => _handleReportAction(r.id, 'approve'),
-                onRemoveContent: r.isRecipeReport || r.isPostReport
-                    ? () => _handleReportAction(r.id, 'remove-content')
-                    : null,
-                onSuspendUser:
-                    r.isUserReport ? () => _handleReportAction(r.id, 'suspend-user') : null,
-              ),
-            ),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityLogsSection() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: accentYellow,
-        borderRadius: BorderRadius.circular(35),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [accentYellow, accentYellow.withOpacity(0.8)],
-        ),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Activity Logs & Reports',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: wellGreen,
-                ),
-              ),
-              if (_logsLoading)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
-                )
-              else
-                IconButton(
-                  onPressed: _loadActivityLogs,
-                  icon: const Icon(Icons.refresh_rounded, color: wellGreen),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Recent activity (login, moderation, content).',
-            style: TextStyle(fontSize: 13, color: wellGreen.withOpacity(0.9)),
-          ),
-          const SizedBox(height: 16),
-          if (_logsLoading && _activityLogs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator(color: wellGreen)),
-            )
-          else if (_logsError != null)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Text(_logsError!, textAlign: TextAlign.center, style: const TextStyle(color: nestOrange)),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _loadActivityLogs,
-                    style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          else if (_activityLogs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No activity logs yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
-            )
-          else
-            ..._activityLogs.take(15).map(
-                  (log) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: lightGrey),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.history_rounded, color: nestOrange, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                log.description,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: Colors.black87,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${log.category} · ${log.action}${log.actorName != null ? ' · ${log.actorName}' : ''}',
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
-                              ),
-                              if (log.createdAt != null)
-                                Text(
-                                  log.createdAt!,
-                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-
   Future<void> _confirmDeleteAllReports() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete all reports?'),
-        content: const Text(
-          'Permanently delete all pending reports? This cannot be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
+    final ok = await _showConfirmDialog(
+      title: 'Delete all reports?',
+      content: 'Permanently delete all pending reports? This cannot be undone.',
+      actionLabel: 'Delete All',
+      actionColor: Colors.red,
     );
     if (ok != true || !mounted) return;
     try {
       await AdminModerationService.instance.deleteAllReports();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All reports deleted'), backgroundColor: wellGreen),
-      );
+      _showSnack('All reports deleted');
       _loadReports();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
+  }
+
+  Future<bool?> _showConfirmDialog({
+    required String title,
+    required String content,
+    required String actionLabel,
+    required Color actionColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: actionColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleReportAction(int reportId, String action) async {
@@ -955,319 +323,1172 @@ class _AdminDashboardState extends State<AdminDashboard> {
         case 'dismiss':
           await AdminModerationService.instance.dismiss(reportId);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report dismissed'), backgroundColor: wellGreen),
-          );
+          _showSnack('Report dismissed');
           break;
         case 'approve':
           await AdminModerationService.instance.approve(reportId);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report approved'), backgroundColor: wellGreen),
-          );
+          _showSnack('Report approved');
           break;
         case 'remove-content':
           await AdminModerationService.instance.removeContent(reportId);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Content removed'), backgroundColor: wellGreen),
-          );
+          _showSnack('Content removed');
           break;
         case 'suspend-user':
           await AdminModerationService.instance.suspendUser(reportId);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User suspended'), backgroundColor: wellGreen),
-          );
+          _showSnack('User suspended');
           break;
       }
       _loadReports();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
-        ),
-      );
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
   }
 
-  Widget _buildModernStatCard(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: lightGrey),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: nestOrange, size: 30),
-          const SizedBox(height: 15),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: wellGreen),
-          ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
-          ),
-        ],
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? kAccentOrange : kPrimaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(AppSpacing.md),
       ),
     );
   }
-}
 
-class _UserTile extends StatelessWidget {
-  final AdminUser user;
-  final void Function(AdminUser) onDeactivate;
-  final void Function(AdminUser) onActivate;
-  final void Function(AdminUser) onDelete;
-
-  const _UserTile({
-    required this.user,
-    required this.onDeactivate,
-    required this.onActivate,
-    required this.onDelete,
-  });
-
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color lightGrey = Color(0xFFF5F5F5);
-
+  // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: lightGrey),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: wellGreen.withOpacity(0.2),
-                child: Text(
-                  (user.name.isNotEmpty ? user.name[0] : user.email.isNotEmpty ? user.email[0] : '?')
-                      .toUpperCase(),
-                  style: const TextStyle(color: wellGreen, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.name.isEmpty ? 'No name' : user.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      user.email,
-                      style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              _StatusChip(isActive: user.isActive),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (user.isActive)
-                TextButton.icon(
-                  onPressed: () => onDeactivate(user),
-                  icon: const Icon(Icons.person_off, size: 18, color: nestOrange),
-                  label: const Text('Deactivate', style: TextStyle(color: nestOrange)),
-                )
-              else
-                TextButton.icon(
-                  onPressed: () => onActivate(user),
-                  icon: const Icon(Icons.person_add, size: 18, color: wellGreen),
-                  label: const Text('Activate', style: TextStyle(color: wellGreen)),
-                ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: () => onDelete(user),
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                label: const Text('Delete', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        ],
+    final theme = Theme.of(context);
+    final isWide = MediaQuery.sizeOf(context).width >= 800;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: isWide ? _buildWideLayout(theme) : _buildNarrowLayout(theme),
       ),
     );
   }
-}
 
-class _ReportTile extends StatelessWidget {
-  final Report report;
-  final VoidCallback onDismiss;
-  final VoidCallback onApprove;
-  final VoidCallback? onRemoveContent;
-  final VoidCallback? onSuspendUser;
-
-  const _ReportTile({
-    required this.report,
-    required this.onDismiss,
-    required this.onApprove,
-    this.onRemoveContent,
-    this.onSuspendUser,
-  });
-
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color lightGrey = Color(0xFFF5F5F5);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: lightGrey),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  // ── wide layout (sidebar + content) ───────────────────────────────────────
+  Widget _buildWideLayout(ThemeData theme) {
+    return Row(
+      children: [
+        _Sidebar(
+          collapsed: _sidebarCollapsed,
+          currentSection: _currentSection,
+          onSectionChanged: (s) => setState(() => _currentSection = s),
+          onToggleCollapsed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
+          onLogout: _handleLogout,
+          theme: theme,
+        ),
+        Expanded(
+          child: Column(
             children: [
-              Icon(
-                report.isUserReport
-                    ? Icons.person
-                    : report.isRecipeReport
-                        ? Icons.restaurant_menu
-                        : Icons.article,
-                color: nestOrange,
-                size: 24,
+              _TopBar(
+                theme: theme,
+                currentSection: _currentSection,
+                onRefresh: _loadAll,
               ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      report.reportableLabel,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (report.reporter != null)
-                      Text(
-                        'Reported by ${report.reporter}',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                    if (report.reason != null && report.reason!.isNotEmpty)
-                      Text(
-                        'Reason: ${report.reason}',
-                        style: const TextStyle(color: Colors.black54, fontSize: 13),
-                      ),
-                    if (report.details != null && report.details!.isNotEmpty)
-                      Text(
-                        report.details!,
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: wellGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  report.reportable?.type ?? 'unknown',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: wellGreen,
+                child: RefreshIndicator(
+                  onRefresh: () async => _loadAll(),
+                  color: kPrimaryGreen,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: _buildSectionContent(theme, isWide: true),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              TextButton.icon(
-                onPressed: onDismiss,
-                icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                label: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
-              ),
-              TextButton.icon(
-                onPressed: onApprove,
-                icon: const Icon(Icons.check_circle_outline, size: 16, color: wellGreen),
-                label: const Text('Approve', style: TextStyle(color: wellGreen)),
-              ),
-              if (onRemoveContent != null)
-                TextButton.icon(
-                  onPressed: onRemoveContent,
-                  icon: const Icon(Icons.delete_outline, size: 16, color: nestOrange),
-                  label: const Text('Remove', style: TextStyle(color: nestOrange)),
+        ),
+      ],
+    );
+  }
+
+  // ── narrow layout (bottom nav or drawer) ──────────────────────────────────
+  Widget _buildNarrowLayout(ThemeData theme) {
+    return Column(
+      children: [
+        _TopBar(theme: theme, currentSection: _currentSection, onRefresh: _loadAll, showMenuButton: true, onMenuPressed: _handleLogout),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async => _loadAll(),
+            color: kPrimaryGreen,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: _buildSectionContent(theme, isWide: false),
+            ),
+          ),
+        ),
+        _BottomNav(
+          currentSection: _currentSection,
+          onSectionChanged: (s) => setState(() => _currentSection = s),
+          theme: theme,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    await AdminAuthService.instance.logoutAdmin();
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/admin_login', (r) => false);
+  }
+
+  // ── section content router ─────────────────────────────────────────────────
+  Widget _buildSectionContent(ThemeData theme, {required bool isWide}) {
+    switch (_currentSection) {
+      case _Section.overview:
+        return _OverviewSection(
+          theme: theme,
+          isWide: isWide,
+          users: _users,
+          loading: _loading,
+          reports: _reports,
+          reportsLoading: _reportsLoading,
+          recipeTotal: _recipeTotal,
+          recipeTotalLoading: _recipeTotalLoading,
+          auditLogs: _auditLogs,
+          exportingInsightsCsv: _exportingInsightsCsv,
+          onExportInsights: _exportInsightsCsv,
+        );
+      case _Section.users:
+        return _UsersSection(
+          theme: theme,
+          users: _filteredUsers,
+          loading: _loading,
+          error: _error,
+          searchQuery: _searchQuery,
+          onSearchChanged: (v) => setState(() => _searchQuery = v),
+          onRefresh: _loadUsers,
+          onExport: _exportingUsersCsv ? null : _exportUsersCsv,
+          exporting: _exportingUsersCsv,
+          onDeactivate: _confirmDeactivate,
+          onActivate: _confirmActivate,
+          onDelete: _confirmDelete,
+        );
+      case _Section.moderation:
+        return _ModerationSection(
+          theme: theme,
+          reports: _reports,
+          loading: _reportsLoading,
+          error: _reportsError,
+          onRefresh: _loadReports,
+          onExport: _exportingReportsCsv ? null : _exportReportsCsv,
+          exporting: _exportingReportsCsv,
+          onDeleteAll: _confirmDeleteAllReports,
+          onReportAction: _handleReportAction,
+        );
+      case _Section.auditLogs:
+        return _AuditLogsSection(
+          theme: theme,
+          logs: _auditLogs,
+          loading: _logsLoading,
+          error: _logsError,
+          onRefresh: _loadAuditLogs,
+        );
+    }
+  }
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+class _Sidebar extends StatelessWidget {
+  final bool collapsed;
+  final _Section currentSection;
+  final ValueChanged<_Section> onSectionChanged;
+  final VoidCallback onToggleCollapsed;
+  final VoidCallback onLogout;
+  final ThemeData theme;
+
+  const _Sidebar({
+    required this.collapsed,
+    required this.currentSection,
+    required this.onSectionChanged,
+    required this.onToggleCollapsed,
+    required this.onLogout,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final width = collapsed ? 72.0 : 220.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      width: width,
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(
+          right: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          // Logo / collapse toggle
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+              children: [
+                if (!collapsed)
+                  Image.asset('lib/assets/images/logo1.png', height: 36),
+                InkWell(
+                  onTap: onToggleCollapsed,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      collapsed ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
                 ),
-              if (onSuspendUser != null)
-                TextButton.icon(
-                  onPressed: onSuspendUser,
-                  icon: const Icon(Icons.block, size: 16, color: Colors.red),
-                  label: const Text('Suspend', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          // Nav items
+          _NavItem(section: _Section.overview, currentSection: currentSection, icon: Icons.dashboard_rounded, label: 'Overview', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
+          _NavItem(section: _Section.users, currentSection: currentSection, icon: Icons.people_alt_rounded, label: 'Users', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
+          _NavItem(section: _Section.moderation, currentSection: currentSection, icon: Icons.shield_rounded, label: 'Moderation', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
+          _NavItem(section: _Section.auditLogs, currentSection: currentSection, icon: Icons.history_rounded, label: 'Audit Logs', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
+          const Spacer(),
+          // Logout
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : AppSpacing.md, vertical: AppSpacing.lg),
+            child: InkWell(
+              onTap: onLogout,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : AppSpacing.md, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  children: [
+                    Icon(Icons.logout_rounded, color: kAccentOrange, size: 20),
+                    if (!collapsed) ...[
+                      AppSpacing.gapH8,
+                      Text('Logout', style: TextStyle(color: kAccentOrange, fontWeight: FontWeight.w600, fontSize: 14)),
+                    ],
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final _Section section;
+  final _Section currentSection;
+  final IconData icon;
+  final String label;
+  final bool collapsed;
+  final ValueChanged<_Section> onTap;
+  final ThemeData theme;
+
+  const _NavItem({
+    required this.section,
+    required this.currentSection,
+    required this.icon,
+    required this.label,
+    required this.collapsed,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = section == currentSection;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 12, vertical: 3),
+      child: Tooltip(
+        message: collapsed ? label : '',
+        preferBelow: false,
+        child: InkWell(
+          onTap: () => onTap(section),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? kPrimaryGreen.withValues(alpha: isDark ? 0.25 : 0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isActive ? kPrimaryGreen : theme.colorScheme.onSurfaceVariant,
+                ),
+                if (!collapsed) ...[
+                  AppSpacing.gapH8,
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive ? kPrimaryGreen : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bottom nav (narrow screens) ──────────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final _Section currentSection;
+  final ValueChanged<_Section> onSectionChanged;
+  final ThemeData theme;
+
+  const _BottomNav({required this.currentSection, required this.onSectionChanged, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06))),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _BottomNavItem(icon: Icons.dashboard_rounded, label: 'Overview', section: _Section.overview, currentSection: currentSection, onTap: onSectionChanged),
+          _BottomNavItem(icon: Icons.people_alt_rounded, label: 'Users', section: _Section.users, currentSection: currentSection, onTap: onSectionChanged),
+          _BottomNavItem(icon: Icons.shield_rounded, label: 'Reports', section: _Section.moderation, currentSection: currentSection, onTap: onSectionChanged),
+          _BottomNavItem(icon: Icons.history_rounded, label: 'Logs', section: _Section.auditLogs, currentSection: currentSection, onTap: onSectionChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final _Section section;
+  final _Section currentSection;
+  final ValueChanged<_Section> onTap;
+
+  const _BottomNavItem({required this.icon, required this.label, required this.section, required this.currentSection, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = section == currentSection;
+    return InkWell(
+      onTap: () => onTap(section),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: isActive ? kPrimaryGreen : Colors.grey),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400, color: isActive ? kPrimaryGreen : Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Top bar ──────────────────────────────────────────────────────────────────
+class _TopBar extends StatelessWidget {
+  final ThemeData theme;
+  final _Section currentSection;
+  final VoidCallback onRefresh;
+  final bool showMenuButton;
+  final VoidCallback? onMenuPressed;
+
+  const _TopBar({
+    required this.theme,
+    required this.currentSection,
+    required this.onRefresh,
+    this.showMenuButton = false,
+    this.onMenuPressed,
+  });
+
+  String get _title {
+    switch (currentSection) {
+      case _Section.overview: return 'Overview';
+      case _Section.users: return 'User Management';
+      case _Section.moderation: return 'Content Moderation';
+      case _Section.auditLogs: return 'Audit Logs';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        border: Border(
+          bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (showMenuButton)
+            IconButton(
+              onPressed: onMenuPressed,
+              icon: const Icon(Icons.logout_rounded),
+              color: kAccentOrange,
+            ),
+          if (!showMenuButton) Image.asset('lib/assets/images/logo1.png', height: 32),
+          AppSpacing.gapH16,
+          Text(
+            _title,
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 18),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: onRefresh,
+            icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20),
+            tooltip: 'Refresh',
+          ),
+          NotificationsDropdown(
+            iconColor: kAccentOrange,
+            child: Icon(Icons.notifications_outlined, color: kAccentOrange, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Overview Section ─────────────────────────────────────────────────────────
+class _OverviewSection extends StatelessWidget {
+  final ThemeData theme;
+  final bool isWide;
+  final List<AdminUser> users;
+  final bool loading;
+  final List<Report> reports;
+  final bool reportsLoading;
+  final int recipeTotal;
+  final bool recipeTotalLoading;
+  final List<ActivityLog> auditLogs;
+  final bool exportingInsightsCsv;
+  final VoidCallback onExportInsights;
+
+  const _OverviewSection({
+    required this.theme,
+    required this.isWide,
+    required this.users,
+    required this.loading,
+    required this.reports,
+    required this.reportsLoading,
+    required this.recipeTotal,
+    required this.recipeTotalLoading,
+    required this.auditLogs,
+    required this.exportingInsightsCsv,
+    required this.onExportInsights,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeUsers = users.where((u) => u.isActive).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Welcome
+        Text('Good day, Admin', style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+        AppSpacing.gapV4,
+        Text(
+          'Here\'s a snapshot of your WellNest community.',
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        AppSpacing.gapV24,
+        // Stat cards
+        isWide
+            ? Row(
+                children: [
+                  Expanded(child: _StatCard(theme: theme, title: 'Total Users', value: loading ? '…' : '${users.length}', icon: Icons.people_alt_rounded, color: const Color(0xFF3C6DF0))),
+                  AppSpacing.gapH16,
+                  Expanded(child: _StatCard(theme: theme, title: 'Active Users', value: loading ? '…' : '$activeUsers', icon: Icons.person_rounded, color: kPrimaryGreen)),
+                  AppSpacing.gapH16,
+                  Expanded(child: _StatCard(theme: theme, title: 'Total Recipes', value: recipeTotalLoading ? '…' : '$recipeTotal', icon: Icons.restaurant_menu_rounded, color: const Color(0xFFFFC700))),
+                  AppSpacing.gapH16,
+                  Expanded(child: _StatCard(theme: theme, title: 'Open Reports', value: reportsLoading ? '…' : '${reports.length}', icon: Icons.flag_rounded, color: const Color(0xFFEA4C89))),
+                ],
+              )
+            : Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: _StatCard(theme: theme, title: 'Total Users', value: loading ? '…' : '${users.length}', icon: Icons.people_alt_rounded, color: const Color(0xFF3C6DF0))),
+                      AppSpacing.gapH12,
+                      Expanded(child: _StatCard(theme: theme, title: 'Active Users', value: loading ? '…' : '$activeUsers', icon: Icons.person_rounded, color: kPrimaryGreen)),
+                    ],
+                  ),
+                  AppSpacing.gapV12,
+                  Row(
+                    children: [
+                      Expanded(child: _StatCard(theme: theme, title: 'Total Recipes', value: recipeTotalLoading ? '…' : '$recipeTotal', icon: Icons.restaurant_menu_rounded, color: const Color(0xFFFFC700))),
+                      AppSpacing.gapH12,
+                      Expanded(child: _StatCard(theme: theme, title: 'Open Reports', value: reportsLoading ? '…' : '${reports.length}', icon: Icons.flag_rounded, color: const Color(0xFFEA4C89))),
+                    ],
+                  ),
+                ],
+              ),
+        AppSpacing.gapV24,
+        // Export insights button
+        FilledButton.icon(
+          onPressed: exportingInsightsCsv ? null : onExportInsights,
+          style: FilledButton.styleFrom(
+            backgroundColor: kPrimaryGreen,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          ),
+          icon: exportingInsightsCsv
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Icon(Icons.download_rounded, size: 20),
+          label: Text(exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report'),
+        ),
+        AppSpacing.gapV24,
+        // Recent activity summary
+        _SectionHeader(theme: theme, title: 'Recent Activity', subtitle: 'Last 5 activity logs'),
+        AppSpacing.gapV12,
+        if (auditLogs.isEmpty)
+          _EmptyState(theme: theme, message: 'No audit logs yet')
+        else
+          _RecentLogsList(theme: theme, logs: auditLogs.take(5).toList()),
+        AppSpacing.gapV32,
+      ],
+    );
+  }
+}
+
+class _RecentLogsList extends StatelessWidget {
+  final ThemeData theme;
+  final List<ActivityLog> logs;
+
+  const _RecentLogsList({required this.theme, required this.logs});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      theme: theme,
+      child: Column(
+        children: logs.asMap().entries.map((e) {
+          final log = e.value;
+          final isLast = e.key == logs.length - 1;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: kPrimaryGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.history_rounded, size: 18, color: kPrimaryGreen),
+                    ),
+                    AppSpacing.gapH12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(log.description, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface), overflow: TextOverflow.ellipsis),
+                          AppSpacing.gapV4,
+                          Text('${log.actorName ?? 'System'} • ${log.category}', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    AppSpacing.gapH8,
+                    Text(log.createdAt ?? '', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              if (!isLast) Divider(height: 1, color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Users Section ────────────────────────────────────────────────────────────
+class _UsersSection extends StatelessWidget {
+  final ThemeData theme;
+  final List<AdminUser> users;
+  final bool loading;
+  final String? error;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onRefresh;
+  final VoidCallback? onExport;
+  final bool exporting;
+  final void Function(AdminUser) onDeactivate;
+  final void Function(AdminUser) onActivate;
+  final void Function(AdminUser) onDelete;
+
+  const _UsersSection({
+    required this.theme,
+    required this.users,
+    required this.loading,
+    required this.error,
+    required this.searchQuery,
+    required this.onSearchChanged,
+    required this.onRefresh,
+    required this.onExport,
+    required this.exporting,
+    required this.onDeactivate,
+    required this.onActivate,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SectionHeader(theme: theme, title: 'Registered Users', subtitle: loading ? 'Loading…' : '${users.length} users total'),
+            ),
+            if (!loading) ...[
+              IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+              FilledButton.icon(
+                onPressed: exporting ? null : onExport,
+                style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+                icon: exporting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.download_rounded, size: 18),
+                label: Text(exporting ? 'Exporting…' : 'Export'),
+              ),
+            ],
+          ],
+        ),
+        AppSpacing.gapV16,
+        // Search bar
+        TextField(
+          onChanged: onSearchChanged,
+          decoration: InputDecoration(
+            hintText: 'Search by name or email…',
+            prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            filled: true,
+            fillColor: theme.brightness == Brightness.dark ? const Color(0xFF2A2A2A) : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+        AppSpacing.gapV16,
+        if (loading && users.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+        else if (error != null)
+          _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
+        else if (users.isEmpty)
+          _EmptyState(theme: theme, message: searchQuery.isEmpty ? 'No users yet' : 'No users match your search')
+        else
+          _UsersTable(theme: theme, users: users, onDeactivate: onDeactivate, onActivate: onActivate, onDelete: onDelete),
+        AppSpacing.gapV32,
+      ],
+    );
+  }
+}
+
+// ─── Moderation Section ───────────────────────────────────────────────────────
+class _ModerationSection extends StatelessWidget {
+  final ThemeData theme;
+  final List<Report> reports;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRefresh;
+  final VoidCallback? onExport;
+  final bool exporting;
+  final VoidCallback onDeleteAll;
+  final Future<void> Function(int, String) onReportAction;
+
+  const _ModerationSection({
+    required this.theme,
+    required this.reports,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+    required this.onExport,
+    required this.exporting,
+    required this.onDeleteAll,
+    required this.onReportAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SectionHeader(theme: theme, title: 'Content Reports', subtitle: loading ? 'Loading…' : '${reports.length} pending reports'),
+            ),
+            if (!loading) ...[
+              IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+              FilledButton.icon(
+                onPressed: exporting ? null : onExport,
+                style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+                icon: exporting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.download_rounded, size: 18),
+                label: Text(exporting ? 'Exporting…' : 'Export'),
+              ),
+              if (reports.isNotEmpty) ...[
+                AppSpacing.gapH8,
+                IconButton(onPressed: onDeleteAll, icon: Icon(Icons.delete_sweep_rounded, color: kAccentOrange, size: 20), tooltip: 'Delete all reports'),
+              ],
+            ],
+          ],
+        ),
+        AppSpacing.gapV16,
+        if (loading && reports.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+        else if (error != null)
+          _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
+        else if (reports.isEmpty)
+          _EmptyState(theme: theme, message: 'No pending reports — all clear! ✓')
+        else
+          _ReportsTable(theme: theme, reports: reports, onAction: onReportAction),
+        AppSpacing.gapV32,
+      ],
+    );
+  }
+}
+
+// ─── Audit Logs Section ───────────────────────────────────────────────────────
+class _AuditLogsSection extends StatelessWidget {
+  final ThemeData theme;
+  final List<ActivityLog> logs;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRefresh;
+
+  const _AuditLogsSection({required this.theme, required this.logs, required this.loading, required this.error, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _SectionHeader(theme: theme, title: 'Audit Logs', subtitle: 'Recent system and moderation events')),
+            if (!loading) IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+          ],
+        ),
+        AppSpacing.gapV16,
+        if (loading && logs.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+        else if (error != null)
+          _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
+        else if (logs.isEmpty)
+          _EmptyState(theme: theme, message: 'No audit logs yet')
+        else
+          _AuditLogsTable(theme: theme, logs: logs.take(20).toList()),
+        AppSpacing.gapV32,
+      ],
+    );
+  }
+}
+
+// ─── Shared table components ──────────────────────────────────────────────────
+const _rowH = 52.0;
+const _minH = 250.0;
+const _maxH = 520.0;
+
+Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
+  final height = (rowCount * _rowH + 52.0).clamp(_minH, _maxH);
+  final isDark = theme.brightness == Brightness.dark;
+  return Container(
+    width: double.infinity,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: isDark ? theme.colorScheme.surface : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
+    ),
+    child: LayoutBuilder(builder: (ctx, constraints) {
+      return SizedBox(
+        height: height,
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(constraints: BoxConstraints(minWidth: constraints.maxWidth), child: child),
+            ),
+          ),
+        ),
+      );
+    }),
+  );
+}
+
+Widget _flexTable({
+  required ThemeData theme,
+  required Map<int, TableColumnWidth> columnWidths,
+  required List<String> headers,
+  required List<TableRow> rows,
+}) {
+  return Table(
+    columnWidths: columnWidths,
+    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+    border: TableBorder(horizontalInside: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.07))),
+    children: [
+      TableRow(
+        decoration: BoxDecoration(color: theme.brightness == Brightness.dark ? const Color(0xFF252525) : const Color(0xFFF9F9F9)),
+        children: headers.map((h) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          child: Text(h, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 10, color: theme.colorScheme.onSurfaceVariant, letterSpacing: 0.8)),
+        )).toList(),
+      ),
+      ...rows,
+    ],
+  );
+}
+
+TableRow _tableRow(ThemeData theme, List<Widget> cells, Color? bg) {
+  return TableRow(
+    decoration: BoxDecoration(color: bg),
+    children: cells.map((c) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+      child: Align(alignment: Alignment.centerLeft, child: c),
+    )).toList(),
+  );
+}
+
+// Users table
+class _UsersTable extends StatelessWidget {
+  final ThemeData theme;
+  final List<AdminUser> users;
+  final void Function(AdminUser) onDeactivate;
+  final void Function(AdminUser) onActivate;
+  final void Function(AdminUser) onDelete;
+
+  const _UsersTable({required this.theme, required this.users, required this.onDeactivate, required this.onActivate, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return _wrapTable(theme, users.length, _flexTable(
+      theme: theme,
+      columnWidths: const {0: FlexColumnWidth(0.4), 1: FlexColumnWidth(1.4), 2: FlexColumnWidth(2), 3: FlexColumnWidth(0.9), 4: FlexColumnWidth(1.2)},
+      headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+      rows: users.asMap().entries.map((e) {
+        final user = e.value;
+        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
+        return _tableRow(theme, [
+          Text('${user.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+          Text(user.name.isEmpty ? '—' : user.name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
+          Text(user.email, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          _StatusChip(isActive: user.isActive),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (user.isActive)
+                _ActionIconBtn(icon: Icons.person_off_rounded, color: kAccentOrange, tooltip: 'Deactivate', onPressed: () => onDeactivate(user))
+              else
+                _ActionIconBtn(icon: Icons.person_add_rounded, color: kPrimaryGreen, tooltip: 'Activate', onPressed: () => onActivate(user)),
+              AppSpacing.gapH4,
+              _ActionIconBtn(icon: Icons.delete_outline, color: Colors.red, tooltip: 'Delete', onPressed: () => onDelete(user)),
+            ],
+          ),
+        ], bg);
+      }).toList(),
+    ));
+  }
+}
+
+// Reports table
+class _ReportsTable extends StatelessWidget {
+  final ThemeData theme;
+  final List<Report> reports;
+  final Future<void> Function(int, String) onAction;
+
+  const _ReportsTable({required this.theme, required this.reports, required this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    return _wrapTable(theme, reports.length, _flexTable(
+      theme: theme,
+      columnWidths: const {0: FlexColumnWidth(0.35), 1: FlexColumnWidth(0.7), 2: FlexColumnWidth(1.4), 3: FlexColumnWidth(1.1), 4: FlexColumnWidth(0.9), 5: FlexColumnWidth(0.85), 6: FlexColumnWidth(1.1)},
+      headers: ['ID', 'TYPE', 'CONTENT', 'REPORTER', 'REASON', 'DATE', 'ACTIONS'],
+      rows: reports.asMap().entries.map((e) {
+        final r = e.value;
+        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
+        return _tableRow(theme, [
+          Text('${r.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+          _TypeChip(type: r.reportable?.type ?? 'unknown'),
+          Text(r.reportableLabel, overflow: TextOverflow.ellipsis, maxLines: 2, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(r.reporter ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(r.reason ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(r.createdAt, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ActionIconBtn(icon: Icons.close, color: theme.colorScheme.onSurfaceVariant, tooltip: 'Dismiss', onPressed: () => onAction(r.id, 'dismiss'), size: 16),
+              _ActionIconBtn(icon: Icons.check, color: kPrimaryGreen, tooltip: 'Approve', onPressed: () => onAction(r.id, 'approve'), size: 16),
+              if (r.isRecipeReport || r.isPostReport)
+                _ActionIconBtn(icon: Icons.delete_outline, color: kAccentOrange, tooltip: 'Remove content', onPressed: () => onAction(r.id, 'remove-content'), size: 16),
+              if (r.isUserReport)
+                _ActionIconBtn(icon: Icons.block, color: Colors.red, tooltip: 'Suspend user', onPressed: () => onAction(r.id, 'suspend-user'), size: 16),
+            ],
+          ),
+        ], bg);
+      }).toList(),
+    ));
+  }
+}
+
+// Audit logs table
+class _AuditLogsTable extends StatelessWidget {
+  final ThemeData theme;
+  final List<ActivityLog> logs;
+
+  const _AuditLogsTable({required this.theme, required this.logs});
+
+  @override
+  Widget build(BuildContext context) {
+    return _wrapTable(theme, logs.length, _flexTable(
+      theme: theme,
+      columnWidths: const {0: FlexColumnWidth(0.35), 1: FlexColumnWidth(1), 2: FlexColumnWidth(0.9), 3: FlexColumnWidth(0.9), 4: FlexColumnWidth(2), 5: FlexColumnWidth(1)},
+      headers: ['ID', 'DATE', 'CATEGORY', 'ACTION', 'DESCRIPTION', 'ACTOR'],
+      rows: logs.asMap().entries.map((e) {
+        final log = e.value;
+        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
+        return _tableRow(theme, [
+          Text('${log.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
+          Text(log.createdAt ?? '—', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+          Text(log.category, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(log.action, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(log.description, overflow: TextOverflow.ellipsis, maxLines: 2, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+          Text(log.actorName ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
+        ], bg);
+      }).toList(),
+    ));
+  }
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+class _StatCard extends StatelessWidget {
+  final ThemeData theme;
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({required this.theme, required this.title, required this.value, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
+        border: Border.all(color: color.withValues(alpha: 0.12), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          AppSpacing.gapV12,
+          Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, fontSize: 26)),
+          AppSpacing.gapV4,
+          Text(title, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Shared small widgets ──────────────────────────────────────────────────────
+class _Card extends StatelessWidget {
+  final ThemeData theme;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  const _Card({required this.theme, required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final ThemeData theme;
+  final String title;
+  final String subtitle;
+
+  const _SectionHeader({required this.theme, required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 17)),
+        AppSpacing.gapV4,
+        Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final ThemeData theme;
+  final String message;
+
+  const _EmptyState({required this.theme, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      theme: theme,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.inbox_rounded, size: 40, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            AppSpacing.gapV12,
+            Text(message, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final ThemeData theme;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.theme, required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      theme: theme,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.error_outline_rounded, size: 36, color: kAccentOrange),
+            AppSpacing.gapV12,
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: kAccentOrange, fontSize: 13)),
+            AppSpacing.gapV16,
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionIconBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final double size;
+
+  const _ActionIconBtn({required this.icon, required this.color, required this.tooltip, required this.onPressed, this.size = 18});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filledTonal(
+      onPressed: onPressed,
+      icon: Icon(icon, size: size, color: color),
+      tooltip: tooltip,
+      style: IconButton.styleFrom(padding: const EdgeInsets.all(6), minimumSize: const Size(30, 30)),
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  final String type;
+  const _TypeChip({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(color: kPrimaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kPrimaryGreen)),
     );
   }
 }
 
 class _StatusChip extends StatelessWidget {
   final bool isActive;
-
   const _StatusChip({required this.isActive});
-
-  static const Color wellGreen = Color(0xFF097333);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive ? wellGreen.withOpacity(0.15) : Colors.orange.withOpacity(0.2),
+        color: isActive ? kPrimaryGreen.withValues(alpha: 0.1) : kAccentOrange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isActive ? 'Active' : 'Deactivated',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: isActive ? wellGreen : Colors.orange.shade800,
-        ),
+        isActive ? 'Active' : 'Inactive',
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isActive ? kPrimaryGreen : kAccentOrange),
       ),
     );
   }

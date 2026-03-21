@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::patch('/user', [AuthController::class, 'updateProfile']);
+    Route::post('/user/profile-photo', [AuthController::class, 'uploadProfilePhoto']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('logout-admin', [AdminAuthController::class, 'logout']);
 
@@ -143,6 +144,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);
     Route::delete('admin/reports', [AdminModerationController::class, 'deleteAllReports']);
 
+    // Audit logs API (aliases to activity logs controller/actions)
+    Route::get('admin/audit-logs', [LogController::class, 'index']);
+    Route::get('admin/audit-logs/export', [LogController::class, 'exportCsv']);
+
+    // Kept for backward compatibility
     Route::get('admin/activity-logs', [LogController::class, 'index']);
     Route::get('admin/activity-logs/export', [LogController::class, 'exportCsv']);
 });
