@@ -16,6 +16,7 @@ import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
+
 /// Main feed screen with posts and recipes.
 class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
@@ -120,10 +121,7 @@ class _FeedPageState extends State<FeedPage> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([
-            _loadPosts(),
-            _loadUser(),
-          ]);
+          await Future.wait([_loadPosts(), _loadUser()]);
         },
         color: wellGreen,
         child: CustomScrollView(
