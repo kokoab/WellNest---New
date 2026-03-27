@@ -20,9 +20,12 @@ class AdminUserService {
 
   /// GET /api/admin/users — returns list of users.
   /// Returns list on success, or throws with message on error.
-  Future<List<AdminUser>> fetchUsers() async {
+  Future<List<AdminUser>> fetchUsers({String? range}) async {
+    final params = <String, String>{};
+    if (range != null && range.isNotEmpty) params['range'] = range;
+
     final response = await http.get(
-      Uri.parse('$_baseUrl/admin/users'),
+      Uri.parse('$_baseUrl/admin/users').replace(queryParameters: params.isEmpty ? null : params),
       headers: _headers,
     );
     if (response.statusCode == 200) {

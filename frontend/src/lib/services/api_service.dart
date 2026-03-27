@@ -8,6 +8,12 @@ import 'auth_service.dart';
 class ApiService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...AuthService.instance.authHeaders,
+      };
+
   Future<Post> createPost({
     required String content,
     String? title,
@@ -15,11 +21,7 @@ class ApiService {
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/posts'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      },
+      headers: _headers,
       body: jsonEncode({
         'content': content,
         if (title != null && title.isNotEmpty) 'title': title,
@@ -54,8 +56,24 @@ class ApiService {
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
-      final err = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(err?['message'] as String? ?? 'Failed to upload image');
+      String? message;
+      try {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        message = err['message'] as String?;
+        final errors = err['errors'];
+        if ((message == null || message.isEmpty) && errors is Map) {
+          final firstErrorList = errors.values.cast<dynamic>().firstWhere(
+                (value) => value is List && value.isNotEmpty,
+                orElse: () => null,
+              );
+          if (firstErrorList is List && firstErrorList.isNotEmpty) {
+            message = firstErrorList.first?.toString();
+          }
+        }
+      } catch (_) {
+        // Ignore non-JSON payloads and fallback below.
+      }
+      throw Exception(message ?? 'Failed to upload image (HTTP ${response.statusCode})');
     }
   }
 
@@ -64,7 +82,7 @@ class ApiService {
       queryParameters: userId != null ? {'user_id': '$userId'} : null,
     );
     try {
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: _headers); // auth headers so backend knows who's logged in
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final list = body is List ? body : <dynamic>[];

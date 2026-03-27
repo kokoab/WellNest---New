@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Services\ActivityLogService;
+use Carbon\Carbon;
 
 class AdminUserController extends Controller
 {
@@ -20,7 +21,17 @@ class AdminUserController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $users = User::orderBy('created_at', 'desc')
+        $range = $request->query('range');
+
+        $usersQuery = User::query()
+            ->orderBy('created_at', 'desc');
+
+        $startDate = $this->resolveStartDate($range);
+        if ($startDate !== null) {
+            $usersQuery->where('created_at', '>=', $startDate);
+        }
+
+        $users = $usersQuery
             ->get()
             ->map(fn(User $u) => [
                 'id' => $u->id,
@@ -91,5 +102,15 @@ class AdminUserController extends Controller
 
         ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $admin->id, $user);
         return response()->json(null, 204);
+    }
+
+    private function resolveStartDate(?string $range): ?Carbon
+    {
+        return match ($range) {
+            'weekly' => now()->subWeek(),
+            'monthly' => now()->subMonth(),
+            'yearly' => now()->subYear(),
+            default => null,
+        };
     }
 }

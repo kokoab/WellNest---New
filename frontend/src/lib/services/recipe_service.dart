@@ -35,11 +35,13 @@ class RecipeService {
     int? userId,
     String? search,
     int page = 1,
+    String? range,
   }) async {
     final params = <String, String>{'page': '$page'};
     if (categoryId != null) params['category_id'] = '$categoryId';
     if (userId != null) params['user_id'] = '$userId';
     if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+    if (range != null && range.trim().isNotEmpty) params['range'] = range.trim();
     final uri = Uri.parse('$_baseUrl/recipes').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headersForRead);
     if (response.statusCode == 200) {

@@ -17,6 +17,16 @@ import 'package:share_plus/share_plus.dart';
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 enum _Section { overview, users, moderation, auditLogs }
 
+enum _DateRangeFilter {
+  weekly('weekly', 'Weekly'),
+  monthly('monthly', 'Monthly'),
+  yearly('yearly', 'Yearly');
+
+  const _DateRangeFilter(this.apiValue, this.label);
+  final String apiValue;
+  final String label;
+}
+
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -34,10 +44,12 @@ class _AdminDashboardState extends State<AdminDashboard>
   bool _loading = true;
   String? _error;
   String _searchQuery = '';
+  _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
 
   List<Report> _reports = [];
   bool _reportsLoading = true;
   String? _reportsError;
+  _DateRangeFilter _reportsRange = _DateRangeFilter.monthly;
 
   int _recipeTotal = 0;
   bool _recipeTotalLoading = true;
@@ -45,10 +57,12 @@ class _AdminDashboardState extends State<AdminDashboard>
   List<ActivityLog> _auditLogs = [];
   bool _logsLoading = true;
   String? _logsError;
+  _DateRangeFilter _logsRange = _DateRangeFilter.monthly;
 
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
+  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
 
   @override
   void initState() {
@@ -68,7 +82,9 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (!mounted) return;
     setState(() { _reportsLoading = true; _reportsError = null; });
     try {
-      final list = await AdminModerationService.instance.fetchReports();
+      final list = await AdminModerationService.instance.fetchReports(
+        range: _reportsRange.apiValue,
+      );
       if (!mounted) return;
       setState(() { _reports = list; _reportsLoading = false; });
     } catch (e) {
@@ -81,7 +97,9 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final list = await AdminUserService.instance.fetchUsers();
+      final list = await AdminUserService.instance.fetchUsers(
+        range: _usersRange.apiValue,
+      );
       if (!mounted) return;
       setState(() { _users = list; _loading = false; });
     } catch (e) {
@@ -107,7 +125,10 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (!mounted) return;
     setState(() { _logsLoading = true; _logsError = null; });
     try {
-      final res = await AdminAuditLogService.instance.fetchLogs(page: 1);
+      final res = await AdminAuditLogService.instance.fetchLogs(
+        page: 1,
+        range: _logsRange.apiValue,
+      );
       if (!mounted) return;
       setState(() { _auditLogs = res.logs; _logsLoading = false; });
     } catch (e) {
@@ -154,15 +175,27 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (_exportingInsightsCsv) return;
     setState(() => _exportingInsightsCsv = true);
     try {
-      final totalUsers = _users.length;
-      final activeUsers = _users.where((u) => u.isActive).length;
-      final totalRecipes = _recipeTotal;
+      final filteredUsers = await AdminUserService.instance.fetchUsers(
+        range: _insightsRange.apiValue,
+      );
+      final filteredReports = await AdminModerationService.instance.fetchReports(
+        range: _insightsRange.apiValue,
+      );
+
+      final totalUsers = filteredUsers.length;
+      final activeUsers = filteredUsers.where((u) => u.isActive).length;
+
       final allRecipes = <Recipe>[];
       for (var page = 1; page <= 5; page++) {
-        final res = await RecipeService.instance.fetchRecipes(page: page);
+        final res = await RecipeService.instance.fetchRecipes(
+          page: page,
+          range: _insightsRange.apiValue,
+        );
         allRecipes.addAll(res.recipes);
         if (res.recipes.length < 10) break;
       }
+      final totalRecipes = allRecipes.length;
+
       allRecipes.sort((a, b) {
         final aCount = a.ratingsCount ?? 0;
         final bCount = b.ratingsCount ?? 0;
@@ -170,7 +203,17 @@ class _AdminDashboardState extends State<AdminDashboard>
         return (b.averageRating ?? 0).compareTo(a.averageRating ?? 0);
       });
       final topRecipes = allRecipes.take(25).toList();
-      final rows = <String>['Metric,Value', 'Total Users,$totalUsers', 'Active Users,$activeUsers', 'Total Recipes,$totalRecipes', '', 'Most Popular Recipes', 'rank,id,title,category,average_rating,ratings_count'];
+      final rows = <String>[
+        'Metric,Value',
+        'Range,${_insightsRange.label}',
+        'Total Users,$totalUsers',
+        'Active Users,$activeUsers',
+        'Total Recipes,$totalRecipes',
+        'Open Reports,${filteredReports.length}',
+        '',
+        'Most Popular Recipes',
+        'rank,id,title,category,average_rating,ratings_count'
+      ];
       for (var i = 0; i < topRecipes.length; i++) {
         final r = topRecipes[i];
         final cat = r.category?.name ?? '';
@@ -458,6 +501,8 @@ class _AdminDashboardState extends State<AdminDashboard>
           recipeTotalLoading: _recipeTotalLoading,
           auditLogs: _auditLogs,
           exportingInsightsCsv: _exportingInsightsCsv,
+          selectedInsightsRange: _insightsRange,
+          onInsightsRangeChanged: (range) => setState(() => _insightsRange = range),
           onExportInsights: _exportInsightsCsv,
         );
       case _Section.users:
@@ -468,6 +513,11 @@ class _AdminDashboardState extends State<AdminDashboard>
           error: _error,
           searchQuery: _searchQuery,
           onSearchChanged: (v) => setState(() => _searchQuery = v),
+          selectedRange: _usersRange,
+          onRangeChanged: (range) {
+            setState(() => _usersRange = range);
+            _loadUsers();
+          },
           onRefresh: _loadUsers,
           onExport: _exportingUsersCsv ? null : _exportUsersCsv,
           exporting: _exportingUsersCsv,
@@ -481,6 +531,11 @@ class _AdminDashboardState extends State<AdminDashboard>
           reports: _reports,
           loading: _reportsLoading,
           error: _reportsError,
+          selectedRange: _reportsRange,
+          onRangeChanged: (range) {
+            setState(() => _reportsRange = range);
+            _loadReports();
+          },
           onRefresh: _loadReports,
           onExport: _exportingReportsCsv ? null : _exportReportsCsv,
           exporting: _exportingReportsCsv,
@@ -493,6 +548,11 @@ class _AdminDashboardState extends State<AdminDashboard>
           logs: _auditLogs,
           loading: _logsLoading,
           error: _logsError,
+          selectedRange: _logsRange,
+          onRangeChanged: (range) {
+            setState(() => _logsRange = range);
+            _loadAuditLogs();
+          },
           onRefresh: _loadAuditLogs,
         );
     }
@@ -802,6 +862,8 @@ class _OverviewSection extends StatelessWidget {
   final bool recipeTotalLoading;
   final List<ActivityLog> auditLogs;
   final bool exportingInsightsCsv;
+  final _DateRangeFilter selectedInsightsRange;
+  final ValueChanged<_DateRangeFilter> onInsightsRangeChanged;
   final VoidCallback onExportInsights;
 
   const _OverviewSection({
@@ -815,6 +877,8 @@ class _OverviewSection extends StatelessWidget {
     required this.recipeTotalLoading,
     required this.auditLogs,
     required this.exportingInsightsCsv,
+    required this.selectedInsightsRange,
+    required this.onInsightsRangeChanged,
     required this.onExportInsights,
   });
 
@@ -832,7 +896,6 @@ class _OverviewSection extends StatelessWidget {
           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         AppSpacing.gapV24,
-        // Stat cards
         isWide
             ? Row(
                 children: [
@@ -866,17 +929,26 @@ class _OverviewSection extends StatelessWidget {
               ),
         AppSpacing.gapV24,
         // Export insights button
-        FilledButton.icon(
-          onPressed: exportingInsightsCsv ? null : onExportInsights,
-          style: FilledButton.styleFrom(
-            backgroundColor: kPrimaryGreen,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          ),
-          icon: exportingInsightsCsv
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Icon(Icons.download_rounded, size: 20),
-          label: Text(exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report'),
+        Row(
+          children: [
+            _DateRangeDropdown(
+              value: selectedInsightsRange,
+              onChanged: onInsightsRangeChanged,
+            ),
+            AppSpacing.gapH8,
+            FilledButton.icon(
+              onPressed: exportingInsightsCsv ? null : onExportInsights,
+              style: FilledButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              ),
+              icon: exportingInsightsCsv
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.download_rounded, size: 20),
+              label: Text(exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report'),
+            ),
+          ],
         ),
         AppSpacing.gapV24,
         // Recent activity summary
@@ -954,6 +1026,8 @@ class _UsersSection extends StatelessWidget {
   final String? error;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
+  final _DateRangeFilter selectedRange;
+  final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
   final VoidCallback? onExport;
   final bool exporting;
@@ -968,6 +1042,8 @@ class _UsersSection extends StatelessWidget {
     required this.error,
     required this.searchQuery,
     required this.onSearchChanged,
+    required this.selectedRange,
+    required this.onRangeChanged,
     required this.onRefresh,
     required this.onExport,
     required this.exporting,
@@ -986,6 +1062,11 @@ class _UsersSection extends StatelessWidget {
             Expanded(
               child: _SectionHeader(theme: theme, title: 'Registered Users', subtitle: loading ? 'Loading…' : '${users.length} users total'),
             ),
+            _DateRangeDropdown(
+              value: selectedRange,
+              onChanged: onRangeChanged,
+            ),
+            AppSpacing.gapH8,
             if (!loading) ...[
               IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
               FilledButton.icon(
@@ -1031,6 +1112,8 @@ class _ModerationSection extends StatelessWidget {
   final List<Report> reports;
   final bool loading;
   final String? error;
+  final _DateRangeFilter selectedRange;
+  final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
   final VoidCallback? onExport;
   final bool exporting;
@@ -1042,6 +1125,8 @@ class _ModerationSection extends StatelessWidget {
     required this.reports,
     required this.loading,
     required this.error,
+    required this.selectedRange,
+    required this.onRangeChanged,
     required this.onRefresh,
     required this.onExport,
     required this.exporting,
@@ -1059,6 +1144,11 @@ class _ModerationSection extends StatelessWidget {
             Expanded(
               child: _SectionHeader(theme: theme, title: 'Content Reports', subtitle: loading ? 'Loading…' : '${reports.length} pending reports'),
             ),
+            _DateRangeDropdown(
+              value: selectedRange,
+              onChanged: onRangeChanged,
+            ),
+            AppSpacing.gapH8,
             if (!loading) ...[
               IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
               FilledButton.icon(
@@ -1095,9 +1185,19 @@ class _AuditLogsSection extends StatelessWidget {
   final List<ActivityLog> logs;
   final bool loading;
   final String? error;
+  final _DateRangeFilter selectedRange;
+  final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
 
-  const _AuditLogsSection({required this.theme, required this.logs, required this.loading, required this.error, required this.onRefresh});
+  const _AuditLogsSection({
+    required this.theme,
+    required this.logs,
+    required this.loading,
+    required this.error,
+    required this.selectedRange,
+    required this.onRangeChanged,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1107,6 +1207,11 @@ class _AuditLogsSection extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _SectionHeader(theme: theme, title: 'Audit Logs', subtitle: 'Recent system and moderation events')),
+            _DateRangeDropdown(
+              value: selectedRange,
+              onChanged: onRangeChanged,
+            ),
+            AppSpacing.gapH8,
             if (!loading) IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
           ],
         ),
@@ -1433,6 +1538,82 @@ class _ErrorState extends StatelessWidget {
               style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
               child: const Text('Retry'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateRangeDropdown extends StatelessWidget {
+  final _DateRangeFilter value;
+  final ValueChanged<_DateRangeFilter> onChanged;
+
+  const _DateRangeDropdown({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final menuTextColor = Theme.of(context).colorScheme.onSurface;
+
+    return PopupMenuButton<_DateRangeFilter>(
+      tooltip: 'Date range',
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1F1F1F)
+          : Colors.white,
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      onSelected: onChanged,
+      itemBuilder: (context) => _DateRangeFilter.values.map((range) {
+        final isSelected = range == value;
+        return PopupMenuItem<_DateRangeFilter>(
+          value: range,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                child: isSelected
+                    ? const Icon(Icons.check_rounded, size: 14, color: kPrimaryGreen)
+                    : null,
+              ),
+              AppSpacing.gapH8,
+              Text(
+                range.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: menuTextColor,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: kPrimaryGreen,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.event_rounded, size: 14, color: Colors.white),
+            AppSpacing.gapH8,
+            Text(
+              value.label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.white),
           ],
         ),
       ),

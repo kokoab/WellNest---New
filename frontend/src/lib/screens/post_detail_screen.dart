@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
@@ -18,20 +20,24 @@ class PostDetailScreen extends StatefulWidget {
   State<PostDetailScreen> createState() => _PostDetailScreenState();
 }
 
-class _PostDetailScreenState extends State<PostDetailScreen> {
+class _PostDetailScreenState extends State<PostDetailScreen> with RouteAware {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
 
   late Post _post;
   bool _liked = false;
+  bool _liking = false;
   List<PostComment> _comments = [];
   bool _commentsLoaded = false;
+  bool _submittingComment = false;
+  XFile? _selectedImage;
   final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _post = widget.post;
+    _liked = _post.isLiked;
     _loadComments();
   }
 
@@ -53,24 +59,29 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  String _getInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : '?';
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(source: ImageSource.gallery);
+    if (x != null && mounted) setState(() => _selectedImage = x);
   }
 
   Future<void> _addComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _selectedImage == null) return;
+    if (_submittingComment) return;
+    setState(() => _submittingComment = true);
     try {
-      final comment = await PostService.instance.addComment(_post.id, text);
+      final comment = await PostService.instance.addComment(
+        _post.id,
+        text,
+        image: _selectedImage,
+      );
       if (comment != null && mounted) {
         _commentController.clear();
-        setState(() => _comments = [..._comments, comment]);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comment added'), backgroundColor: wellGreen),
-        );
+        setState(() {
+          _selectedImage = null;
+          _comments = [..._comments, comment];
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -78,6 +89,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
+    } finally {
+      if (mounted) setState(() => _submittingComment = false);
     }
   }
 
@@ -104,11 +117,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Post header: Avatar + User info + Options
+                        // Post header
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InitialsAvatar(name: _post.userName, size: 48),
+                            InitialsAvatar(
+                              name: _post.userName,
+                              size: 48,
+                              imageUrl: _post.userProfilePhotoUrl,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -155,17 +172,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     if (ok == true) {
                                       try {
                                         await ReportService.instance.reportPost(_post.id);
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Report submitted')),
-                                          );
-                                        }
+                                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted')));
                                       } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-                                          );
-                                        }
+                                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
                                       }
                                     }
                                   }
@@ -176,25 +185,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               ),
                           ],
                         ),
-                        // Main post content
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                          child: Text(
-                            _post.content,
-                            style: const TextStyle(
-                              fontFamily: 'HelveticaNow',
-                              fontSize: 18,
-                              color: kBodyTextDark,
-                              height: 1.4,
+                        // Post content
+                        if (_post.content.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            child: Text(
+                              _post.content,
+                              style: const TextStyle(
+                                fontFamily: 'HelveticaNow',
+                                fontSize: 18,
+                                color: kBodyTextDark,
+                                height: 1.4,
+                              ),
                             ),
                           ),
-                        ),
                         if (_post.imageUrl.isNotEmpty) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: Image.network(
                               _post.imageUrl,
-                              height: 240,
                               width: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Container(
@@ -211,7 +220,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           children: [
                             if (AuthService.instance.isLoggedIn)
                               TextButton.icon(
-                                onPressed: () async {
+                                onPressed: _liking ? null : () async {
+                                  setState(() => _liking = true);
                                   try {
                                     if (_liked) {
                                       await VoteService.instance.unlikePost(_post.id);
@@ -221,25 +231,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       if (mounted) setState(() => _liked = true);
                                     }
                                   } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(e.toString())),
-                                      );
-                                    }
+                                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                                  } finally {
+                                    if (mounted) setState(() => _liking = false);
                                   }
                                 },
-                                icon: Icon(
-                                  _liked ? Icons.favorite : Icons.favorite_border,
-                                  color: nestOrange,
-                                  size: 22,
-                                ),
+                                icon: _liking
+                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: nestOrange))
+                                    : Icon(_liked ? Icons.favorite : Icons.favorite_border, color: nestOrange, size: 22),
                                 label: Text(
                                   _liked ? 'Liked' : 'Like',
                                   style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w600),
                                 ),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: nestOrange,
-                                ),
+                                style: TextButton.styleFrom(foregroundColor: nestOrange),
                               ),
                             const Spacer(),
                             if (_post.recipeId != null)
@@ -247,24 +251,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 color: const Color(0x1A097333),
                                 borderRadius: BorderRadius.circular(20),
                                 child: InkWell(
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      fullscreenDialog: true,
-                                      builder: (context) => RecipeDetailScreen(recipeId: _post.recipeId!),
-                                    ),
-                                  ),
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                                    fullscreenDialog: true,
+                                    builder: (context) => RecipeDetailScreen(recipeId: _post.recipeId!),
+                                  )),
                                   borderRadius: BorderRadius.circular(20),
                                   child: const Padding(
                                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                    child: Text(
-                                      'View Recipe',
-                                      style: TextStyle(
-                                        color: wellGreen,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
+                                    child: Text('View Recipe', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600, fontSize: 14)),
                                   ),
                                 ),
                               ),
@@ -274,22 +268,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ),
                   ),
                 ),
-                // Divider between post and comments
-                const SliverToBoxAdapter(
-                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEAE6DF)),
-                ),
+                const SliverToBoxAdapter(child: Divider(height: 1, thickness: 1, color: Color(0xFFEAE6DF))),
                 // Comments header
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
                     child: Text(
                       'Comments (${_comments.length})',
-                      style: TextStyle(
-                        fontFamily: 'HelveticaNow',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey[600]),
                     ),
                   ),
                 ),
@@ -297,18 +283,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 if (!_commentsLoaded)
                   const SliverFillRemaining(
                     hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: CircularProgressIndicator(color: wellGreen),
-                      ),
-                    ),
+                    child: Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 24), child: CircularProgressIndicator(color: wellGreen))),
                   )
                 else if (_comments.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: SizedBox.shrink(),
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: AppSpacing.md),
+                      child: Text('No comments yet. Be the first!', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
                     ),
                   )
                 else
@@ -320,49 +301,36 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.sm,
-                                vertical: AppSpacing.md,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.md),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: const Color(0xFFF9BD21).withOpacity(0.3),
-                                    child: Text(
-                                      _getInitials(c.userName),
-                                      style: const TextStyle(
-                                        color: wellGreen,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                                  InitialsAvatar(
+                                    name: c.userName,
+                                    size: 32,
+                                    imageUrl: c.userProfilePhotoUrl,
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          c.userName,
-                                          style: const TextStyle(
-                                            fontFamily: 'HelveticaNow',
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: kBodyTextDark,
-                                          ),
-                                        ),
+                                        Text(c.userName, style: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 14, color: kBodyTextDark)),
                                         const SizedBox(height: 4),
-                                        Text(
-                                          c.comment,
-                                          style: const TextStyle(
-                                            fontFamily: 'HelveticaNow',
-                                            fontSize: 14,
-                                            color: kBodyTextDark,
-                                            height: 1.35,
+                                        if (c.comment.isNotEmpty)
+                                          Text(c.comment, style: const TextStyle(fontFamily: 'HelveticaNow', fontSize: 14, color: kBodyTextDark, height: 1.35)),
+                                        if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
+                                          if (c.comment.isNotEmpty) const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              c.imageUrl!,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -380,7 +348,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ],
             ),
           ),
-          // Anchored reply input
+          // Comment input
           if (AuthService.instance.isLoggedIn)
             SafeArea(
               top: false,
@@ -389,45 +357,86 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, -2))],
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _commentController,
-                        decoration: InputDecoration(
-                          hintText: 'Add a comment...',
-                          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
-                          filled: true,
-                          fillColor: const Color(0xFFF0F0F0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide.none,
+                    // Image preview
+                    if (_selectedImage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: FutureBuilder<List<int>>(
+                                future: _selectedImage!.readAsBytes().then((b) => b.toList()),
+                                builder: (_, snap) => snap.hasData
+                                    ? Image.memory(Uint8List.fromList(snap.data!), height: 100, width: double.infinity, fit: BoxFit.cover)
+                                    : const SizedBox(height: 100),
+                              ),
+                            ),
+                            Positioned(
+                              top: 4, right: 4,
+                              child: GestureDetector(
+                                onTap: () => setState(() => _selectedImage = null),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Image picker button
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: nestOrange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.photo_library_outlined, color: nestOrange, size: 20),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Material(
-                      color: wellGreen,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: _addComment,
-                        customBorder: const CircleBorder(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _commentController,
+                            decoration: InputDecoration(
+                              hintText: 'Add a comment...',
+                              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
+                              filled: true,
+                              fillColor: const Color(0xFFF0F0F0),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Material(
+                          color: wellGreen,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: _submittingComment ? null : _addComment,
+                            customBorder: const CircleBorder(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: _submittingComment
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

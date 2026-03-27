@@ -33,6 +33,13 @@ class _FeedPageState extends State<FeedPage> {
   bool _loading = true;
   Object? _loadError;
   final Map<int, bool> _postLiked = {};
+  final Map<int, int> _postLikesCount = {};
+  final Map<int, int> _postCommentsCount = {};
+  // Loading indicators per post
+  final Map<int, bool> _liking = {};
+  final Map<int, bool> _commenting = {};   // loading comments (expand)
+  final Map<int, bool> _submitting = {};   // submitting a comment
+  final Map<int, XFile?> _commentImages = {};
   CurrentUser? _currentUser;
   final Map<int, List<PostComment>> _postComments = {};
   final Map<int, bool> _commentsExpanded = {};
@@ -49,8 +56,43 @@ class _FeedPageState extends State<FeedPage> {
   @override
   void initState() {
     super.initState();
-    _loadPosts();
-    _loadUser();
+    _loadUserThenPosts();
+  }
+
+  /// Load user first so isOwnPost and isLiked are correct when posts render.
+  Future<void> _loadUserThenPosts() async {
+    await _loadUser();
+    await _loadPosts();
+  }
+
+  /// Fetch comment counts for all posts silently in the background.
+  Future<void> _loadAllCommentCounts(List<Post> posts) async {
+    for (final p in posts) {
+      if (!mounted) return;
+      try {
+        final comments = await PostService.instance.fetchComments(p.id);
+        if (mounted) {
+          setState(() => _postCommentsCount[p.id] = comments.length);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Fetch like counts and liked state for all posts, same pattern as _loadAllCommentCounts.
+  Future<void> _loadAllLikes(List<Post> posts) async {
+    for (final p in posts) {
+      if (!mounted) return;
+      if (_liking[p.id] == true) continue; // skip if mid-interaction
+      try {
+        final result = await VoteService.instance.fetchPostLikes(p.id);
+        if (mounted) {
+          setState(() {
+            _postLikesCount[p.id] = result.count;
+            _postLiked[p.id] = result.isLiked;
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _loadUser() async {
@@ -72,7 +114,15 @@ class _FeedPageState extends State<FeedPage> {
       setState(() {
         _posts = posts;
         _loading = false;
+        // Initialize with defaults — real values loaded by _loadAllLikes()
+        for (final p in posts) {
+          _postLiked[p.id] ??= false;
+          _postLikesCount[p.id] ??= 0;
+        }
       });
+      // Load comment and like counts in background for all posts
+      _loadAllCommentCounts(posts);
+      _loadAllLikes(posts);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -117,78 +167,75 @@ class _FeedPageState extends State<FeedPage> {
 
     return SafeArea(
       child: RefreshIndicator(
-            onRefresh: () async {
-              await _loadPosts();
-              await _loadUser();
-            },
-            color: wellGreen,
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppSpacing.gapV8,
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                          child: WellnestHeader(),
-                        ),
-                        AppSpacing.gapV16,
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                          child: Text(
-                            'Feed',
-                            style: TextStyle(
-                              fontFamily: 'Recoleta',
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
-                            ),
+        onRefresh: _loadUserThenPosts,
+        color: wellGreen,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSpacing.gapV8,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        child: WellnestHeader(),
+                      ),
+                      AppSpacing.gapV16,
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                        child: Text(
+                          'Feed',
+                          style: TextStyle(
+                            fontFamily: 'Recoleta',
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
-                        if (AuthService.instance.isLoggedIn) ...[
-                          _buildCreatePostBox(),
-                          const SizedBox(height: 20),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                ),
-                if (posts.isEmpty && !AuthService.instance.isLoggedIn)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Sign in to create one!')),
-                    ),
-                  )
-                else if (posts.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Share something!')),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => RepaintBoundary(child: _buildFeedCard(posts[index])),
-                        childCount: posts.length,
                       ),
-                    ),
+                      if (AuthService.instance.isLoggedIn) ...[
+                        _buildCreatePostBox(),
+                        const SizedBox(height: 20),
+                      ],
+                    ],
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+                ),
+              ),
             ),
-          ),
+            if (posts.isEmpty && !AuthService.instance.isLoggedIn)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No posts yet. Sign in to create one!')),
+                ),
+              )
+            else if (posts.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No posts yet. Share something!')),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => RepaintBoundary(child: _buildFeedCard(posts[index])),
+                    childCount: posts.length,
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -221,14 +268,21 @@ class _FeedPageState extends State<FeedPage> {
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: const Color(0xFFFFEECC),
-                  child: Text(
-                    initials.isEmpty ? '?' : initials,
-                    style: const TextStyle(
-                      color: wellGreen,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+                  backgroundImage: (_currentUser?.displayProfilePhotoUrl != null &&
+                          _currentUser!.displayProfilePhotoUrl!.isNotEmpty)
+                      ? NetworkImage(_currentUser!.displayProfilePhotoUrl!)
+                      : null,
+                  child: (_currentUser?.displayProfilePhotoUrl == null ||
+                          _currentUser!.displayProfilePhotoUrl!.isEmpty)
+                      ? Text(
+                          initials.isEmpty ? '?' : initials,
+                          style: const TextStyle(
+                            color: wellGreen,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -319,15 +373,30 @@ class _FeedPageState extends State<FeedPage> {
 
   Widget _buildFeedCard(Post post) {
     final liked = _postLiked[post.id] ?? false;
+    final isLiking = _liking[post.id] ?? false;
+    final isCommenting = _commenting[post.id] ?? false;
     final expanded = _commentsExpanded[post.id] ?? false;
     final comments = _postComments[post.id] ?? [];
+    // Use seeded counts, falling back to live comment list length when expanded
+    final likesCount = _postLikesCount[post.id] ?? 0;
+    final commentsCount = expanded ? comments.length : (_postCommentsCount[post.id] ?? 0);
     _commentControllers[post.id] ??= TextEditingController();
+
+    void goToDetail() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (context) => PostDetailScreen(post: post),
+        ),
+      ).then((_) => _loadPosts()); // refresh counts on return
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -336,218 +405,394 @@ class _FeedPageState extends State<FeedPage> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (context) => PostDetailScreen(post: post),
-                  ),
-                ),
-                child: InitialsAvatar(name: post.userName, size: 44),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (context) => PostDetailScreen(post: post),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      const SizedBox(height: 2),
-                      Text(
-                        formatPostTime(post.createdAt),
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (post.recipeId != null)
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (context) => RecipeDetailScreen(recipeId: post.recipeId!),
-                    ),
-                  ),
-                  child: const Text('View Recipe', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                fullscreenDialog: true,
-                builder: (context) => PostDetailScreen(post: post),
-              ),
-            ),
-            child: Column(
+          // ── Header ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(post.content),
-                if (post.imageUrl.isNotEmpty) ...[
-                  const SizedBox(height: 15),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: Image.network(
-                      post.imageUrl,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      cacheWidth: 800,
-                      cacheHeight: 360,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                      color: AppColors.imagePlaceholderGreen,
-                      height: 180,
-                      child: Icon(Icons.restaurant_menu, size: 48, color: wellGreen),
-                    ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (AuthService.instance.isLoggedIn) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
                 GestureDetector(
-                  onTap: () => _toggleLike(post.id),
-                  child: Row(
-                    children: [
-                      Icon(liked ? Icons.favorite : Icons.favorite_border, color: nestOrange, size: 22),
-                      const SizedBox(width: 6),
-                      Text(liked ? 'Liked' : 'Like', style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w500)),
-                    ],
+                  onTap: goToDetail,
+                  child: InitialsAvatar(
+                    name: post.userName,
+                    size: 44,
+                    imageUrl: post.userProfilePhotoUrl,
                   ),
                 ),
-                const SizedBox(width: 20),
-                GestureDetector(
-                  onTap: () => _toggleComments(post.id),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.comment, color: wellGreen, size: 22),
-                      const SizedBox(width: 6),
-                      Text('Comment (${comments.length})', style: const TextStyle(color: wellGreen, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.black54),
-                  onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
-                  itemBuilder: (context) => [const PopupMenuItem(value: 'report', child: Text('Report'))],
-                ),
-              ],
-            ),
-            if (expanded) ...[
-              const SizedBox(height: 12),
-              ...comments.map((c) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: goToDetail,
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(color: Colors.black87, fontSize: 14),
-                              children: [
-                                TextSpan(text: '${c.userName}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                TextSpan(text: c.comment),
-                              ],
-                            ),
-                          ),
+                        Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatPostTime(post.createdAt),
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                         ),
                       ],
                     ),
-                  )),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentControllers[post.id],
-                      decoration: InputDecoration(
-                        hintText: 'Add a comment...',
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.7),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                ),
+                if (post.recipeId != null)
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        fullscreenDialog: true,
+                        builder: (context) => RecipeDetailScreen(recipeId: post.recipeId!),
+                      ),
+                    ).then((_) => _loadPosts()),
+                    style: TextButton.styleFrom(
+                      foregroundColor: wellGreen,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: const BorderSide(color: wellGreen, width: 1),
+                      ),
+                    ),
+                    child: const Text(
+                      'View Recipe',
+                      style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Text content ────────────────────────────────────────────────
+          GestureDetector(
+            onTap: goToDetail,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (post.content.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Text(
+                      post.content,
+                      style: const TextStyle(fontSize: 15, height: 1.45),
+                    ),
+                  ),
+
+                // ── Full-bleed image ─────────────────────────────────────
+                if (post.imageUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: post.content.isEmpty
+                        ? const BorderRadius.vertical(top: Radius.circular(20))
+                        : BorderRadius.zero,
+                    child: Image.network(
+                      post.imageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      cacheWidth: 800,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: AppColors.imagePlaceholderGreen,
+                        height: 200,
+                        child: Icon(Icons.restaurant_menu, size: 48, color: wellGreen),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () => _addComment(post.id),
-                    icon: const Icon(Icons.send, color: wellGreen),
+              ],
+            ),
+          ),
+
+          // ── Actions ─────────────────────────────────────────────────────
+          if (AuthService.instance.isLoggedIn) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
+              child: Row(
+                children: [
+                  // Like button
+                  _ActionButton(
+                    onTap: isLiking ? null : () => _toggleLike(post.id),
+                    loading: isLiking,
+                    icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    label: likesCount > 0 ? 'Like ($likesCount)' : (liked ? 'Liked' : 'Like'),
+                    color: nestOrange,
+                    filled: liked,
+                  ),
+                  const SizedBox(width: 4),
+                  // Comment button with loading indicator
+                  _ActionButton(
+                    onTap: isCommenting ? null : () => _toggleComments(post.id),
+                    loading: isCommenting,
+                    icon: expanded ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
+                    label: commentsCount > 0 ? 'Comment ($commentsCount)' : 'Comment',
+                    color: wellGreen,
+                    filled: expanded,
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_horiz_rounded, color: Colors.black38, size: 22),
+                    onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'report', child: Text('Report')),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ],
+            ),
+
+            // ── Comments ──────────────────────────────────────────────────
+            if (expanded) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (comments.isNotEmpty) ...[
+                      Divider(height: 1, color: Colors.grey.withOpacity(0.15)),
+                      const SizedBox(height: 10),
+                      ...comments.map((c) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                InitialsAvatar(
+                                  name: c.userName,
+                                  size: 28,
+                                  imageUrl: c.userProfilePhotoUrl,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF5F5F5),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (c.comment.isNotEmpty)
+                                          RichText(
+                                            text: TextSpan(
+                                              style: const TextStyle(color: Colors.black87, fontSize: 13),
+                                              children: [
+                                                TextSpan(
+                                                  text: '${c.userName}  ',
+                                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                                ),
+                                                TextSpan(text: c.comment),
+                                              ],
+                                            ),
+                                          ),
+                                        if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
+                                          if (c.comment.isNotEmpty) const SizedBox(height: 6),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Image.network(
+                                              c.imageUrl!,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                      const SizedBox(height: 4),
+                    ],
+                    // Add comment row
+                    _buildCommentInput(post.id, _submitting[post.id] ?? false),
+                  ],
+                ),
+              ),
+            ] else
+              const SizedBox(height: 8),
+          ] else
+            const SizedBox(height: 12),
         ],
       ),
     );
   }
 
   Future<void> _toggleLike(int postId) async {
+    if (_liking[postId] == true) return;
+    setState(() => _liking[postId] = true);
     try {
       final liked = _postLiked[postId] ?? false;
       if (liked) {
         await VoteService.instance.unlikePost(postId);
-        if (mounted) setState(() => _postLiked[postId] = false);
+        if (mounted) setState(() {
+          _postLiked[postId] = false;
+          _postLikesCount[postId] = ((_postLikesCount[postId] ?? 1) - 1).clamp(0, 999999);
+        });
       } else {
         await VoteService.instance.likePost(postId);
-        if (mounted) setState(() => _postLiked[postId] = true);
+        if (mounted) setState(() {
+          _postLiked[postId] = true;
+          _postLikesCount[postId] = (_postLikesCount[postId] ?? 0) + 1;
+        });
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _liking[postId] = false);
     }
   }
 
   Future<void> _toggleComments(int postId) async {
     final expanded = _commentsExpanded[postId] ?? false;
     if (!expanded) {
-      final comments = await PostService.instance.fetchComments(postId);
-      if (mounted) setState(() {
-        _commentsExpanded[postId] = true;
-        _postComments[postId] = comments;
-      });
+      setState(() => _commenting[postId] = true);
+      try {
+        final comments = await PostService.instance.fetchComments(postId);
+        if (mounted) setState(() {
+          _commentsExpanded[postId] = true;
+          _postComments[postId] = comments;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load comments. Please try again.'), backgroundColor: nestOrange),
+        );
+        setState(() {
+          _commentsExpanded[postId] = true;
+          _postComments[postId] = const [];
+        });
+      } finally {
+        if (mounted) setState(() => _commenting[postId] = false);
+      }
     } else {
       if (mounted) setState(() => _commentsExpanded[postId] = false);
     }
   }
 
+  Widget _buildCommentInput(int postId, bool isCommenting) {
+    final pendingImage = _commentImages[postId];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Image preview
+        if (pendingImage != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: FutureBuilder<List<int>>(
+                    future: pendingImage.readAsBytes().then((b) => b.toList()),
+                    builder: (_, snap) => snap.hasData
+                        ? Image.memory(
+                            Uint8List.fromList(snap.data!),
+                            height: 100,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : const SizedBox(height: 100),
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _commentImages[postId] = null),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            // Image pick button
+            GestureDetector(
+              onTap: () async {
+                final picker = ImagePicker();
+                final x = await picker.pickImage(source: ImageSource.gallery);
+                if (x != null && mounted) setState(() => _commentImages[postId] = x);
+              },
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: nestOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library_outlined, color: nestOrange, size: 18),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _commentControllers[postId],
+                decoration: InputDecoration(
+                  hintText: 'Add a comment...',
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: isCommenting
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: wellGreen),
+                    )
+                  : IconButton(
+                      onPressed: () => _addComment(postId),
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.send_rounded, color: wellGreen, size: 22),
+                    ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Future<void> _addComment(int postId) async {
     final ctrl = _commentControllers[postId];
-    if (ctrl == null || ctrl.text.trim().isEmpty) return;
+    final image = _commentImages[postId];
+    if ((ctrl == null || ctrl.text.trim().isEmpty) && image == null) return;
+    setState(() => _submitting[postId] = true);
     try {
-      final comment = await PostService.instance.addComment(postId, ctrl.text);
+      final comment = await PostService.instance.addComment(
+        postId,
+        ctrl?.text ?? '',
+        image: image,
+      );
       if (comment != null && mounted) {
-        ctrl.clear();
+        ctrl?.clear();
         setState(() {
+          _commentImages[postId] = null;
           _postComments[postId] = [...(_postComments[postId] ?? []), comment];
+          _postCommentsCount[postId] = (_postCommentsCount[postId] ?? 0) + 1;
         });
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _submitting[postId] = false);
     }
   }
 
@@ -573,6 +818,61 @@ class _FeedPageState extends State<FeedPage> {
   }
 }
 
+// ── Reusable action button with loading state ──────────────────────────────
+
+class _ActionButton extends StatelessWidget {
+  final VoidCallback? onTap;
+  final bool loading;
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool filled;
+
+  const _ActionButton({
+    required this.onTap,
+    required this.loading,
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.filled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: color),
+              )
+            else
+              Icon(icon, color: color, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Create Post Sheet ──────────────────────────────────────────────────────
+
 class _CreatePostSheet extends StatefulWidget {
   final ApiService apiService;
   final VoidCallback onPosted;
@@ -591,6 +891,7 @@ class _CreatePostSheet extends StatefulWidget {
 class _CreatePostSheetState extends State<_CreatePostSheet> {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
+  static const int _maxImageBytes = 5 * 1024 * 1024; // Backend limit (5MB)
 
   final TextEditingController _controller = TextEditingController();
   XFile? _selectedImage;
@@ -639,7 +940,12 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final x = await picker.pickImage(source: ImageSource.gallery);
+    final x = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
     if (x != null && mounted) setState(() => _selectedImage = x);
   }
 
@@ -649,6 +955,13 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     if (_posting) return;
     setState(() => _posting = true);
     try {
+      if (_selectedImage != null) {
+        final length = await _selectedImage!.length();
+        if (length > _maxImageBytes) {
+          throw Exception('Image is too large. Please choose one under 5MB.');
+        }
+      }
+
       final post = await widget.apiService.createPost(
         content: content,
         recipeId: _selectedRecipe?.id,

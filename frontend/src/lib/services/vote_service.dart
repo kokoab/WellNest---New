@@ -56,6 +56,19 @@ class VoteService {
     }
   }
 
+  /// Returns how many likes a post has and whether the current user liked it.
+  Future<({int count, bool isLiked})> fetchPostLikes(int postId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/posts/$postId/likes'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) return (count: 0, isLiked: false);
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final count = data['likes_count'] as int? ?? data['count'] as int? ?? 0;
+    final isLiked = data['is_liked'] as bool? ?? false;
+    return (count: count, isLiked: isLiked);
+  }
+
   static Never _throwFromResponse(http.Response response) {
     final data = jsonDecode(response.body) as Map<String, dynamic>?;
     throw Exception(data?['message'] as String? ?? 'Request failed');

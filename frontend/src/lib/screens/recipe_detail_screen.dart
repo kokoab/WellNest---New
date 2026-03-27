@@ -30,6 +30,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   String? _error;
   bool _liked = false;
   bool _saved = false;
+  bool _liking = false;
+  bool _saving = false;
   RecipeRatingsResponse? _ratings;
   RecipeRating? _userRating;
   int? _pendingStars;
@@ -310,9 +312,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: AuthService.instance.isLoggedIn
+                              child: OutlinedButton(
+                                onPressed: AuthService.instance.isLoggedIn &&
+                                        !_liking
                                     ? () async {
+                                        setState(() => _liking = true);
                                         try {
                                           if (_liked) {
                                             await VoteService.instance
@@ -340,34 +344,58 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                               ),
                                             );
                                           }
+                                        } finally {
+                                          if (mounted)
+                                            setState(() => _liking = false);
                                         }
                                       }
                                     : null,
-                                icon: Icon(
-                                  _liked
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  size: 20,
-                                  color: _liked ? Colors.pink : nestOrange,
-                                ),
-                                label: Text(
-                                  _liked ? 'Liked' : 'Like',
-                                  style: const TextStyle(
-                                    color: nestOrange,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: nestOrange,
                                   side: const BorderSide(color: nestOrange),
                                 ),
+                                child: _liking
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: nestOrange,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _liked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            size: 20,
+                                            color: _liked
+                                                ? Colors.pink
+                                                : nestOrange,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _liked ? 'Liked' : 'Like',
+                                            style: const TextStyle(
+                                              color: nestOrange,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
                             AppSpacing.gapH16,
                             Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: AuthService.instance.isLoggedIn
+                              child: OutlinedButton(
+                                onPressed: AuthService.instance.isLoggedIn &&
+                                        !_saving
                                     ? () async {
+                                        setState(() => _saving = true);
                                         try {
                                           if (_saved) {
                                             await SavedRecipeService.instance
@@ -409,27 +437,47 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                               ),
                                             );
                                           }
+                                        } finally {
+                                          if (mounted)
+                                            setState(() => _saving = false);
                                         }
                                       }
                                     : null,
-                                icon: Icon(
-                                  _saved
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  size: 20,
-                                  color: _saved ? wellGreen : wellGreen,
-                                ),
-                                label: Text(
-                                  _saved ? 'Saved' : 'Save',
-                                  style: const TextStyle(
-                                    color: wellGreen,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: wellGreen,
                                   side: const BorderSide(color: wellGreen),
                                 ),
+                                child: _saving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: wellGreen,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _saved
+                                                ? Icons.bookmark
+                                                : Icons.bookmark_border,
+                                            size: 20,
+                                            color: wellGreen,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _saved ? 'Saved' : 'Save',
+                                            style: const TextStyle(
+                                              color: wellGreen,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
                           ],

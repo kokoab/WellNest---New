@@ -46,7 +46,7 @@ class PostController extends Controller
             'image_url' => $validated['image_url'] ?? null,
         ]);
 
-        $post->load('user:id,first_name,last_name');
+        $post->load('user:id,first_name,last_name,profile_photo_url');
 
         return response()->json([
             'message' => 'Post created',
@@ -56,14 +56,18 @@ class PostController extends Controller
                 'recipe_id' => $post->recipe_id,
                 'content' => $post->content,
                 'image_url' => $post->image_url ?? '',
-                'user' => ['id' => $post->user->id ?? null, 'name' => $post->user->name ?? ''],
+                'user' => [
+                    'id' => $post->user->id ?? null,
+                    'name' => $post->user->name ?? '',
+                    'profile_photo_url' => $post->user->profile_photo_url ?? null,
+                ],
             ],
         ], 201);
     }
 
     public function index(Request $request)
     {
-        $query = Post::with('user:id,first_name,last_name')
+        $query = Post::with('user:id,first_name,last_name,profile_photo_url')
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('user_id')) {
@@ -78,7 +82,11 @@ class PostController extends Controller
                 'content' => $p->content,
                 'image_url' => $p->image_url ?? '',
                 'created_at' => $p->created_at?->toIso8601String(),
-                'user' => ['id' => $p->user->id ?? null, 'name' => trim(($p->user->first_name ?? '') . ' ' . ($p->user->last_name ?? ''))],
+                'user' => [
+                    'id' => $p->user->id ?? null,
+                    'name' => trim(($p->user->first_name ?? '') . ' ' . ($p->user->last_name ?? '')),
+                    'profile_photo_url' => $p->user->profile_photo_url ?? null,
+                ],
             ]);
     }
 }

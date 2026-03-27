@@ -36,16 +36,22 @@ Route::get('/hello', function () {
 // Public: feed posts (no auth required)
 Route::get('posts', [PostController::class, 'index']);
 Route::get('posts/{post}', function (Post $post) {
-    $post->load('user:id,first_name,last_name');
+    $post->load('user:id,first_name,last_name,profile_photo_url');
     return response()->json([
         'id' => $post->id,
         'content' => $post->content,
         'image_url' => $post->image_url ?? '',
         'recipe_id' => $post->recipe_id,
         'created_at' => $post->created_at?->toIso8601String(),
-        'user' => ['name' => $post->user->name ?? ''],
+        'user' => [
+            'name' => $post->user->name ?? '',
+            'profile_photo_url' => $post->user->profile_photo_url ?? null,
+        ],
     ]);
 });
+
+// Public: list comments for a post (no auth required)
+Route::get('posts/{post}/comments', [PostCommentController::class, 'index']);
 
 // Public: list and view recipes and categories (no auth required — show all recipes)
 Route::get('categories', [CategoryController::class, 'index']);
@@ -76,10 +82,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('posts', [PostController::class, 'store']);
     Route::post('posts/{post}/images', [PostController::class, 'uploadImage']);
+    Route::get('posts/{post}/likes', [VoteController::class, 'getPostLikes']); // ← new
     Route::post('posts/{post}/like', [VoteController::class, 'likePost']);
     Route::delete('posts/{post}/like', [VoteController::class, 'unlikePost']);
     Route::post('posts/{post}/report', [ReportController::class, 'reportPost']);
-    Route::get('posts/{post}/comments', [PostCommentController::class, 'index']);
+    // Comments are listed publicly; posting requires auth.
     Route::post('posts/{post}/comments', [PostCommentController::class, 'store']);
 
     Route::get('notifications', [NotificationController::class, 'index']);

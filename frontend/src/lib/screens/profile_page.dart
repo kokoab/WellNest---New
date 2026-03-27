@@ -31,6 +31,8 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Post> _myPosts = [];
   bool _loading = true;
   bool _uploadingPhoto = false;
+  bool _addingRecipe = false;
+  bool _loggingOut = false;
   String? _error;
 
   @override
@@ -158,9 +160,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     key: ValueKey('add_recipe_${Theme.of(context).brightness}'),
-                    onPressed: () async {
-                      final result = await RecipeFormScreen.showAsModal(context);
-                      if (result == true && mounted) _load();
+                    onPressed: _addingRecipe ? null : () async {
+                      setState(() => _addingRecipe = true);
+                      try {
+                        final result = await RecipeFormScreen.showAsModal(context);
+                        if (result == true && mounted) _load();
+                      } finally {
+                        if (mounted) setState(() => _addingRecipe = false);
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGreen,
@@ -168,7 +175,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Add new Recipe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    child: _addingRecipe
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Add new Recipe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -224,14 +237,21 @@ class _ProfilePageState extends State<ProfilePage> {
               if (AuthService.instance.isLoggedIn)
                 TextButton.icon(
                   key: ValueKey('logout_${Theme.of(context).brightness}'),
-                  onPressed: () async {
-                    await AuthService.instance.logout();
-                    if (context.mounted) {
-                      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                  onPressed: _loggingOut ? null : () async {
+                    setState(() => _loggingOut = true);
+                    try {
+                      await AuthService.instance.logout();
+                      if (context.mounted) {
+                        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                      }
+                    } finally {
+                      if (mounted) setState(() => _loggingOut = false);
                     }
                   },
-                  icon: Icon(Icons.logout, size: 18, color: nestOrange),
-                  label: Text(
+                  icon: _loggingOut
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: nestOrange, strokeWidth: 2))
+                      : Icon(Icons.logout, size: 18, color: nestOrange),
+                  label: const Text(
                     'Logout',
                     style: TextStyle(
                       fontFamily: 'HelveticaNow',
