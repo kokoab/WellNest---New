@@ -1,3 +1,5 @@
+import '../utils/json_helpers.dart';
+
 /// Report model for admin moderation (matches backend GET admin/reports response).
 class Report {
   final int id;
@@ -25,7 +27,7 @@ class Report {
       reportable = ReportableSummary.fromJson(r);
     }
     return Report(
-      id: json['id'],
+      id: jsonDecodeInt(json['id']),
       reporter: json['reporter'] as String?,
       reason: json['reason'] as String?,
       details: json['details'] as String?,
@@ -66,7 +68,7 @@ class ReportableSummary {
   factory ReportableSummary.fromJson(Map<String, dynamic> json) {
     return ReportableSummary(
       type: json['type'] as String? ?? '',
-      id: json['id'],
+      id: jsonDecodeInt(json['id']),
       name: json['name'] as String?,
       email: json['email'] as String?,
       title: json['title'] as String?,

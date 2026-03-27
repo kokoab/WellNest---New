@@ -475,6 +475,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Image.network(
           _recipe!.displayImageUrl!,
           fit: BoxFit.cover,
+          alignment: Alignment.center,
           errorBuilder: (_, __, ___) => _buildImagePlaceholder(imageHeight),
         ),
       );

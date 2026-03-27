@@ -16,7 +16,7 @@ import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
-
+/// Main feed screen with posts and recipes.
 class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
 
@@ -86,7 +86,9 @@ class _FeedPageState extends State<FeedPage> {
   Widget build(BuildContext context) {
     if (_loading && _posts.isEmpty) {
       return const SafeArea(
-        child: Center(child: CircularProgressIndicator(color: Color(0xFF097333))),
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF097333)),
+        ),
       );
     }
     if (_loadError != null && _posts.isEmpty) {
@@ -117,87 +119,91 @@ class _FeedPageState extends State<FeedPage> {
 
     return SafeArea(
       child: RefreshIndicator(
-            onRefresh: () async {
-              await _loadPosts();
-              await _loadUser();
-            },
-            color: wellGreen,
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppSpacing.gapV8,
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                          child: WellnestHeader(),
+        onRefresh: () async {
+          await Future.wait([
+            _loadPosts(),
+            _loadUser(),
+          ]);
+        },
+        color: wellGreen,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSpacing.gapV8,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
                         ),
-                        AppSpacing.gapV16,
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                          child: Text(
-                            'Feed',
-                            style: TextStyle(
-                              fontFamily: 'Recoleta',
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
-                            ),
+                        child: WellnestHeader(),
+                      ),
+                      AppSpacing.gapV16,
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                        child: Text(
+                          'Feed',
+                          style: TextStyle(
+                            fontFamily: 'Recoleta',
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
-                        if (AuthService.instance.isLoggedIn) ...[
-                          _buildCreatePostBox(),
-                          const SizedBox(height: 20),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                ),
-                if (posts.isEmpty && !AuthService.instance.isLoggedIn)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Sign in to create one!')),
-                    ),
-                  )
-                else if (posts.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Share something!')),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => RepaintBoundary(child: _buildFeedCard(posts[index])),
-                        childCount: posts.length,
                       ),
-                    ),
+                      if (AuthService.instance.isLoggedIn) ...[
+                        _buildCreatePostBox(),
+                        const SizedBox(height: 20),
+                      ],
+                    ],
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+                ),
+              ),
             ),
-          ),
+            if (posts.isEmpty && !AuthService.instance.isLoggedIn)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Text('No posts yet. Sign in to create one!'),
+                  ),
+                ),
+              )
+            else if (posts.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No posts yet. Share something!')),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) =>
+                        RepaintBoundary(child: _buildFeedCard(posts[index])),
+                    childCount: posts.length,
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildCreatePostBox() {
-    var initials = _currentUser != null
-        ? '${_currentUser!.firstName.isNotEmpty ? _currentUser!.firstName[0] : ''}${_currentUser!.lastName.isNotEmpty ? _currentUser!.lastName[0] : ''}'.toUpperCase().trim()
-        : '?';
-    if (initials.isEmpty) initials = '?';
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -218,22 +224,18 @@ class _FeedPageState extends State<FeedPage> {
             borderRadius: BorderRadius.circular(16),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: const Color(0xFFFFEECC),
-                  child: Text(
-                    initials.isEmpty ? '?' : initials,
-                    style: const TextStyle(
-                      color: wellGreen,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+                InitialsAvatar(
+                  name: _currentUser?.displayName ?? 'Guest',
+                  size: 44,
+                  imageUrl: _currentUser?.displayProfilePhotoUrl,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.imagePlaceholderGreen,
                       borderRadius: BorderRadius.circular(24),
@@ -251,14 +253,25 @@ class _FeedPageState extends State<FeedPage> {
               ],
             ),
           ),
+
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildCreateAction(Icons.photo_library_outlined, 'Photo', nestOrange, _showCreatePostDialog),
-              _buildCreateAction(Icons.restaurant_outlined, 'Recipe', wellGreen, _showCreatePostDialog),
+              _buildCreateAction(
+                Icons.photo_library_outlined,
+                'Photo',
+                nestOrange,
+                _showCreatePostDialog,
+              ),
+              _buildCreateAction(
+                Icons.restaurant_outlined,
+                'Recipe',
+                wellGreen,
+                _showCreatePostDialog,
+              ),
             ],
           ),
         ],
@@ -266,7 +279,12 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  Widget _buildCreateAction(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _buildCreateAction(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -302,7 +320,10 @@ class _FeedPageState extends State<FeedPage> {
           _loadPosts();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Post created!'), backgroundColor: wellGreen),
+              const SnackBar(
+                content: Text('Post created!'),
+                backgroundColor: wellGreen,
+              ),
             );
           }
         },
@@ -351,7 +372,11 @@ class _FeedPageState extends State<FeedPage> {
                     builder: (context) => PostDetailScreen(post: post),
                   ),
                 ),
-                child: InitialsAvatar(name: post.userName, size: 44),
+                child: InitialsAvatar(
+                  name: post.userName,
+                  size: 44,
+                  imageUrl: post.displayAuthorProfilePhotoUrl,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -366,7 +391,13 @@ class _FeedPageState extends State<FeedPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text(
+                        post.userName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         formatPostTime(post.createdAt),
@@ -382,10 +413,17 @@ class _FeedPageState extends State<FeedPage> {
                     context,
                     MaterialPageRoute(
                       fullscreenDialog: true,
-                      builder: (context) => RecipeDetailScreen(recipeId: post.recipeId!),
+                      builder: (context) =>
+                          RecipeDetailScreen(recipeId: post.recipeId!),
                     ),
                   ),
-                  child: const Text('View Recipe', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'View Recipe',
+                    style: TextStyle(
+                      color: wellGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -402,22 +440,28 @@ class _FeedPageState extends State<FeedPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(post.content),
-                if (post.imageUrl.isNotEmpty) ...[
+                if (post.displayImageUrl != null &&
+                    post.displayImageUrl!.isNotEmpty) ...[
                   const SizedBox(height: 15),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
                     child: Image.network(
-                      post.imageUrl,
+                      post.displayImageUrl!,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      cacheWidth: 800,
-                      cacheHeight: 360,
+                      alignment: Alignment.center,
+                      // Only cacheWidth: decoding with both dimensions distorts aspect ratio.
+                      cacheWidth: 1200,
                       errorBuilder: (context, error, stackTrace) => Container(
-                      color: AppColors.imagePlaceholderGreen,
-                      height: 180,
-                      child: Icon(Icons.restaurant_menu, size: 48, color: wellGreen),
-                    ),
+                        color: AppColors.imagePlaceholderGreen,
+                        height: 180,
+                        child: Icon(
+                          Icons.restaurant_menu,
+                          size: 48,
+                          color: wellGreen,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -432,9 +476,19 @@ class _FeedPageState extends State<FeedPage> {
                   onTap: () => _toggleLike(post.id),
                   child: Row(
                     children: [
-                      Icon(liked ? Icons.favorite : Icons.favorite_border, color: nestOrange, size: 22),
+                      Icon(
+                        liked ? Icons.favorite : Icons.favorite_border,
+                        color: nestOrange,
+                        size: 22,
+                      ),
                       const SizedBox(width: 6),
-                      Text(liked ? 'Liked' : 'Like', style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w500)),
+                      Text(
+                        liked ? 'Liked' : 'Like',
+                        style: const TextStyle(
+                          color: nestOrange,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -445,39 +499,64 @@ class _FeedPageState extends State<FeedPage> {
                     children: [
                       const Icon(Icons.comment, color: wellGreen, size: 22),
                       const SizedBox(width: 6),
-                      Text('Comment (${comments.length})', style: const TextStyle(color: wellGreen, fontWeight: FontWeight.w500)),
+                      Text(
+                        'Comment (${comments.length})',
+                        style: const TextStyle(
+                          color: wellGreen,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: Colors.black54),
-                  onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
-                  itemBuilder: (context) => [const PopupMenuItem(value: 'report', child: Text('Report'))],
+                  onSelected: (v) =>
+                      v == 'report' ? _reportPost(post.id) : null,
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'report', child: Text('Report')),
+                  ],
                 ),
               ],
             ),
             if (expanded) ...[
               const SizedBox(height: 12),
-              ...comments.map((c) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(color: Colors.black87, fontSize: 14),
-                              children: [
-                                TextSpan(text: '${c.userName}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                TextSpan(text: c.comment),
-                              ],
+              ...comments.map(
+                (c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InitialsAvatar(
+                        name: c.userName,
+                        size: 32,
+                        imageUrl: c.displayProfilePhotoUrl,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 14,
                             ),
+                            children: [
+                              TextSpan(
+                                text: '${c.userName}: ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextSpan(text: c.comment),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  )),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               Row(
                 children: [
                   Expanded(
@@ -488,8 +567,14 @@ class _FeedPageState extends State<FeedPage> {
                         isDense: true,
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.7),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -518,7 +603,10 @@ class _FeedPageState extends State<FeedPage> {
         if (mounted) setState(() => _postLiked[postId] = true);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -526,10 +614,11 @@ class _FeedPageState extends State<FeedPage> {
     final expanded = _commentsExpanded[postId] ?? false;
     if (!expanded) {
       final comments = await PostService.instance.fetchComments(postId);
-      if (mounted) setState(() {
-        _commentsExpanded[postId] = true;
-        _postComments[postId] = comments;
-      });
+      if (mounted)
+        setState(() {
+          _commentsExpanded[postId] = true;
+          _postComments[postId] = comments;
+        });
     } else {
       if (mounted) setState(() => _commentsExpanded[postId] = false);
     }
@@ -547,7 +636,10 @@ class _FeedPageState extends State<FeedPage> {
         });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -558,17 +650,29 @@ class _FeedPageState extends State<FeedPage> {
         title: const Text('Report Post'),
         content: const Text('Report this post to moderators?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Report')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Report'),
+          ),
         ],
       ),
     );
     if (ok != true || !mounted) return;
     try {
       await ReportService.instance.reportPost(postId);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report submitted')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 }
@@ -616,7 +720,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
       final recipes = data.recipes;
       if (recipes.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Save some recipes first to attach them here')),
+          const SnackBar(
+            content: Text('Save some recipes first to attach them here'),
+          ),
         );
         return;
       }
@@ -670,7 +776,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
@@ -686,7 +794,11 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               children: [
                 const Text(
                   'Create Post',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: wellGreen),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
                 ),
                 IconButton(
                   onPressed: _posting ? null : () => Navigator.pop(context),
@@ -702,7 +814,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               enabled: !_posting,
               decoration: InputDecoration(
                 hintText: "What's on your mind?",
-                hintStyle: TextStyle(color: wellGreen.withOpacity(0.5), fontSize: 17),
+                hintStyle: TextStyle(
+                  color: wellGreen.withOpacity(0.5),
+                  fontSize: 17,
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -737,13 +852,18 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                           ),
                           Text(
                             '${_selectedRecipe!.prepTime} min',
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      onPressed: _posting ? null : () => setState(() => _selectedRecipe = null),
+                      onPressed: _posting
+                          ? null
+                          : () => setState(() => _selectedRecipe = null),
                       icon: const Icon(Icons.close, size: 20),
                     ),
                   ],
@@ -763,7 +883,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                     top: 8,
                     right: 8,
                     child: IconButton(
-                      onPressed: _posting ? null : () => setState(() => _selectedImage = null),
+                      onPressed: _posting
+                          ? null
+                          : () => setState(() => _selectedImage = null),
                       icon: const Icon(Icons.close, color: Colors.white),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.black54,
@@ -779,16 +901,35 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               children: [
                 TextButton.icon(
                   onPressed: _posting ? null : _pickImage,
-                  icon: const Icon(Icons.photo_library_outlined, color: nestOrange, size: 24),
-                  label: const Text('Add Photo', style: TextStyle(color: nestOrange, fontWeight: FontWeight.w600)),
+                  icon: const Icon(
+                    Icons.photo_library_outlined,
+                    color: nestOrange,
+                    size: 24,
+                  ),
+                  label: const Text(
+                    'Add Photo',
+                    style: TextStyle(
+                      color: nestOrange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 if (AuthService.instance.isLoggedIn)
                   TextButton.icon(
                     onPressed: _posting ? null : _pickRecipeFromSaved,
-                    icon: Icon(Icons.bookmark_outline, color: wellGreen, size: 24),
+                    icon: Icon(
+                      Icons.bookmark_outline,
+                      color: wellGreen,
+                      size: 24,
+                    ),
                     label: Text(
-                      _selectedRecipe != null ? 'Change Recipe' : 'Attach Recipe',
-                      style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600),
+                      _selectedRecipe != null
+                          ? 'Change Recipe'
+                          : 'Attach Recipe',
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
               ],
@@ -799,15 +940,26 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               style: FilledButton.styleFrom(
                 backgroundColor: wellGreen,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: _posting
                   ? const SizedBox(
                       height: 22,
                       width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Text('Post', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  : const Text(
+                      'Post',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -831,6 +983,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
           height: 180,
           width: double.infinity,
           fit: BoxFit.cover,
+          alignment: Alignment.center,
         );
       },
     );
@@ -862,10 +1015,20 @@ class _PickRecipePage extends StatelessWidget {
             leading: r.displayImageUrl != null && r.displayImageUrl!.isNotEmpty
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(r.displayImageUrl!, width: 48, height: 48, fit: BoxFit.cover, cacheWidth: 96, cacheHeight: 96),
+                    child: Image.network(
+                      r.displayImageUrl!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      cacheWidth: 96,
+                    ),
                   )
                 : Icon(Icons.restaurant, color: _wellGreen),
-            title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(
+              r.title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             subtitle: Text('${r.prepTime} min'),
             onTap: () => Navigator.pop(context, r),
           );

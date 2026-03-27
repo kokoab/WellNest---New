@@ -4,13 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\Image;
 use App\Models\Recipe;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ActivityLogService;
+use App\Models\RecipeView;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class RecipeController extends Controller
 {
+    /**
+     * Public recipe routes do not use auth:sanctum, so $request->user() is null even with a valid Bearer token.
+     * Resolve the user from the token so view counts and optional personalization work.
+     */
+    protected function userFromOptionalBearer(Request $request): ?User
+    {
+        if ($user = $request->user()) {
+            return $user instanceof User ? $user : null;
+        }
+        $plain = $request->bearerToken();
+        if (! $plain) {
+            return null;
+        }
+        $accessToken = PersonalAccessToken::findToken($plain);
+        if (! $accessToken) {
+            return null;
+        }
+        $model = $accessToken->tokenable;
+
+        return $model instanceof User ? $model : null;
+    }
     /**
      * Display a listing of the resource.
      */
@@ -95,7 +119,7 @@ class RecipeController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Recipe $recipe): JsonResponse
+    public function show(Recipe $recipe, Request $request): JsonResponse
     {
         $recipe->load([
             'category:id,name',
@@ -109,6 +133,16 @@ class RecipeController extends Controller
         $data['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
         $data['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
         $data['ratings_count'] = $recipe->ratings()->count();
+
+
+        $viewer = $this->userFromOptionalBearer($request);
+        if ($viewer) {
+            RecipeView::firstOrCreate([
+                'recipe_id' => $recipe->id,
+                'user_id' => $viewer->id,
+                'view_date' => now()->toDateString(),
+            ]);
+        }
 
         return response()->json($data);
     }

@@ -1,4 +1,4 @@
-import '../config/app_config.dart';
+import '../utils/media_url.dart';
 
 /// Recipe model matching backend API (with category, user, ingredients, image).
 class Recipe {
@@ -96,19 +96,7 @@ class Recipe {
   }
 
   /// Image URL for display. Uses frontend base URL to fix Docker internal host issues.
-  String? get displayImageUrl {
-    if (imageUrl == null || imageUrl!.isEmpty) return null;
-    final url = imageUrl!;
-    final base = AppConfig.baseUrl.replaceAll(RegExp(r'/api$'), '');
-    if (url.startsWith('http')) {
-      final uri = Uri.tryParse(url);
-      if (uri != null && uri.path.startsWith('/storage/')) {
-        return '$base${uri.path}';
-      }
-    }
-    if (url.startsWith('/')) return base + url;
-    return url;
-  }
+  String? get displayImageUrl => resolveStorageDisplayUrl(imageUrl);
 }
 
 class CategoryInfo {

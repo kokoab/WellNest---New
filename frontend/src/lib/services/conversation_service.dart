@@ -44,9 +44,12 @@ class ConversationService {
       throw Exception(data?['message'] as String? ?? 'Failed to start conversation');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final other = data['other_user'] is Map<String, dynamic>
+        ? ConversationOtherUser.fromJson(data['other_user'] as Map<String, dynamic>)
+        : ConversationOtherUser(id: otherUserId, name: otherUserName);
     return ConversationListItem(
       id: (data['id'] as num).toInt(),
-      otherUser: ConversationOtherUser(id: otherUserId, name: otherUserName),
+      otherUser: other,
       lastMessage: null,
       unreadCount: 0,
       lastMessageAt: null,
@@ -124,11 +127,30 @@ class ConversationService {
   /// [onNewMessage] receives the message payload (use ChatMessage.fromJson(payload['message']) if backend sends { message: {... } }).
   Future<void> subscribeToLiveMessages(int conversationId, void Function(ChatMessage message) onNewMessage) async {
     await ReverbService.instance.subscribeToConversation(conversationId, (payload) {
-      final messageMap = payload['message'];
-      if (messageMap is Map<String, dynamic>) {
+      final messageMap = _extractMessageMap(payload);
+      if (messageMap != null) {
         onNewMessage(ChatMessage.fromJson(messageMap));
       }
     });
+  }
+
+  Map<String, dynamic>? _extractMessageMap(Map<String, dynamic> payload) {
+    dynamic candidate = payload['message'] ?? payload;
+
+    // Some transports nest again in a "data" field.
+    if (candidate is Map && candidate['message'] != null) {
+      candidate = candidate['message'];
+    } else if (candidate is Map && candidate['data'] != null) {
+      candidate = candidate['data'];
+    }
+
+    if (candidate is! Map) return null;
+    final map = Map<String, dynamic>.from(candidate);
+    // Minimal shape guard to avoid parsing unrelated events.
+    if (!map.containsKey('id') || !map.containsKey('conversation_id')) {
+      return null;
+    }
+    return map;
   }
 
   /// Unsubscribe when leaving the chat screen.

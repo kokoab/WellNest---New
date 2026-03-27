@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/services/admin_auth_service.dart';
+import 'package:my_app/services/auth_service.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -101,6 +102,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                               SnackBar(content: Text(error)),
                             );
                             return;
+                          }
+                          final t = AdminAuthService.instance.token;
+                          if (t != null && t.isNotEmpty) {
+                            AuthService.instance.setToken(t);
                           }
                           Navigator.pushReplacementNamed(context, '/admin_dashboard');
                         },

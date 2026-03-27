@@ -45,6 +45,7 @@ class PostCommentController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
                 ],
                 'created_at' => $comment->created_at->toIso8601String(),
             ],
@@ -57,7 +58,7 @@ class PostCommentController extends Controller
     public function index(Post $post): JsonResponse
     {
         $comments = $post->comments()
-            ->with('user:id,first_name,last_name')
+            ->with('user:id,first_name,last_name,profile_photo_url')
             ->orderBy('created_at', 'asc')
             ->get()
             ->map(fn (PostComment $c) => [
@@ -66,10 +67,20 @@ class PostCommentController extends Controller
                 'user' => [
                     'id' => $c->user->id,
                     'name' => $c->user->name,
+                    'profile_photo_url' => $this->fixMediaUrl($c->user->profile_photo_url ?? ''),
                 ],
                 'created_at' => $c->created_at->toIso8601String(),
             ]);
 
         return response()->json(['comments' => $comments]);
+    }
+
+    private function fixMediaUrl(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        return str_replace('localhost:8000', 'localhost:8080', $url);
     }
 }

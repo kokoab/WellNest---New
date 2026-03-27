@@ -29,12 +29,25 @@ class UserController extends Controller
                     ->orWhere('last_name', 'like', "%{$q}%")
                     ->orWhereRaw("CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,'')) LIKE ?", ["%{$q}%"]);
             })
-            ->select('id', 'first_name', 'last_name')
+            ->select('id', 'first_name', 'last_name', 'profile_photo_url')
             ->limit(20)
             ->get()
-            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]);
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'profile_photo_url' => $this->fixMediaUrl($u->profile_photo_url ?? ''),
+            ]);
 
         return response()->json(['data' => $users], 200);
+    }
+
+    private function fixMediaUrl(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        return str_replace('localhost:8000', 'localhost:8080', $url);
     }
 
     /**

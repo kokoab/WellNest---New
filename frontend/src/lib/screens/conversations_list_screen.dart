@@ -130,6 +130,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           builder: (context) => ConversationChatScreen(
             conversationId: conversation.id,
             otherUserName: user.name,
+            otherUserProfilePhotoUrl: user.displayProfilePhotoUrl,
           ),
         ),
       );
@@ -246,6 +247,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                   builder: (context) => ConversationChatScreen(
                                     conversationId: c.id,
                                     otherUserName: c.otherUser.name,
+                                    otherUserProfilePhotoUrl: c.otherUser.displayProfilePhotoUrl,
                                   ),
                                 ),
                               );
@@ -262,6 +264,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                   InitialsAvatar(
                                     name: c.otherUser.name,
                                     size: 52,
+                                    imageUrl: c.otherUser.displayProfilePhotoUrl,
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
@@ -357,7 +360,11 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       itemBuilder: (context, index) {
         final user = _searchResults[index];
         return ListTile(
-          leading: InitialsAvatar(name: user.name, size: 44),
+          leading: InitialsAvatar(
+            name: user.name,
+            size: 44,
+            imageUrl: user.displayProfilePhotoUrl,
+          ),
           title: Text(user.name),
           subtitle: const Text('Tap to start conversation'),
           onTap: () => _startChatWith(user),

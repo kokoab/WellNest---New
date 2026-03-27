@@ -53,13 +53,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  String _getInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : '?';
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
   Future<void> _addComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
@@ -108,7 +101,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InitialsAvatar(name: _post.userName, size: 48),
+                            InitialsAvatar(
+                              name: _post.userName,
+                              size: 48,
+                              imageUrl: _post.displayAuthorProfilePhotoUrl,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -189,14 +186,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ),
                           ),
                         ),
-                        if (_post.imageUrl.isNotEmpty) ...[
+                        if (_post.displayImageUrl != null && _post.displayImageUrl!.isNotEmpty) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: Image.network(
-                              _post.imageUrl,
+                              _post.displayImageUrl!,
                               height: 240,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              alignment: Alignment.center,
                               errorBuilder: (_, __, ___) => Container(
                                 color: AppColors.imagePlaceholderGreen,
                                 height: 240,
@@ -327,17 +325,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: const Color(0xFFF9BD21).withOpacity(0.3),
-                                    child: Text(
-                                      _getInitials(c.userName),
-                                      style: const TextStyle(
-                                        color: wellGreen,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                                  InitialsAvatar(
+                                    name: c.userName,
+                                    size: 32,
+                                    imageUrl: c.displayProfilePhotoUrl,
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(

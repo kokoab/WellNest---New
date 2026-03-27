@@ -19,7 +19,7 @@ brew install flutter
 ### 2. Backend must be running
 
 ```bash
-docker compose up -d database backend_app backend_nginx
+docker compose up -d database backend_app backend_nginx reverb queue_worker
 ```
 
 Backend URL: **http://localhost:8080** (or **http://localhost** if you mapped port 80).
@@ -36,7 +36,10 @@ Backend URL: **http://localhost:8080** (or **http://localhost** if you mapped po
 ```bash
 cd frontend/src
 flutter pub get
-flutter run -d chrome --dart-define=BASE_URL=http://localhost:8080
+flutter run -d chrome \
+  --dart-define=BASE_URL=http://localhost:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 ```
 
 **Android emulator:**
@@ -47,7 +50,10 @@ flutter run -d chrome --dart-define=BASE_URL=http://localhost:8080
 
    ```bash
    flutter devices   # you should see the emulator
-   flutter run -d <device-id> --dart-define=BASE_URL=http://10.0.2.2:8080
+   flutter run -d <device-id> \
+     --dart-define=BASE_URL=http://10.0.2.2:8080 \
+     --dart-define=REVERB_PORT=8081 \
+     --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
    ```
 
    Use `http://10.0.2.2:8080` so the **emulator** (Android) can reach your **Mac’s** backend (10.0.2.2 = host from inside the emulator). Use `:80` if your backend is on port 80.

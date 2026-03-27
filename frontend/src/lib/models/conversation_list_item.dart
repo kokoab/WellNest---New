@@ -1,3 +1,5 @@
+import '../utils/media_url.dart';
+
 /// Summary of a conversation for the list (other user, last message, unread count).
 class ConversationListItem {
   final int id;
@@ -34,15 +36,19 @@ class ConversationListItem {
 class ConversationOtherUser {
   final int id;
   final String name;
+  final String? profilePhotoUrl;
 
-  ConversationOtherUser({required this.id, required this.name});
+  ConversationOtherUser({required this.id, required this.name, this.profilePhotoUrl});
 
   factory ConversationOtherUser.fromJson(Map<String, dynamic> json) {
     return ConversationOtherUser(
       id: (json['id'] as num).toInt(),
       name: json['name'] as String? ?? '',
+      profilePhotoUrl: json['profile_photo_url'] as String?,
     );
   }
+
+  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
 }
 
 class ConversationLastMessage {

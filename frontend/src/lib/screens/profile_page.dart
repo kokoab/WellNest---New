@@ -294,8 +294,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       width: 120,
                       height: 120,
                       fit: BoxFit.cover,
+                      alignment: Alignment.center,
                       cacheWidth: 240,
-                      cacheHeight: 240,
                       errorBuilder: (_, __, ___) => _initialsContent(),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
@@ -425,9 +425,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     ? Image.network(
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,
+                        alignment: Alignment.center,
                         width: double.infinity,
-                        cacheWidth: 320,
-                        cacheHeight: 360,
+                        cacheWidth: 600,
                         errorBuilder: (_, __, ___) => _placeholderImage(),
                       )
                     : _placeholderImage(),

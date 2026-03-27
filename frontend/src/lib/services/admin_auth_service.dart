@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'session_persistence.dart';
 
 /// In-memory store for admin auth token. Used for admin API calls.
 class AdminAuthService {
@@ -45,6 +46,7 @@ class AdminAuthService {
         final token = data['token'] as String?;
         if (token == null || token.isEmpty) return 'Invalid response from server';
         setAuth(token, isAdmin: true);
+        await SessionPersistence.write(token, isAdmin: true);
         return null;
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
@@ -61,6 +63,7 @@ class AdminAuthService {
   Future<void> logoutAdmin() async {
     if (_token == null) {
       clearAuth();
+      await SessionPersistence.clear();
       return;
     }
     try {
@@ -70,6 +73,7 @@ class AdminAuthService {
       );
     } finally {
       clearAuth();
+      await SessionPersistence.clear();
     }
   }
 }

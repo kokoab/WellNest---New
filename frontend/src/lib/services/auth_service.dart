@@ -1,6 +1,25 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'admin_auth_service.dart';
+import 'session_persistence.dart';
+
+/// Result of [AuthService.login]: [error] is set on failure; [isAdmin] when login succeeds.
+class LoginResult {
+  final String? error;
+  final bool isAdmin;
+
+  const LoginResult._({this.error, this.isAdmin = false});
+
+  factory LoginResult.failure(String message) =>
+      LoginResult._(error: message, isAdmin: false);
+
+  /// [isAdmin] is true when the user has `role` `admin` (same token works for admin routes).
+  factory LoginResult.success({required bool isAdmin}) =>
+      LoginResult._(error: null, isAdmin: isAdmin);
+
+  bool get isSuccess => error == null;
+}
 
 /// In-memory store for user auth token. Used for authenticated API calls.
 class AuthService {
@@ -52,7 +71,10 @@ class AuthService {
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
-        if (token != null && token.isNotEmpty) setToken(token);
+        if (token != null && token.isNotEmpty) {
+          setToken(token);
+          await SessionPersistence.write(token, isAdmin: false);
+        }
         return null;
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -66,8 +88,9 @@ class AuthService {
     }
   }
 
-  /// POST /api/login with email & password. Returns null on success.
-  Future<String?> login(String email, String password) async {
+  /// POST /api/login with email & password.
+  /// On success, syncs [AdminAuthService] when `user.role === 'admin'` so admin APIs work.
+  Future<LoginResult> login(String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/login'),
@@ -80,25 +103,39 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
-        if (token == null || token.isEmpty)
-          return 'Invalid response from server';
+        if (token == null || token.isEmpty) {
+          return LoginResult.failure('Invalid response from server');
+        }
         setToken(token);
-        return null;
+        final user = data['user'] as Map<String, dynamic>?;
+        final role = user?['role'] as String?;
+        final isAdmin = role == 'admin';
+        if (isAdmin) {
+          AdminAuthService.instance.setAuth(token, isAdmin: true);
+        } else {
+          AdminAuthService.instance.clearAuth();
+        }
+        await SessionPersistence.write(token, isAdmin: isAdmin);
+        return LoginResult.success(isAdmin: isAdmin);
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
         final data = jsonDecode(response.body) as Map<String, dynamic>?;
-        return data?['message'] as String? ?? 'Invalid credentials';
+        return LoginResult.failure(
+          data?['message'] as String? ?? 'Invalid credentials',
+        );
       }
-      return 'Server error: ${response.statusCode}';
+      return LoginResult.failure('Server error: ${response.statusCode}');
     } catch (e) {
-      return 'Failed to connect: $e';
+      return LoginResult.failure('Failed to connect: $e');
     }
   }
 
-  /// POST /api/logout with Bearer token. Clears local token.
+  /// POST /api/logout with Bearer token. Clears local token and admin session mirror.
   Future<void> logout() async {
     if (_token == null) {
       clearToken();
+      AdminAuthService.instance.clearAuth();
+      await SessionPersistence.clear();
       return;
     }
     try {
@@ -108,6 +145,8 @@ class AuthService {
       );
     } finally {
       clearToken();
+      AdminAuthService.instance.clearAuth();
+      await SessionPersistence.clear();
     }
   }
 }

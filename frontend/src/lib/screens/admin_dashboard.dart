@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:my_app/models/activity_log.dart';
 import 'package:my_app/models/admin_user.dart';
 import 'package:my_app/models/recipe.dart';
+import 'package:my_app/models/recipe_ranking_item.dart';
 import 'package:my_app/models/report.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 import 'package:my_app/services/admin_auth_service.dart';
+import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
@@ -49,6 +51,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
+  /// Bumps when [_loadAll] runs after the first load so overview rankings refetch.
+  int _rankingsRefreshNonce = 0;
+  bool _hasLoadedAllOnce = false;
 
   @override
   void initState() {
@@ -56,11 +61,19 @@ class _AdminDashboardState extends State<AdminDashboard>
     _loadAll();
   }
 
-  void _loadAll() {
-    _loadUsers();
-    _loadReports();
-    _loadRecipeTotal();
-    _loadAuditLogs();
+  Future<void> _loadAll() async {
+    await Future.wait<void>([
+      _loadUsers(),
+      _loadReports(),
+      _loadRecipeTotal(),
+      _loadAuditLogs(),
+    ]);
+    if (!mounted) return;
+    if (_hasLoadedAllOnce) {
+      setState(() => _rankingsRefreshNonce++);
+    } else {
+      _hasLoadedAllOnce = true;
+    }
   }
 
   // ── loaders ────────────────────────────────────────────────────────────────
@@ -439,8 +452,9 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _handleLogout() async {
     await AdminAuthService.instance.logoutAdmin();
+    AuthService.instance.clearToken();
     if (!context.mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/admin_login', (r) => false);
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
   }
 
   // ── section content router ─────────────────────────────────────────────────
@@ -459,6 +473,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           auditLogs: _auditLogs,
           exportingInsightsCsv: _exportingInsightsCsv,
           onExportInsights: _exportInsightsCsv,
+          rankingsRefreshNonce: _rankingsRefreshNonce,
         );
       case _Section.users:
         return _UsersSection(
@@ -790,6 +805,201 @@ class _TopBar extends StatelessWidget {
   }
 }
 
+// ─── Recipe rankings (overview) ─────────────────────────────────────────────
+class _OverviewRecipeRankingsCard extends StatefulWidget {
+  final ThemeData theme;
+  final int refreshNonce;
+
+  const _OverviewRecipeRankingsCard({
+    required this.theme,
+    required this.refreshNonce,
+  });
+
+  @override
+  State<_OverviewRecipeRankingsCard> createState() => _OverviewRecipeRankingsCardState();
+}
+
+class _OverviewRecipeRankingsCardState extends State<_OverviewRecipeRankingsCard> {
+  List<RecipeRankingItem> _rows = [];
+  bool _loading = true;
+  String? _error;
+  String _window = '7d';
+  int _sortIndex = 0;
+  bool _ascending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_OverviewRecipeRankingsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshNonce != widget.refreshNonce) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await RecipeService.instance.fetchRankings(
+        window: _window,
+        mode: 'combined',
+      );
+      if (!mounted) return;
+      setState(() {
+        _rows = rows;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  void _sort<T>(int column, T Function(RecipeRankingItem r) key) {
+    setState(() {
+      if (_sortIndex == column) {
+        _ascending = !_ascending;
+      } else {
+        _sortIndex = column;
+        _ascending = false;
+      }
+      _rows.sort((a, b) {
+        final av = key(a);
+        final bv = key(b);
+        final cmp = Comparable.compare(av as Comparable, bv as Comparable);
+        return _ascending ? cmp : -cmp;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    if (_loading) {
+      return _Card(
+        theme: theme,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator(color: kPrimaryGreen)),
+        ),
+      );
+    }
+    if (_error != null) {
+      return _Card(
+        theme: theme,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+        ),
+      );
+    }
+
+    return _Card(
+      theme: theme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: DropdownButtonFormField<String>(
+              value: _window,
+              decoration: const InputDecoration(
+                labelText: 'Time window',
+                border: OutlineInputBorder(),
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: const [
+                DropdownMenuItem(value: '7d', child: Text('Last 7 days')),
+                DropdownMenuItem(value: '30d', child: Text('Last 30 days')),
+                DropdownMenuItem(value: 'all', child: Text('All time')),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _window = v);
+                _load();
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        sortColumnIndex: _sortIndex,
+                        sortAscending: _ascending,
+                        headingRowHeight: 40,
+                        dataRowMinHeight: 36,
+                        dataRowMaxHeight: 48,
+                        columns: [
+                          const DataColumn(label: Text('Rank')),
+                          DataColumn(
+                            label: const Text('Title'),
+                            onSort: (_, __) => _sort(1, (r) => r.title),
+                          ),
+                          DataColumn(
+                            label: const Text('Views'),
+                            numeric: true,
+                            onSort: (_, __) => _sort(2, (r) => r.viewsCount),
+                          ),
+                          DataColumn(
+                            label: const Text('Avg Rating'),
+                            numeric: true,
+                            onSort: (_, __) => _sort(3, (r) => r.averageRating),
+                          ),
+                          DataColumn(
+                            label: const Text('Ratings'),
+                            numeric: true,
+                            onSort: (_, __) => _sort(4, (r) => r.ratingsCount),
+                          ),
+                          DataColumn(
+                            label: const Text('Score'),
+                            numeric: true,
+                            onSort: (_, __) => _sort(5, (r) => r.score),
+                          ),
+                        ],
+                        rows: List.generate(_rows.length, (i) {
+                          final r = _rows[i];
+                          return DataRow(
+                            cells: [
+                              DataCell(Text('${i + 1}')),
+                              DataCell(Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                              DataCell(Text('${r.viewsCount}')),
+                              DataCell(Text(r.averageRating.toStringAsFixed(2))),
+                              DataCell(Text('${r.ratingsCount}')),
+                              DataCell(Text(r.score.toStringAsFixed(3))),
+                            ],
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Overview Section ─────────────────────────────────────────────────────────
 class _OverviewSection extends StatelessWidget {
   final ThemeData theme;
@@ -803,6 +1013,7 @@ class _OverviewSection extends StatelessWidget {
   final List<ActivityLog> auditLogs;
   final bool exportingInsightsCsv;
   final VoidCallback onExportInsights;
+  final int rankingsRefreshNonce;
 
   const _OverviewSection({
     required this.theme,
@@ -816,6 +1027,7 @@ class _OverviewSection extends StatelessWidget {
     required this.auditLogs,
     required this.exportingInsightsCsv,
     required this.onExportInsights,
+    required this.rankingsRefreshNonce,
   });
 
   @override
@@ -878,6 +1090,10 @@ class _OverviewSection extends StatelessWidget {
               : const Icon(Icons.download_rounded, size: 20),
           label: Text(exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report'),
         ),
+        AppSpacing.gapV24,
+        _SectionHeader(theme: theme, title: 'Recipe rankings', subtitle: 'Views, ratings, and combined score'),
+        AppSpacing.gapV12,
+        _OverviewRecipeRankingsCard(theme: theme, refreshNonce: rankingsRefreshNonce),
         AppSpacing.gapV24,
         // Recent activity summary
         _SectionHeader(theme: theme, title: 'Recent Activity', subtitle: 'Last 5 activity logs'),

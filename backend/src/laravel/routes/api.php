@@ -23,7 +23,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageAttachmentController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Broadcast;
-
+use App\Http\Controllers\Api\RecipeRankingController;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -51,6 +51,8 @@ Route::get('posts/{post}', function (Post $post) {
 Route::get('categories', [CategoryController::class, 'index']);
 Route::get('categories/{category}', [CategoryController::class, 'show']);
 Route::get('recipes', [RecipeController::class, 'index']);
+// Must be before recipes/{recipe} or "rankings" is captured as the {recipe} id.
+Route::get('recipes/rankings', [RecipeRankingController::class, 'index']);
 Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
 Route::get('recipes/{recipe}/ratings', [RecipeRatingController::class, 'index']);
 
@@ -123,6 +125,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/broadcasting/auth', function (Request $request) {
         return Broadcast::auth($request);
     });
+
+
 });
 
 // Admin-only routes (auth:sanctum + admin)
@@ -151,4 +155,6 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // Kept for backward compatibility
     Route::get('admin/activity-logs', [LogController::class, 'index']);
     Route::get('admin/activity-logs/export', [LogController::class, 'exportCsv']);
+
+    Route::get('admin/recipes/rankings', [RecipeRankingController::class, 'index']);
 });

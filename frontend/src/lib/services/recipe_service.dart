@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../models/recipe.dart';
 import 'auth_service.dart';
 import 'admin_auth_service.dart';
+import '../models/recipe_ranking_item.dart';
 
 /// API calls for recipes. List/show are public; create/update/delete require auth.
 class RecipeService {
@@ -16,18 +17,20 @@ class RecipeService {
 
   /// Headers for read (list/show) — optional auth so public routes work when not logged in.
   Map<String, String> get _headersForRead => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (AuthService.instance.authHeaders.isNotEmpty) ...AuthService.instance.authHeaders,
-        if (AuthService.instance.authHeaders.isEmpty && AdminAuthService.instance.authHeaders.isNotEmpty)
-          ...AdminAuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    if (AuthService.instance.authHeaders.isNotEmpty)
+      ...AuthService.instance.authHeaders,
+    if (AuthService.instance.authHeaders.isEmpty &&
+        AdminAuthService.instance.authHeaders.isNotEmpty)
+      ...AdminAuthService.instance.authHeaders,
+  };
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AuthService.instance.authHeaders,
+  };
 
   /// GET /api/recipes — optional category_id, user_id, search (name/ingredients), paginated (public)
   Future<RecipeListResponse> fetchRecipes({
@@ -39,14 +42,17 @@ class RecipeService {
     final params = <String, String>{'page': '$page'};
     if (categoryId != null) params['category_id'] = '$categoryId';
     if (userId != null) params['user_id'] = '$userId';
-    if (search != null && search.trim().isNotEmpty) params['search'] = search.trim();
+    if (search != null && search.trim().isNotEmpty)
+      params['search'] = search.trim();
     final uri = Uri.parse('$_baseUrl/recipes').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headersForRead);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final list = (data['data'] as List<dynamic>?) ?? [];
       return RecipeListResponse(
-        recipes: list.map((e) => Recipe.fromJson(e as Map<String, dynamic>)).toList(),
+        recipes: list
+            .map((e) => Recipe.fromJson(e as Map<String, dynamic>))
+            .toList(),
         currentPage: data['current_page'] as int? ?? 1,
         lastPage: data['last_page'] as int? ?? 1,
         total: data['total'] as int? ?? 0,
@@ -109,11 +115,9 @@ class RecipeService {
       'Accept': 'application/json',
       ...AuthService.instance.authHeaders,
     });
-    request.files.add(http.MultipartFile.fromBytes(
-      'image',
-      bytes,
-      filename: name,
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes('image', bytes, filename: name),
+    );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 201) return;
@@ -166,6 +170,34 @@ class RecipeService {
     }
     throw Exception(message ?? 'Request failed: ${response.statusCode}');
   }
+
+  /// GET /api/recipes/rankings (public; optional auth for consistency).
+  Future<List<RecipeRankingItem>> fetchRecipeRankings({
+    String window = '7d',
+    String mode = 'combined',
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/recipes/rankings',
+    ).replace(queryParameters: {'window': window, 'mode': mode});
+
+    final response = await http.get(uri, headers: _headersForRead);
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw Exception(data?['message'] as String? ?? 'Failed to load rankings');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = data['data'] as List<dynamic>? ?? [];
+    return list
+        .map((e) => RecipeRankingItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Alias used by feed and admin table.
+  Future<List<RecipeRankingItem>> fetchRankings({
+    String window = '7d',
+    String mode = 'combined',
+  }) =>
+      fetchRecipeRankings(window: window, mode: mode);
 }
 
 class RecipeListResponse {

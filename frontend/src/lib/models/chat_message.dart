@@ -1,3 +1,5 @@
+import '../utils/media_url.dart';
+
 /// A single message in a conversation (from API or Reverb).
 class ChatMessage {
   final int id;
@@ -47,13 +49,17 @@ class ChatMessage {
 class ChatMessageUser {
   final int id;
   final String name;
+  final String? profilePhotoUrl;
 
-  ChatMessageUser({required this.id, required this.name});
+  ChatMessageUser({required this.id, required this.name, this.profilePhotoUrl});
 
   factory ChatMessageUser.fromJson(Map<String, dynamic> json) {
     return ChatMessageUser(
       id: (json['id'] as num).toInt(),
       name: json['name'] as String? ?? '',
+      profilePhotoUrl: json['profile_photo_url'] as String?,
     );
   }
+
+  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
 }

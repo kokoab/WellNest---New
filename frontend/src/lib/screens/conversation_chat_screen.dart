@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:my_app/config/app_config.dart';
@@ -12,11 +14,14 @@ import 'package:my_app/theme/app_theme.dart';
 class ConversationChatScreen extends StatefulWidget {
   final int conversationId;
   final String otherUserName;
+  /// Resolved display URL for the other participant (optional).
+  final String? otherUserProfilePhotoUrl;
 
   const ConversationChatScreen({
     super.key,
     required this.conversationId,
     required this.otherUserName,
+    this.otherUserProfilePhotoUrl,
   });
 
   @override
@@ -35,7 +40,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   bool _uploadingAttachment = false;
   bool _pickingImage = false;
   int? _currentUserId;
+  CurrentUser? _currentUser;
   final ImagePicker _picker = ImagePicker();
+  Timer? _syncTimer;
 
   @override
   void initState() {
@@ -43,13 +50,19 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     _loadCurrentUser();
     _loadMessages();
     _subscribeLive();
+    _startBackgroundSync();
     _service.markConversationAsRead(widget.conversationId);
   }
 
   Future<void> _loadCurrentUser() async {
     if (!AuthService.instance.isLoggedIn) return;
     final user = await UserService.instance.fetchCurrentUser();
-    if (mounted && user != null) setState(() => _currentUserId = user.id);
+    if (mounted && user != null) {
+      setState(() {
+        _currentUser = user;
+        _currentUserId = user.id;
+      });
+    }
   }
 
   Future<void> _loadMessages() async {
@@ -95,10 +108,37 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   @override
   void dispose() {
+    _syncTimer?.cancel();
     _service.unsubscribeFromLiveMessages(widget.conversationId);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _startBackgroundSync() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _syncMessagesSilently();
+    });
+  }
+
+  Future<void> _syncMessagesSilently() async {
+    if (!mounted || _loading || _sending || _uploadingAttachment) return;
+    try {
+      final data = await _service.fetchMessages(widget.conversationId);
+      final latest = ConversationService.messagesFromResponse(data);
+      if (!mounted || latest.isEmpty) return;
+
+      final existingIds = _messages.map((m) => m.id).toSet();
+      final unseen = latest.where((m) => !existingIds.contains(m.id)).toList();
+      if (unseen.isEmpty) return;
+
+      setState(() {
+        _messages = [...unseen, ..._messages];
+      });
+    } catch (_) {
+      // Keep UI stable if polling fails; realtime push may still arrive.
+    }
   }
 
   Future<void> _send() async {
@@ -319,7 +359,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            InitialsAvatar(name: widget.otherUserName, size: 32),
+            InitialsAvatar(
+              name: widget.otherUserName,
+              size: 32,
+              imageUrl: widget.otherUserProfilePhotoUrl,
+            ),
             const SizedBox(width: 10),
             Text(
               widget.otherUserName,
@@ -367,70 +411,82 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           _currentUserId != null && m.userId == _currentUserId;
                       final attachmentOnly =
                           m.attachments.isNotEmpty && m.content.trim().isEmpty;
-                      return Align(
-                        alignment: isMe
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: attachmentOnly ? 0 : 14,
-                            vertical: attachmentOnly ? 0 : 10,
-                          ),
-                          decoration: attachmentOnly
-                              ? null
-                              : BoxDecoration(
-                                  color: isMe
-                                      ? AppColors.primaryGreen.withOpacity(0.9)
-                                      : (isDark
+                      final otherPhoto =
+                          m.user?.displayProfilePhotoUrl ?? widget.otherUserProfilePhotoUrl;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Row(
+                          mainAxisAlignment:
+                              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (!isMe) ...[
+                              InitialsAvatar(
+                                name: m.user?.name ?? widget.otherUserName,
+                                size: 28,
+                                imageUrl: otherPhoto,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Flexible(
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 0,
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: attachmentOnly ? 0 : 14,
+                                  vertical: attachmentOnly ? 0 : 10,
+                                ),
+                                decoration: attachmentOnly
+                                    ? null
+                                    : BoxDecoration(
+                                        color: isMe
+                                            ? AppColors.primaryGreen.withOpacity(0.9)
+                                            : (isDark
                                             ? Colors.grey.shade700
                                             : Colors.grey.shade700),
-                                  borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (m.attachments.isNotEmpty)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: attachmentOnly ? 0 : 6,
+                                        ),
+                                        child: Wrap(
+                                          spacing: 4,
+                                          runSpacing: 4,
+                                          children: [
+                                            for (final att in m.attachments)
+                                              _buildAttachmentPreview(att),
+                                          ],
+                                        ),
+                                      ),
+                                    if (m.content.trim().isNotEmpty)
+                                      Text(
+                                        m.content,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 21,
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (m.user != null && !isMe)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    m.user!.name,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isDark
-                                          ? Colors.grey.shade400
-                                          : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ),
-                              if (m.attachments.isNotEmpty)
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: attachmentOnly ? 0 : 6,
-                                  ),
-                                  child: Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
-                                    children: [
-                                      for (final att in m.attachments)
-                                        _buildAttachmentPreview(att),
-                                    ],
-                                  ),
-                                ),
-                              if (m.content.trim().isNotEmpty)
-                                Text(
-                                  m.content,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 21,
-                                  ),
-                                ),
+                              ),
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 8),
+                              InitialsAvatar(
+                                name: _currentUser?.displayName ?? 'Me',
+                                size: 28,
+                                imageUrl: _currentUser?.displayProfilePhotoUrl,
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       );
                     },

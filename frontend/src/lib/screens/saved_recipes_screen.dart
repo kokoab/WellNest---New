@@ -184,8 +184,8 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                     ? Image.network(
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,
+                        alignment: Alignment.center,
                         cacheWidth: 180,
-                        cacheHeight: 180,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Container(
