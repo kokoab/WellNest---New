@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
@@ -47,47 +46,55 @@ class PostController extends Controller
         ]);
 
         $post->load('user:id,first_name,last_name,profile_photo_url');
-        $post->load('user:id,first_name,last_name,profile_photo_url');
 
         return response()->json([
             'message' => 'Post created',
-            'post' => [
-                'id' => $post->id,
-                'user_id' => $post->user_id,
-                'recipe_id' => $post->recipe_id,
-                'content' => $post->content,
-                'image_url' => $this->fixImageUrl($post->image_url ?? ''),
-                'user' => $this->postUserPayload($post->user),
-                'image_url' => $post->image_url ?? '',
-                'user' => [
-                    'id' => $post->user->id ?? null,
-                    'name' => $post->user->name ?? '',
-                    'profile_photo_url' => $post->user->profile_photo_url ?? null,
-                ],
-            ],
+            'post' => $this->postPayload($post),
         ], 201);
     }
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = Post::with('user:id,first_name,last_name,profile_photo_url')
         $query = Post::with('user:id,first_name,last_name,profile_photo_url')
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
+            $query->where('user_id', $request->integer('user_id'));
         }
 
-        return $query->get()
-            ->map(fn (Post $p) => [
-                'id' => $p->id,
-                'user_id' => $p->user_id,
-                'recipe_id' => $p->recipe_id,
-                'content' => $p->content,
-                'image_url' => $this->fixImageUrl($p->image_url ?? ''),
-                'created_at' => $p->created_at?->toIso8601String(),
-                'user' => $this->postUserPayload($p->user),
-            ]);
+        $feed = strtolower((string) $request->query('feed', ''));
+        if ($feed === 'following' || $request->boolean('following')) {
+            $viewer = $request->user('sanctum');
+
+            if ($viewer === null) {
+                return response()->json([]);
+            }
+
+            $followingIds = $viewer->following()->pluck('users.id');
+
+            if ($followingIds->isEmpty()) {
+                return response()->json([]);
+            }
+
+            $query->whereIn('user_id', $followingIds);
+        }
+
+        $posts = $query->get()->map(fn (Post $post) => $this->postPayload($post));
+
+        return response()->json($posts);
+    }
+
+    private function postPayload(Post $post): array
+    {
+        return [
+            'id' => $post->id,
+            'user_id' => $post->user_id,
+            'recipe_id' => $post->recipe_id,
+            'content' => $post->content,
+            'image_url' => $this->fixImageUrl($post->image_url ?? ''),
+            'created_at' => $post->created_at?->toIso8601String(),
+            'user' => $this->postUserPayload($post->user),
+        ];
     }
 
     /** @param \App\Models\User|null $user */
@@ -106,13 +113,10 @@ class PostController extends Controller
 
     private function fixImageUrl(string $url): string
     {
-        if (empty($url)) return '';
+        if ($url === '') {
+            return '';
+        }
+
         return str_replace('localhost:8000', 'localhost:8080', $url);
-                'user' => [
-                    'id' => $p->user->id ?? null,
-                    'name' => trim(($p->user->first_name ?? '') . ' ' . ($p->user->last_name ?? '')),
-                    'profile_photo_url' => $p->user->profile_photo_url ?? null,
-                ],
-            ]);
     }
 }

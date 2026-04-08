@@ -11,6 +11,7 @@ class PostComment {
   final String userName;
   final String createdAt;
   final String? imageUrl;
+  final String? profilePhotoUrl;
 
   PostComment({
     required this.id,
@@ -18,6 +19,7 @@ class PostComment {
     required this.userName,
     required this.createdAt,
     this.imageUrl,
+    this.profilePhotoUrl,
   });
 
   static String? _normalizeImageUrl(String? rawUrl) {
@@ -34,14 +36,15 @@ class PostComment {
   }
 
   factory PostComment.fromJson(Map<String, dynamic> json) {
-    final user = json['user'];
-    final name = user is Map ? (user['name'] as String? ?? '') : '';
+    final user = json['user'] as Map<String, dynamic>?;
+    final name = user?['name'] as String? ?? '';
     return PostComment(
       id: json['id'] as int,
       comment: json['comment'] as String? ?? '',
       userName: name,
       createdAt: json['created_at'] as String? ?? '',
       imageUrl: _normalizeImageUrl(json['image_url'] as String?),
+      profilePhotoUrl: _normalizeImageUrl(user?['profile_photo_url'] as String?),
     );
   }
 

@@ -52,6 +52,7 @@ Route::get('posts/{post}', function (Post $post) {
 
 // Public: list comments for a post (no auth required)
 Route::get('posts/{post}/comments', [PostCommentController::class, 'index']);
+Route::get('users/{user}', [UserController::class, 'show'])->whereNumber('user');
 
 // Public: list and view recipes and categories (no auth required — show all recipes)
 Route::get('categories', [CategoryController::class, 'index']);
@@ -64,9 +65,7 @@ Route::get('recipes/{recipe}/ratings', [RecipeRatingController::class, 'index'])
 
 // Protected routes (auth:sanctum)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+    Route::get('/user', [UserController::class, 'currentUser']);
     Route::patch('/user', [AuthController::class, 'updateProfile']);
     Route::post('/user/profile-photo', [AuthController::class, 'uploadProfilePhoto']);
     Route::post('logout', [AuthController::class, 'logout']);
@@ -97,6 +96,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
     Route::get('users/search', [UserController::class, 'search']);
+    Route::post('users/{user}/follow', [UserController::class, 'follow']);
+    Route::delete('users/{user}/follow', [UserController::class, 'unfollow']);
     Route::post('users/{user}/report', [ReportController::class, 'reportUser']);
 
     Route::post('recipes/{recipe}/save', [SavedRecipeController::class, 'save']);

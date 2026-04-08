@@ -20,6 +20,7 @@ import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/weekly_meal_planner_strip.dart';
 import 'feed_page.dart';
 import 'recipe_ranking_screen.dart';
 
@@ -119,6 +120,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   int _loadRecipesGeneration = 0;
   List<RecipeRankingItem> _topRanked = [];
   bool _loadingRanked = false;
+  DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
+  final Map<DateTime, int?> _plannedRecipes = {};
 
   TextEditingController _getReviewController(int recipeId) {
     _reviewControllers[recipeId] ??= TextEditingController();
@@ -402,6 +405,18 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         const SizedBox(height: 8),
                       ],
                       if (_categories.isNotEmpty) const SizedBox(height: 10),
+                      WeeklyMealPlannerStrip(
+                        weekStart: _plannerWeekStart,
+                        selections: _plannedRecipes,
+                        recipes: _recipes,
+                        onWeekChanged: (nextWeekStart) {
+                          setState(() => _plannerWeekStart = nextWeekStart);
+                        },
+                        onAssignRecipe: (day, recipeId) {
+                          setState(() => _plannedRecipes[day] = recipeId);
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       _buildTopRankedSection(),
                       const SizedBox(height: 16),
                       const Text(
@@ -427,6 +442,11 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ),
       ),
     );
+  }
+
+  static DateTime _startOfWeek(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    return normalized.subtract(Duration(days: normalized.weekday - 1));
   }
 
   /// Grid / loading / error below the header; kept as slivers for one scroll + pull-to-refresh.

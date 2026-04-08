@@ -153,6 +153,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildStatColumn('${_myPosts.length}', 'Posts'),
                 ],
               ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildStatColumn('${_user?.followersCount ?? 0}', 'Followers'),
+                  const SizedBox(width: 40),
+                  _buildStatColumn('${_user?.followingCount ?? 0}', 'Following'),
+                ],
+              ),
               const SizedBox(height: 30),
 
               if (AuthService.instance.isLoggedIn) ...[
@@ -280,7 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
         style: TextStyle(
           fontFamily: 'HelveticaNow',
           fontSize: 16,
-          color: Colors.grey.shade800,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       trailing: Switch(

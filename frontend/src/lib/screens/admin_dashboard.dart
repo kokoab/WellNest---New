@@ -60,10 +60,13 @@ class _AdminDashboardState extends State<AdminDashboard>
   bool _logsLoading = true;
   String? _logsError;
   _DateRangeFilter _logsRange = _DateRangeFilter.monthly;
+  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
 
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
+  bool _hasLoadedAllOnce = false;
+  int _rankingsRefreshNonce = 0;
 
   @override
   void initState() {

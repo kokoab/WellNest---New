@@ -12,10 +12,13 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
+import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
+
+enum _FeedScope { all, following }
 
 /// Main feed screen with posts and recipes.
 class FeedPage extends StatefulWidget {
@@ -45,6 +48,16 @@ class _FeedPageState extends State<FeedPage> {
   final Map<int, List<PostComment>> _postComments = {};
   final Map<int, bool> _commentsExpanded = {};
   final Map<int, TextEditingController> _commentControllers = {};
+  _FeedScope _feedScope = _FeedScope.all;
+
+  String get _initials {
+    final first = (_currentUser?.firstName ?? '').trim();
+    final last = (_currentUser?.lastName ?? '').trim();
+    final initials = '${first.isNotEmpty ? first[0] : ''}${last.isNotEmpty ? last[0] : ''}'
+        .toUpperCase()
+        .trim();
+    return initials.isEmpty ? '?' : initials;
+  }
 
   @override
   void dispose() {
@@ -110,7 +123,9 @@ class _FeedPageState extends State<FeedPage> {
       _loadError = null;
     });
     try {
-      final posts = await _apiService.fetchPosts();
+      final posts = await _apiService.fetchPosts(
+        followingOnly: _feedScope == _FeedScope.following,
+      );
       if (!mounted) return;
       setState(() {
         _posts = posts;
@@ -135,6 +150,8 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_loading && _posts.isEmpty) {
       return const SafeArea(
         child: Center(
@@ -170,78 +187,157 @@ class _FeedPageState extends State<FeedPage> {
 
     return SafeArea(
       child: RefreshIndicator(
-            onRefresh: () async {
-              await _loadPosts();
-              await _loadUser();
-            },
-            color: wellGreen,
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppSpacing.gapV8,
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                          child: WellnestHeader(),
-                        ),
-                        AppSpacing.gapV16,
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                          child: Text(
-                            'Feed',
-                            style: TextStyle(
-                              fontFamily: 'Recoleta',
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
-                            ),
+        onRefresh: () async {
+          await _loadPosts();
+          await _loadUser();
+        },
+        color: wellGreen,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSpacing.gapV8,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        child: WellnestHeader(),
+                      ),
+                      AppSpacing.gapV16,
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                        child: Text(
+                          'Feed',
+                          style: TextStyle(
+                            fontFamily: 'Recoleta',
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
-                        if (AuthService.instance.isLoggedIn) ...[
-                          _buildCreatePostBox(),
-                          const SizedBox(height: 20),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                ),
-                if (posts.isEmpty && !AuthService.instance.isLoggedIn)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Sign in to create one!')),
-                    ),
-                  )
-                else if (posts.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: Text('No posts yet. Share something!')),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => RepaintBoundary(child: _buildFeedCard(posts[index])),
-                        childCount: posts.length,
                       ),
+                      if (AuthService.instance.isLoggedIn) ...[
+                        _buildFeedScopeToggle(colorScheme),
+                        const SizedBox(height: 16),
+                        _buildCreatePostBox(),
+                        const SizedBox(height: 20),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (posts.isEmpty && !AuthService.instance.isLoggedIn)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No posts yet. Sign in to create one!')),
+                ),
+              )
+            else if (posts.isEmpty && _feedScope == _FeedScope.following)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                  child: Center(
+                    child: Text(
+                      'Follow people to see their posts here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+                ),
+              )
+            else if (posts.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No posts yet. Share something!')),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) =>
+                        RepaintBoundary(child: _buildFeedCard(posts[index])),
+                    childCount: posts.length,
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedScopeToggle(ColorScheme colorScheme) {
+    Widget segment({
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? colorScheme.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: selected ? colorScheme.onPrimary : colorScheme.onSurface,
+              ),
             ),
           ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          segment(
+            label: 'All',
+            selected: _feedScope == _FeedScope.all,
+            onTap: _feedScope == _FeedScope.all
+                ? () {}
+                : () {
+                    setState(() => _feedScope = _FeedScope.all);
+                    _loadPosts();
+                  },
+          ),
+          segment(
+            label: 'Following',
+            selected: _feedScope == _FeedScope.following,
+            onTap: _feedScope == _FeedScope.following
+                ? () {}
+                : () {
+                    setState(() => _feedScope = _FeedScope.following);
+                    _loadPosts();
+                  },
+          ),
+        ],
+      ),
     );
   }
 
@@ -270,7 +366,7 @@ class _FeedPageState extends State<FeedPage> {
                   radius: 22,
                   backgroundColor: const Color(0xFFFFEECC),
                   child: Text(
-                    initials.isEmpty ? '?' : initials,
+                    _initials,
                     style: const TextStyle(
                       color: wellGreen,
                       fontWeight: FontWeight.bold,
@@ -393,9 +489,9 @@ class _FeedPageState extends State<FeedPage> {
     final isCommenting = _commenting[post.id] ?? false;
     final expanded = _commentsExpanded[post.id] ?? false;
     final comments = _postComments[post.id] ?? [];
-    // Use seeded counts, falling back to live comment list length when expanded
     final likesCount = _postLikesCount[post.id] ?? 0;
-    final commentsCount = expanded ? comments.length : (_postCommentsCount[post.id] ?? 0);
+    final commentsCount =
+        expanded ? comments.length : (_postCommentsCount[post.id] ?? 0);
     _commentControllers[post.id] ??= TextEditingController();
 
     void goToDetail() {
@@ -405,7 +501,17 @@ class _FeedPageState extends State<FeedPage> {
           fullscreenDialog: true,
           builder: (context) => PostDetailScreen(post: post),
         ),
-      ).then((_) => _loadPosts()); // refresh counts on return
+      ).then((_) => _loadPosts());
+    }
+
+    void openProfile() {
+      if (post.userId == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => UserProfileScreen(userId: post.userId!),
+        ),
+      );
     }
 
     return Container(
@@ -424,71 +530,76 @@ class _FeedPageState extends State<FeedPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onTap: goToDetail,
+                  onTap: openProfile,
                   child: InitialsAvatar(
                     name: post.userName,
                     size: 44,
-                    imageUrl: post.userProfilePhotoUrl,
+                    imageUrl: post.displayAuthorProfilePhotoUrl,
                   ),
                 ),
-                child: InitialsAvatar(name: post.userName, size: 44),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (context) => PostDetailScreen(post: post),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: openProfile,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.userName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatPostTime(post.createdAt),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      const SizedBox(height: 2),
-                      Text(
-                        formatPostTime(post.createdAt),
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+                if (post.recipeId != null)
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        fullscreenDialog: true,
+                        builder: (context) =>
+                            RecipeDetailScreen(recipeId: post.recipeId!),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              if (post.recipeId != null)
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (context) => RecipeDetailScreen(recipeId: post.recipeId!),
+                    ),
+                    child: const Text(
+                      'View Recipe',
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  child: const Text('View Recipe', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600)),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 5),
           GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                fullscreenDialog: true,
-                builder: (context) => PostDetailScreen(post: post),
-              ),
-            ),
+            onTap: goToDetail,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(post.content),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(post.content),
+                ),
                 if (post.imageUrl.isNotEmpty) ...[
                   const SizedBox(height: 15),
                   ClipRRect(
@@ -503,94 +614,99 @@ class _FeedPageState extends State<FeedPage> {
                       cacheWidth: 800,
                       cacheHeight: 360,
                       errorBuilder: (context, error, stackTrace) => Container(
-                      color: AppColors.imagePlaceholderGreen,
-                      height: 180,
-                      child: Icon(Icons.restaurant_menu, size: 48, color: wellGreen),
-                    ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // ── Actions ─────────────────────────────────────────────────────
-          if (AuthService.instance.isLoggedIn) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () => _toggleLike(post.id),
-                  child: Row(
-                    children: [
-                      Icon(liked ? Icons.favorite : Icons.favorite_border, color: nestOrange, size: 22),
-                      const SizedBox(width: 6),
-                      Text(liked ? 'Liked' : 'Like', style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                GestureDetector(
-                  onTap: () => _toggleComments(post.id),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.comment, color: wellGreen, size: 22),
-                      const SizedBox(width: 6),
-                      Text('Comment (${comments.length})', style: const TextStyle(color: wellGreen, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.black54),
-                  onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
-                  itemBuilder: (context) => [const PopupMenuItem(value: 'report', child: Text('Report'))],
-                ),
-              ],
-            ),
-            if (expanded) ...[
-              const SizedBox(height: 12),
-              ...comments.map((c) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(color: Colors.black87, fontSize: 14),
-                              children: [
-                                TextSpan(text: '${c.userName}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                TextSpan(text: c.comment),
-                              ],
-                            ),
-                          ),
+                        color: AppColors.imagePlaceholderGreen,
+                        height: 180,
+                        child: Icon(
+                          Icons.restaurant_menu,
+                          size: 48,
+                          color: wellGreen,
                         ),
-                      ],
-                    ),
-                  )),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentControllers[post.id],
-                      decoration: InputDecoration(
-                        hintText: 'Add a comment...',
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.7),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       ),
                     ),
                   ),
+                ],
+              ],
+            ),
+          ),
+          if (AuthService.instance.isLoggedIn) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  _ActionButton(
+                    onTap: () => _toggleLike(post.id),
+                    loading: isLiking,
+                    icon: liked ? Icons.favorite : Icons.favorite_border,
+                    label: 'Like ($likesCount)',
+                    color: nestOrange,
+                  ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () => _addComment(post.id),
-                    icon: const Icon(Icons.send, color: wellGreen),
+                  _ActionButton(
+                    onTap: () => _toggleComments(post.id),
+                    loading: isCommenting,
+                    icon: Icons.comment_outlined,
+                    label: 'Comment ($commentsCount)',
+                    color: wellGreen,
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.black54),
+                    onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'report', child: Text('Report')),
+                    ],
                   ),
                 ],
               ),
+            ),
+            if (expanded) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    ...comments.map(
+                      (c) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InitialsAvatar(
+                              name: c.userName,
+                              size: 32,
+                              imageUrl: c.displayProfilePhotoUrl,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 14,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: '${c.userName}: ',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    TextSpan(text: c.comment),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildCommentInput(post.id, _submitting[post.id] ?? false),
+                  ],
+                ),
+              ),
             ],
+            const SizedBox(height: 12),
           ],
         ],
       ),
@@ -617,17 +733,24 @@ class _FeedPageState extends State<FeedPage> {
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _liking[postId] = false);
     }
   }
 
   Future<void> _toggleComments(int postId) async {
     final expanded = _commentsExpanded[postId] ?? false;
     if (!expanded) {
-      final comments = await PostService.instance.fetchComments(postId);
-      if (mounted) setState(() {
-        _commentsExpanded[postId] = true;
-        _postComments[postId] = comments;
-      });
+      setState(() => _commenting[postId] = true);
+      try {
+        final comments = await PostService.instance.fetchComments(postId);
+        if (mounted) setState(() {
+          _commentsExpanded[postId] = true;
+          _postComments[postId] = comments;
+        });
+      } finally {
+        if (mounted) setState(() => _commenting[postId] = false);
+      }
     } else {
       if (mounted) setState(() => _commentsExpanded[postId] = false);
     }
@@ -754,6 +877,8 @@ class _FeedPageState extends State<FeedPage> {
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _submitting[postId] = false);
     }
   }
 
@@ -799,7 +924,6 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final bool filled;
 
   const _ActionButton({
     required this.onTap,
@@ -807,7 +931,6 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
-    this.filled = false,
   });
 
   @override

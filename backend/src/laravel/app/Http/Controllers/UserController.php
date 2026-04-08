@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
@@ -79,7 +80,55 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        //
+        $user->loadCount(['followers', 'following']);
+
+        $viewer = request()->user('sanctum');
+
+        return response()->json($this->publicProfilePayload($user, $viewer));
+    }
+
+    public function follow(Request $request, User $user): JsonResponse
+    {
+        $viewer = $request->user();
+
+        if ($viewer->is($user)) {
+            return response()->json([
+                'message' => 'You cannot follow yourself.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $alreadyFollowing = $viewer->following()
+            ->where('users.id', $user->id)
+            ->exists();
+
+        if ($alreadyFollowing) {
+            return response()->json([
+                'message' => 'You are already following this user.',
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $viewer->following()->attach($user->id);
+
+        $user->loadCount(['followers', 'following']);
+
+        return response()->json([
+            'message' => 'User followed successfully.',
+            'user' => $this->publicProfilePayload($user, $viewer->fresh()),
+        ], Response::HTTP_CREATED);
+    }
+
+    public function unfollow(Request $request, User $user): JsonResponse
+    {
+        $viewer = $request->user();
+
+        $viewer->following()->detach($user->id);
+
+        $user->loadCount(['followers', 'following']);
+
+        return response()->json([
+            'message' => 'User unfollowed successfully.',
+            'user' => $this->publicProfilePayload($user, $viewer->fresh()),
+        ]);
     }
 
     /**
@@ -104,5 +153,41 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         //
+    }
+
+    public function currentUser(Request $request): JsonResponse
+    {
+        $user = $request->user()->loadCount(['followers', 'following']);
+
+        return response()->json([
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
+            'followers_count' => $user->followers_count,
+            'following_count' => $user->following_count,
+        ]);
+    }
+
+    private function publicProfilePayload(User $user, ?User $viewer = null): array
+    {
+        $payload = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'first_name' => $user->first_name ?? '',
+            'last_name' => $user->last_name ?? '',
+            'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
+            'followers_count' => $user->followers_count ?? $user->followers()->count(),
+            'following_count' => $user->following_count ?? $user->following()->count(),
+        ];
+
+        if ($viewer !== null) {
+            $payload['is_following'] = $viewer->following()
+                ->where('users.id', $user->id)
+                ->exists();
+        }
+
+        return $payload;
     }
 }

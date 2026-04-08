@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Image;
 use App\Models\Recipe;
+use App\Models\RecipeView;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\PersonalAccessToken;
 use App\Services\ActivityLogService;
 
 class RecipeController extends Controller

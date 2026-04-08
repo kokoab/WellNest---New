@@ -77,9 +77,17 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> fetchPosts({int? userId}) async {
+  Future<List<Post>> fetchPosts({int? userId, bool followingOnly = false}) async {
+    final queryParameters = <String, String>{};
+    if (userId != null) {
+      queryParameters['user_id'] = '$userId';
+    }
+    if (followingOnly) {
+      queryParameters['feed'] = 'following';
+    }
+
     final uri = Uri.parse('$_baseUrl/posts').replace(
-      queryParameters: userId != null ? {'user_id': '$userId'} : null,
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
     try {
       final response = await http.get(uri, headers: _headers); // auth headers so backend knows who's logged in

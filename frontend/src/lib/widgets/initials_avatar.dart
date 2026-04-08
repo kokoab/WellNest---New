@@ -20,6 +20,7 @@ String formatPostTime(String? createdAt) {
 class InitialsAvatar extends StatelessWidget {
   final String name;
   final double size;
+  final String? imageUrl;
 
   const InitialsAvatar({
     super.key,
@@ -46,6 +47,7 @@ class InitialsAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: const Color(0xFFFFEECC),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -54,14 +56,28 @@ class InitialsAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: TextStyle(
-            color: AppColors.primaryGreen,
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
-          ),
+      child: ClipOval(
+        child: imageUrl != null && imageUrl!.trim().isNotEmpty
+            ? Image.network(
+                imageUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildInitials(initials),
+              )
+            : _buildInitials(initials),
+      ),
+    );
+  }
+
+  Widget _buildInitials(String initials) {
+    return Center(
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: AppColors.primaryGreen,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.4,
         ),
       ),
     );
