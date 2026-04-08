@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
+import '../utils/media_url.dart';
 import 'auth_service.dart';
 
 /// Current user model from GET /user.
@@ -23,19 +24,7 @@ class CurrentUser {
   String get displayName => '${firstName} ${lastName}'.trim();
 
   /// Profile image URL for display. Uses frontend base URL to fix Docker internal host issues.
-  String? get displayProfilePhotoUrl {
-    if (profilePhotoUrl == null || profilePhotoUrl!.isEmpty) return null;
-    final url = profilePhotoUrl!;
-    final base = AppConfig.baseUrl.replaceAll(RegExp(r'/api$'), '');
-    if (url.startsWith('http')) {
-      final uri = Uri.tryParse(url);
-      if (uri != null && uri.path.startsWith('/storage/')) {
-        return '$base${uri.path}';
-      }
-    }
-    if (url.startsWith('/')) return base + url;
-    return url;
-  }
+  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
     return CurrentUser(

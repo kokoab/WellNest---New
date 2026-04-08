@@ -25,7 +25,7 @@ class PostController extends Controller
 
         return response()->json([
             'message' => 'Image uploaded successfully',
-            'image_url' => $imageUrl,
+            'image_url' => $this->fixImageUrl($imageUrl),
         ], 201);
     }
 
@@ -47,6 +47,7 @@ class PostController extends Controller
         ]);
 
         $post->load('user:id,first_name,last_name,profile_photo_url');
+        $post->load('user:id,first_name,last_name,profile_photo_url');
 
         return response()->json([
             'message' => 'Post created',
@@ -55,6 +56,8 @@ class PostController extends Controller
                 'user_id' => $post->user_id,
                 'recipe_id' => $post->recipe_id,
                 'content' => $post->content,
+                'image_url' => $this->fixImageUrl($post->image_url ?? ''),
+                'user' => $this->postUserPayload($post->user),
                 'image_url' => $post->image_url ?? '',
                 'user' => [
                     'id' => $post->user->id ?? null,
@@ -68,6 +71,7 @@ class PostController extends Controller
     public function index(Request $request)
     {
         $query = Post::with('user:id,first_name,last_name,profile_photo_url')
+        $query = Post::with('user:id,first_name,last_name,profile_photo_url')
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('user_id')) {
@@ -80,8 +84,30 @@ class PostController extends Controller
                 'user_id' => $p->user_id,
                 'recipe_id' => $p->recipe_id,
                 'content' => $p->content,
-                'image_url' => $p->image_url ?? '',
+                'image_url' => $this->fixImageUrl($p->image_url ?? ''),
                 'created_at' => $p->created_at?->toIso8601String(),
+                'user' => $this->postUserPayload($p->user),
+            ]);
+    }
+
+    /** @param \App\Models\User|null $user */
+    private function postUserPayload($user): array
+    {
+        if ($user === null) {
+            return ['id' => null, 'name' => '', 'profile_photo_url' => ''];
+        }
+
+        return [
+            'id' => $user->id,
+            'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+            'profile_photo_url' => $this->fixImageUrl($user->profile_photo_url ?? ''),
+        ];
+    }
+
+    private function fixImageUrl(string $url): string
+    {
+        if (empty($url)) return '';
+        return str_replace('localhost:8000', 'localhost:8080', $url);
                 'user' => [
                     'id' => $p->user->id ?? null,
                     'name' => trim(($p->user->first_name ?? '') . ' ' . ($p->user->last_name ?? '')),

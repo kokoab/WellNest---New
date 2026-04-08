@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
+import '../utils/media_url.dart';
 import 'auth_service.dart';
 
 class PostComment {
   final int id;
   final String comment;
   final String userName;
-  final String? userProfilePhotoUrl;
   final String createdAt;
   final String? imageUrl;
 
@@ -16,7 +16,6 @@ class PostComment {
     required this.id,
     required this.comment,
     required this.userName,
-    this.userProfilePhotoUrl,
     required this.createdAt,
     this.imageUrl,
   });
@@ -37,16 +36,16 @@ class PostComment {
   factory PostComment.fromJson(Map<String, dynamic> json) {
     final user = json['user'];
     final name = user is Map ? (user['name'] as String? ?? '') : '';
-    final profilePhotoUrl = user is Map ? (user['profile_photo_url'] as String?) : null;
     return PostComment(
       id: json['id'] as int,
       comment: json['comment'] as String? ?? '',
       userName: name,
-      userProfilePhotoUrl: _normalizeImageUrl(profilePhotoUrl),
       createdAt: json['created_at'] as String? ?? '',
       imageUrl: _normalizeImageUrl(json['image_url'] as String?),
     );
   }
+
+  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
 }
 
 class PostService {

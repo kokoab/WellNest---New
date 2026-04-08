@@ -38,9 +38,81 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
+      - BROADCAST_CONNECTION=reverb
+      - QUEUE_CONNECTION=database
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
     depends_on:
       database:
         condition: service_healthy
+    networks:
+      - backend
+
+  # Reverb WebSocket server (for real-time events)
+  reverb:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: laravel_reverb_wellnest
+    restart: unless-stopped
+    working_dir: /var/www/laravel
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - ./backend/src:/var/www
+      - ./backend/storage:/var/www/laravel/storage:delegated
+    environment:
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=database
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+    ports:
+      - "8081:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      backend_app:
+        condition: service_started
+    networks:
+      - backend
+
+  # Queue worker (processes broadcast jobs, notifications, etc.)
+  queue_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: laravel_queue_wellnest
+    restart: unless-stopped
+    working_dir: /var/www/laravel
+    command: php artisan queue:work --queue=default --tries=3 --timeout=90
+    volumes:
+      - ./backend/src:/var/www
+      - ./backend/storage:/var/www/laravel/storage:delegated
+    environment:
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=database
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - BROADCAST_CONNECTION=reverb
+      - QUEUE_CONNECTION=database
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+    depends_on:
+      database:
+        condition: service_healthy
+      backend_app:
+        condition: service_started
+      reverb:
+        condition: service_started
     networks:
       - backend
 

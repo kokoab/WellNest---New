@@ -17,8 +17,8 @@ class ConversationController extends Controller
         $conversations = Conversation::where('user1_id', $userId)
             ->orWhere('user2_id', $userId)
             ->with([
-                'user1:id,first_name,last_name',
-                'user2:id,first_name,last_name',
+                'user1:id,first_name,last_name,profile_photo_url',
+                'user2:id,first_name,last_name,profile_photo_url',
                 'messages' => function ($query) {
                     $query->latest()->limit(1);
                 },
@@ -39,6 +39,7 @@ class ConversationController extends Controller
                 'other_user' => [
                     'id' => $other->id,
                     'name' => $other->name,
+                    'profile_photo_url' => $this->fixMediaUrl($other->profile_photo_url ?? ''),
                 ],
                 'last_message' => $lastMessage ? [
                     'content' => strlen($lastMessage->content) > 80 ? substr($lastMessage->content, 0, 80) . '...' : $lastMessage->content,
@@ -61,18 +62,22 @@ class ConversationController extends Controller
             abort(403, 'Not in this conversation.');
         }
 
-        $conversation->load('user1:id,first_name,last_name', 'user2:id,first_name,last_name');
+        $conversation->load('user1:id,first_name,last_name,profile_photo_url', 'user2:id,first_name,last_name,profile_photo_url');
         $other = $conversation->otherUser($request->user());
         $perPage = min((int) $request->get('per_page', 20), 50);
         $messages = $conversation->messages()
-            ->with(['user:id,first_name,last_name', 'attachments'])
+            ->with(['user:id,first_name,last_name,profile_photo_url', 'attachments'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
         return response()->json([
             'conversation' => [
                 'id' => $conversation->id,
-                'other_user' => ['id' => $other->id, 'name' => $other->name],
+                'other_user' => [
+                    'id' => $other->id,
+                    'name' => $other->name,
+                    'profile_photo_url' => $this->fixMediaUrl($other->profile_photo_url ?? ''),
+                ],
             ],
             'messages' => $messages,
         ], 200);
@@ -97,9 +102,19 @@ class ConversationController extends Controller
             ['user1_id' => $user1Id, 'user2_id' => $user2Id],
             ['last_message_at' => null]
         );
-        $conversation->load('user1:id,first_name,last_name', 'user2:id,first_name,last_name');
+        $conversation->load('user1:id,first_name,last_name,profile_photo_url', 'user2:id,first_name,last_name,profile_photo_url');
+        $other = $conversation->otherUser($request->user());
 
-        return response()->json($conversation, 201);
+        return response()->json([
+            'id' => $conversation->id,
+            'user1_id' => $conversation->user1_id,
+            'user2_id' => $conversation->user2_id,
+            'other_user' => [
+                'id' => $other->id,
+                'name' => $other->name,
+                'profile_photo_url' => $this->fixMediaUrl($other->profile_photo_url ?? ''),
+            ],
+        ], 201);
     }
 
     public function update(Request $request, Conversation $conversation): JsonResponse
@@ -121,5 +136,14 @@ class ConversationController extends Controller
         }
         $conversation->delete();
         return response()->json(null, 204);
+    }
+
+    private function fixMediaUrl(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        return str_replace('localhost:8000', 'localhost:8080', $url);
     }
 }

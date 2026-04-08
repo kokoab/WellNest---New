@@ -16,11 +16,10 @@ String formatPostTime(String? createdAt) {
 }
 
 /// Circle avatar with initials in the app style: pale cream background, bold dark green text.
-/// Use for chat headers and post author.
+/// When [imageUrl] is set (resolved display URL), shows a cropped photo with [BoxFit.cover] (no stretch).
 class InitialsAvatar extends StatelessWidget {
   final String name;
   final double size;
-  final String? imageUrl;
 
   const InitialsAvatar({
     super.key,
@@ -42,12 +41,10 @@ class InitialsAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initials = getInitials(name);
-    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E7),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -57,28 +54,14 @@ class InitialsAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipOval(
-        child: hasImage
-            ? Image.network(
-                imageUrl!,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _initials(initials),
-              )
-            : _initials(initials),
-      ),
-    );
-  }
-
-  Widget _initials(String initials) {
-    return Center(
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: AppColors.primaryGreen,
-          fontWeight: FontWeight.bold,
-          fontSize: size * 0.4,
+      child: Center(
+        child: Text(
+          initials,
+          style: TextStyle(
+            color: AppColors.primaryGreen,
+            fontWeight: FontWeight.bold,
+            fontSize: size * 0.4,
+          ),
         ),
       ),
     );

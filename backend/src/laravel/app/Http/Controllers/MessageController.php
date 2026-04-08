@@ -22,7 +22,7 @@ class MessageController extends Controller
 
         $perPage = min((int) $request->get('per_page', 20), 50);
         $messages = $conversation->messages()
-            ->with(['user:id,first_name,last_name', 'attachments'])
+            ->with(['user:id,first_name,last_name,profile_photo_url', 'attachments'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
@@ -33,7 +33,7 @@ class MessageController extends Controller
     {
         $messages = Message::whereHas('conversation', function ($q) {
             $q->where('user1_id', Auth::id())->orWhere('user2_id', Auth::id());
-        })->with(['conversation:id,user1_id,user2_id', 'user:id,first_name,last_name'])->latest()->paginate(20);
+        })->with(['conversation:id,user1_id,user2_id', 'user:id,first_name,last_name,profile_photo_url'])->latest()->paginate(20);
         return response()->json($messages, 200);
     }
 
@@ -44,7 +44,7 @@ class MessageController extends Controller
         if ((int) $c->user1_id !== (int) $userId && (int) $c->user2_id !== (int) $userId) {
             abort(403, 'Not in this conversation.');
         }
-        $message->load('conversation:id,user1_id,user2_id', 'user:id,first_name,last_name', 'attachments');
+        $message->load('conversation:id,user1_id,user2_id', 'user:id,first_name,last_name,profile_photo_url', 'attachments');
         return response()->json($message, 200);
     }
 
@@ -83,7 +83,7 @@ class MessageController extends Controller
             $notificationContent
         ));
 
-        $message->load('user:id,first_name,last_name', 'attachments');
+        $message->load('user:id,first_name,last_name,profile_photo_url', 'attachments');
         broadcast(new NewMessageEvent($message));
         return response()->json($message, 201);
     }
@@ -106,7 +106,7 @@ class MessageController extends Controller
         }
         $validated = $request->validate(['content' => 'required|string|max:5000']);
         $message->update($validated);
-        $message->load('user:id,first_name,last_name', 'attachments');
+        $message->load('user:id,first_name,last_name,profile_photo_url', 'attachments');
         return response()->json($message, 200);
     }
 

@@ -11,9 +11,13 @@ import 'package:my_app/screens/register_screen.dart';
 import 'package:my_app/screens/splash_screen.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/conversations_list_screen.dart';
+import 'package:my_app/services/admin_auth_service.dart';
+import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/services/session_restore.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await restoreSessionFromStorage();
   runApp(const MyApp());
 }
 
@@ -49,7 +53,7 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
-          home: const _PrecacheWrapper(child: WellnestSplashScreen()),
+          home: const _PrecacheWrapper(child: _AppInitialHome()),
           routes: {
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
@@ -62,6 +66,22 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// After [restoreSessionFromStorage], sends admins and users to their dashboard; guests see splash.
+class _AppInitialHome extends StatelessWidget {
+  const _AppInitialHome();
+
+  @override
+  Widget build(BuildContext context) {
+    if (AdminAuthService.instance.isLoggedIn) {
+      return const AdminDashboard();
+    }
+    if (AuthService.instance.isLoggedIn) {
+      return const UserDashboard();
+    }
+    return const WellnestSplashScreen();
   }
 }
 

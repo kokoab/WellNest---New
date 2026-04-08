@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../config/app_config.dart';
@@ -59,12 +61,55 @@ class ReverbService {
 
     final channelName = 'private-conversation.$conversationId';
     final channel = _client.subscribeToPrivateChannel(channelName);
-    channel.bind('message.new', (String eventName, dynamic data) {
-      if (data is Map<String, dynamic>) {
-        onMessage(data);
+    void handleEvent(String eventName, dynamic data) {
+      final payload = _coercePayload(data);
+      if (payload != null) {
+        onMessage(payload);
       }
-    });
+    }
+
+    // Some clients prepend a dot for custom events. Bind both.
+    channel.bind('message.new', handleEvent);
+    channel.bind('.message.new', handleEvent);
     _channels[conversationId] = channel;
+  }
+
+  Map<String, dynamic>? _coercePayload(dynamic data) {
+    dynamic value = data;
+
+    // Plugin can pass payload as raw JSON string.
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      try {
+        value = jsonDecode(trimmed);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (value is! Map) return null;
+    var map = Map<String, dynamic>.from(value);
+
+    // Some transport layers wrap payload in "data".
+    final wrapped = map['data'];
+    if (wrapped is String) {
+      final trimmed = wrapped.trim();
+      if (trimmed.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is Map) {
+            map = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {
+          // Keep original map if wrapped data is not JSON.
+        }
+      }
+    } else if (wrapped is Map) {
+      map = Map<String, dynamic>.from(wrapped);
+    }
+
+    return map;
   }
 
   /// Unsubscribe from a conversation channel (call when leaving the chat screen).

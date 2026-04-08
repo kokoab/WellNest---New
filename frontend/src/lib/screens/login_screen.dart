@@ -27,14 +27,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) return;
     setState(() => _isLoading = true);
-    final error = await AuthService.instance.login(email, password);
+    final result = await AuthService.instance.login(email, password);
     if (!mounted) return;
     setState(() => _isLoading = false);
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    if (!result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Login failed')),
+      );
       return;
     }
-    Navigator.pushReplacementNamed(context, '/dashboard');
+    Navigator.pushReplacementNamed(
+      context,
+      result.isAdmin ? '/admin_dashboard' : '/dashboard',
+    );
   }
 
   @override

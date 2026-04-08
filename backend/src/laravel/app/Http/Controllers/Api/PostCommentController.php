@@ -89,7 +89,6 @@ class PostCommentController extends Controller
                 'user'      => [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'profile_photo_url' => $user->profile_photo_url ?? null,
                 ],
                 'created_at' => $comment->created_at->toIso8601String(),
             ],
@@ -115,11 +114,19 @@ class PostCommentController extends Controller
                 'user'      => [
                     'id' => $c->user->id,
                     'name' => $c->user->name,
-                    'profile_photo_url' => $c->user->profile_photo_url ?? null,
                 ],
                 'created_at' => $c->created_at->toIso8601String(),
             ]);
 
         return response()->json(['comments' => $comments]);
+    }
+
+    private function fixMediaUrl(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        return str_replace('localhost:8000', 'localhost:8080', $url);
     }
 }

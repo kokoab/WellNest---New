@@ -1,3 +1,5 @@
+import '../utils/json_helpers.dart';
+
 /// User model for admin list (id, name, email, status).
 class AdminUser {
   final int id;
@@ -14,7 +16,7 @@ class AdminUser {
 
   factory AdminUser.fromJson(Map<String, dynamic> json) {
     return AdminUser(
-      id: json['id'],
+      id: jsonDecodeInt(json['id']),
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       status: json['status'] ?? 'active',

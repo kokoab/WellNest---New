@@ -2,7 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\RecipeView;
+use App\Models\Category;
+use App\Models\Ingredient;
+use App\Models\Image;
+use App\Models\Vote;
+use App\Models\Post;
+use App\Models\Report;
+use App\Models\RecipeRating;
+use App\Models\User;
 
 class Recipe extends Model
 {
@@ -14,6 +24,10 @@ class Recipe extends Model
         'instructions',
         'prep_time',
     ];
+
+    public function views(): HasMany {
+        return $this->hasMany(RecipeView::class);
+    }
 
     public function user()
     {
