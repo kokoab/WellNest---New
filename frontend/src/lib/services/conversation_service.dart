@@ -53,6 +53,28 @@ class ConversationService {
       lastMessage: null,
       unreadCount: 0,
       lastMessageAt: null,
+      isAssistant: false,
+    );
+  }
+
+  /// GET /api/conversations/assistant — ensure the WellNest Assistant DM exists.
+  Future<ConversationListItem> ensureAssistantConversation() async {
+    final response = await http.get(Uri.parse('$_baseUrl/conversations/assistant'), headers: _headers);
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw Exception(data?['message'] as String? ?? 'Assistant is unavailable');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final other = data['other_user'] is Map<String, dynamic>
+        ? ConversationOtherUser.fromJson(data['other_user'] as Map<String, dynamic>)
+        : ConversationOtherUser(id: 0, name: 'Assistant');
+    return ConversationListItem(
+      id: (data['id'] as num).toInt(),
+      otherUser: other,
+      lastMessage: null,
+      unreadCount: 0,
+      lastMessageAt: null,
+      isAssistant: true,
     );
   }
 
@@ -124,14 +146,32 @@ class ConversationService {
   }
 
   /// Subscribe to live new messages for a conversation. Call when opening the chat.
-  /// [onNewMessage] receives the message payload (use ChatMessage.fromJson(payload['message']) if backend sends { message: {... } }).
-  Future<void> subscribeToLiveMessages(int conversationId, void Function(ChatMessage message) onNewMessage) async {
-    await ReverbService.instance.subscribeToConversation(conversationId, (payload) {
-      final messageMap = _extractMessageMap(payload);
-      if (messageMap != null) {
-        onNewMessage(ChatMessage.fromJson(messageMap));
-      }
-    });
+  /// [onAssistantStream] is called for Ollama token streaming (`assistant.stream`).
+  Future<void> subscribeToLiveMessages(
+    int conversationId,
+    void Function(ChatMessage message) onNewMessage, {
+    void Function(String streamId, String fullText, String delta, bool done)? onAssistantStream,
+  }) async {
+    await ReverbService.instance.subscribeToConversation(
+      conversationId,
+      (payload) {
+        final messageMap = _extractMessageMap(payload);
+        if (messageMap != null) {
+          onNewMessage(ChatMessage.fromJson(messageMap));
+        }
+      },
+      onAssistantStream: onAssistantStream == null
+          ? null
+          : (payload) {
+              final sid = payload['stream_id'] as String?;
+              final full = payload['full_text'] as String? ?? '';
+              final delta = payload['delta'] as String? ?? '';
+              final done = payload['done'] as bool? ?? false;
+              if (sid != null) {
+                onAssistantStream(sid, full, delta, done);
+              }
+            },
+    );
   }
 
   Map<String, dynamic>? _extractMessageMap(Map<String, dynamic> payload) {

@@ -19,6 +19,8 @@ import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/screens/conversation_chat_screen.dart';
+import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'feed_page.dart';
 import 'recipe_ranking_screen.dart';
@@ -57,8 +59,46 @@ class _UserDashboardState extends State<UserDashboard> {
       extendBody:
           true, // Allows the floating nav bar to look transparent at the edges
       body: IndexedStack(index: _currentIndex, children: pages),
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton(
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'wellnest_assistant_fab',
+            onPressed: () async {
+              final svc = ConversationService();
+              try {
+                final conv = await svc.ensureAssistantConversation();
+                if (!context.mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => ConversationChatScreen(
+                      conversationId: conv.id,
+                      otherUserName: conv.otherUser.name,
+                      otherUserProfilePhotoUrl: conv.otherUser.displayProfilePhotoUrl,
+                      isAssistant: true,
+                    ),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      e.toString().replaceFirst('Exception: ', ''),
+                    ),
+                  ),
+                );
+              }
+            },
+            backgroundColor: AppColors.primaryGreen,
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.chat_bubble_outline),
+          ),
+          if (_currentIndex == 0) ...[
+            const SizedBox(height: 12),
+            FloatingActionButton(
+              heroTag: 'recipe_add_fab',
               onPressed: () async {
                 final result = await RecipeFormScreen.showAsModal(context);
                 if (result == true && mounted) setState(() => _recipeGridKey++);
@@ -67,8 +107,10 @@ class _UserDashboardState extends State<UserDashboard> {
               foregroundColor: Colors.white,
               shape: const CircleBorder(),
               child: const Icon(Icons.add),
-            )
-          : null,
+            ),
+          ],
+        ],
+      ),
       bottomNavigationBar: RepaintBoundary(
         child: CustomBottomNav(
           currentIndex: _currentIndex,
@@ -364,7 +406,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                         onTap: () {
                                           setState(() {
                                             _selectedCategoryId = c.id;
-                                            _searchQuery = _searchController.text
+                                            _searchQuery = _searchController
+                                                .text
                                                 .trim();
                                           });
                                           _loadRecipes();

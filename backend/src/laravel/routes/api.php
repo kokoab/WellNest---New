@@ -97,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('saved-recipes', [SavedRecipeController::class, 'index']);
     Route::get('recipes/{recipe}/saved', [SavedRecipeController::class, 'check']);
 
+    Route::get('conversations/assistant', [ConversationController::class, 'assistant']);
     Route::get('conversations', [ConversationController::class, 'index']);
     Route::get('conversations/{conversation}', [ConversationController::class, 'show']);
     Route::post('conversations', [ConversationController::class, 'create']);

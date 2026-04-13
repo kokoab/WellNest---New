@@ -7,6 +7,7 @@ class ConversationListItem {
   final ConversationLastMessage? lastMessage;
   final int unreadCount;
   final String? lastMessageAt;
+  final bool isAssistant;
 
   ConversationListItem({
     required this.id,
@@ -14,6 +15,7 @@ class ConversationListItem {
     this.lastMessage,
     this.unreadCount = 0,
     this.lastMessageAt,
+    this.isAssistant = false,
   });
 
   factory ConversationListItem.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class ConversationListItem {
       lastMessage: last != null ? ConversationLastMessage.fromJson(last) : null,
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
       lastMessageAt: json['last_message_at'] as String?,
+      isAssistant: json['is_assistant'] as bool? ?? false,
     );
   }
 }

@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewMessageEvent;
+use App\Jobs\GenerateAssistantReply;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Notifications\NewMessageNotification;
-use Illuminate\Http\Request;
+use App\Support\Assistant;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Events\NewMessageEvent;
 
 class MessageController extends Controller
 {
@@ -75,16 +77,27 @@ class MessageController extends Controller
         $conv->update(['last_message_at' => $message->created_at]);
 
         $otherUser = $conv->otherUser($request->user());
-        $notificationContent = $content !== '' ? $content : '[Image]';
-        $otherUser->notify(new NewMessageNotification(
-            $conv->id,
-            $message->id,
-            $request->user()->name,
-            $notificationContent
-        ));
+        $botId = Assistant::botUserId();
+        if (! $botId || (int) $otherUser->id !== (int) $botId) {
+            $notificationContent = $content !== '' ? $content : '[Image]';
+            $otherUser->notify(new NewMessageNotification(
+                $conv->id,
+                $message->id,
+                $request->user()->name,
+                $notificationContent
+            ));
+        }
 
         $message->load('user:id,first_name,last_name,profile_photo_url', 'attachments');
         broadcast(new NewMessageEvent($message));
+
+        if ($botId
+            && Assistant::isConversationWithAssistant((int) $conv->user1_id, (int) $conv->user2_id)
+            && $content !== ''
+        ) {
+            GenerateAssistantReply::dispatch($conv->id, $message->id)->afterResponse();
+        }
+
         return response()->json($message, 201);
     }
 

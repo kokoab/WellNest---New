@@ -101,6 +101,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       _error = null;
     });
     try {
+      await _service.ensureAssistantConversation();
       final list = await _service.fetchConversations();
       if (mounted)
         setState(() {
@@ -131,6 +132,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             conversationId: conversation.id,
             otherUserName: user.name,
             otherUserProfilePhotoUrl: user.displayProfilePhotoUrl,
+            isAssistant: false,
           ),
         ),
       );
@@ -248,6 +250,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                     conversationId: c.id,
                                     otherUserName: c.otherUser.name,
                                     otherUserProfilePhotoUrl: c.otherUser.displayProfilePhotoUrl,
+                                    isAssistant: c.isAssistant,
                                   ),
                                 ),
                               );
@@ -272,21 +275,37 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          c.otherUser.name,
-                                          style: const TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primaryGreen,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                        Row(
+                                          children: [
+                                            if (c.isAssistant) ...[
+                                              Icon(
+                                                Icons.auto_awesome,
+                                                size: 18,
+                                                color: AppColors.accentOrange,
+                                              ),
+                                              const SizedBox(width: 6),
+                                            ],
+                                            Expanded(
+                                              child: Text(
+                                                c.otherUser.name,
+                                                style: const TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.primaryGreen,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           c.lastMessage != null
                                               ? c.lastMessage!.content
-                                              : 'No messages yet',
+                                              : (c.isAssistant
+                                                    ? 'Ask for wellness tips, meals, or motivation'
+                                                    : 'No messages yet'),
                                           style: TextStyle(
                                             fontSize: 15,
                                             color: Colors.grey.shade600,

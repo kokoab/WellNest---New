@@ -17,11 +17,15 @@ class ConversationChatScreen extends StatefulWidget {
   /// Resolved display URL for the other participant (optional).
   final String? otherUserProfilePhotoUrl;
 
+  /// WellNest Assistant: suggestion chips + Ollama streaming over Reverb.
+  final bool isAssistant;
+
   const ConversationChatScreen({
     super.key,
     required this.conversationId,
     required this.otherUserName,
     this.otherUserProfilePhotoUrl,
+    this.isAssistant = false,
   });
 
   @override
@@ -43,6 +47,16 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   CurrentUser? _currentUser;
   final ImagePicker _picker = ImagePicker();
   Timer? _syncTimer;
+
+  /// Non-null while the assistant is generating (shows typewriter / streaming bubble).
+  String? _streamingPreview;
+
+  static const List<String> _suggestionChips = [
+    'Healthy meal ideas',
+    'Quick breakfast tips',
+    'Stay motivated today',
+    'Light snack ideas',
+  ];
 
   @override
   void initState() {
@@ -91,16 +105,30 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   Future<void> _subscribeLive() async {
     try {
-      await _service.subscribeToLiveMessages(widget.conversationId, (
-        ChatMessage message,
-      ) {
-        if (!mounted) return;
-        setState(() {
-          if (!_messages.any((m) => m.id == message.id)) {
-            _messages.insert(0, message);
-          }
-        });
-      });
+      await _service.subscribeToLiveMessages(
+        widget.conversationId,
+        (ChatMessage message) {
+          if (!mounted) return;
+          setState(() {
+            if (widget.isAssistant &&
+                _currentUserId != null &&
+                message.userId != _currentUserId) {
+              _streamingPreview = null;
+            }
+            if (!_messages.any((m) => m.id == message.id)) {
+              _messages.insert(0, message);
+            }
+          });
+        },
+        onAssistantStream: widget.isAssistant
+            ? (streamId, fullText, delta, done) {
+                if (!mounted) return;
+                setState(() {
+                  _streamingPreview = fullText;
+                });
+              }
+            : null,
+      );
     } catch (_) {
       // Reverb optional; app still works without it
     }
@@ -144,7 +172,12 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   Future<void> _send() async {
     final text = _textController.text.trim();
     if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
+    setState(() {
+      _sending = true;
+      if (widget.isAssistant) {
+        _streamingPreview = '';
+      }
+    });
     _textController.clear();
     try {
       final sent = await _service.sendMessage(widget.conversationId, text);
@@ -158,12 +191,56 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _sending = false);
+        setState(() {
+          _sending = false;
+          if (widget.isAssistant) {
+            _streamingPreview = null;
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     }
+  }
+
+  void _applyChip(String prompt) {
+    _textController.text = prompt;
+    _send();
+  }
+
+  Widget _buildAssistantStreamingBubble(bool isDark) {
+    final text = _streamingPreview ?? '';
+    final display = text.isEmpty ? '…' : text;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          InitialsAvatar(
+            name: widget.otherUserName,
+            size: 28,
+            imageUrl: widget.otherUserProfilePhotoUrl,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade700,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                display,
+                style: const TextStyle(color: Colors.white, fontSize: 21),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   static const double _previewSize = 200;
@@ -399,14 +476,22 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       ],
                     ),
                   )
-                : _messages.isEmpty
+                : _messages.isEmpty && !(widget.isAssistant && _streamingPreview != null)
                 ? const Center(child: Text('No messages yet. Say hello!'))
                 : ListView.builder(
                     controller: _scrollController,
                     reverse: true,
-                    itemCount: _messages.length,
+                    itemCount:
+                        _messages.length +
+                        (widget.isAssistant && _streamingPreview != null ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final m = _messages[index];
+                      final streamExtra =
+                          widget.isAssistant && _streamingPreview != null ? 1 : 0;
+                      if (streamExtra == 1 && index == 0) {
+                        return _buildAssistantStreamingBubble(isDark);
+                      }
+                      final mi = index - streamExtra;
+                      final m = _messages[mi];
                       final isMe =
                           _currentUserId != null && m.userId == _currentUserId;
                       final attachmentOnly =
@@ -492,6 +577,33 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                     },
                   ),
           ),
+          if (widget.isAssistant)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final chip in _suggestionChips)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ActionChip(
+                            label: Text(chip),
+                            onPressed: _sending ? null : () => _applyChip(chip),
+                            backgroundColor: AppColors.primaryGreen.withOpacity(0.12),
+                            labelStyle: const TextStyle(
+                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(8),
@@ -500,7 +612,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 children: [
                   IconButton(
                     onPressed:
-                        (_sending || _uploadingAttachment || _pickingImage)
+                        (_sending || _uploadingAttachment || _pickingImage || widget.isAssistant)
                         ? null
                         : _pickAndSendAttachment,
                     icon: _uploadingAttachment

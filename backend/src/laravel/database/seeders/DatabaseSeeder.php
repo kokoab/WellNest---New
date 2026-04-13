@@ -45,6 +45,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
+            AssistantBotSeeder::class,
             CategorySeeder::class,
             RecipeSeeder::class,
         ]);

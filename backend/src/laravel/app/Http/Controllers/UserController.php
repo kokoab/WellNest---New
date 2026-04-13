@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\Assistant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +23,11 @@ class UserController extends Controller
             return response()->json(['data' => []], 200);
         }
 
+        $botId = Assistant::botUserId();
+
         $users = User::query()
             ->where('id', '!=', $userId)
+            ->when($botId, fn ($q) => $q->where('id', '!=', $botId))
             ->where(function ($query) use ($q) {
                 $query->where('first_name', 'like', "%{$q}%")
                     ->orWhere('last_name', 'like', "%{$q}%")

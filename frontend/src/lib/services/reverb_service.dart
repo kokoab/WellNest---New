@@ -51,11 +51,13 @@ class ReverbService {
   }
 
   /// Subscribe to new messages in a conversation. [onMessage] receives the payload from the backend (map with 'message' key).
+  /// [onAssistantStream] receives Ollama streaming chunks (`assistant.stream`).
   /// Call [unsubscribeFromConversation] when leaving the conversation screen.
   Future<void> subscribeToConversation(
     int conversationId,
-    void Function(Map<String, dynamic> payload) onMessage,
-  ) async {
+    void Function(Map<String, dynamic> payload) onMessage, {
+    void Function(Map<String, dynamic> payload)? onAssistantStream,
+  }) async {
     if (_channels.containsKey(conversationId)) return;
     if (!_initialized) await connect();
 
@@ -68,9 +70,21 @@ class ReverbService {
       }
     }
 
+    void handleAssistantStream(String eventName, dynamic data) {
+      if (onAssistantStream == null) return;
+      final payload = _coercePayload(data);
+      if (payload != null) {
+        onAssistantStream(payload);
+      }
+    }
+
     // Some clients prepend a dot for custom events. Bind both.
     channel.bind('message.new', handleEvent);
     channel.bind('.message.new', handleEvent);
+    if (onAssistantStream != null) {
+      channel.bind('assistant.stream', handleAssistantStream);
+      channel.bind('.assistant.stream', handleAssistantStream);
+    }
     _channels[conversationId] = channel;
   }
 

@@ -34,11 +34,27 @@ class SavedRecipeController extends Controller
     {
         $recipes = $request->user()
             ->savedRecipes()
-            ->with(['category:id,name', 'user:id,first_name,last_name'])
+            ->with([
+                'category:id,name',
+                'user:id,first_name,last_name',
+                'images:id,path,imageable_id,imageable_type',
+            ])
+            ->withAvg('ratings as average_rating', 'rating')
+            ->withCount('ratings')
             ->orderBy('saved_recipes.created_at', 'desc')
             ->paginate(15);
 
-        return response()->json($recipes);
+        $baseUrl = rtrim(config('app.url'), '/');
+        $data = $recipes->toArray();
+        foreach (array_keys($data['data']) as $i) {
+            $recipe = $recipes->getCollection()[$i];
+            $firstImage = $recipe->images->first();
+            $data['data'][$i]['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+            $data['data'][$i]['average_rating'] = round((float) ($recipe->average_rating ?? 0), 1);
+            $data['data'][$i]['ratings_count'] = (int) ($recipe->ratings_count ?? 0);
+        }
+
+        return response()->json($data);
     }
 
     /** GET /api/recipes/{recipe}/saved — check if current user saved this recipe */

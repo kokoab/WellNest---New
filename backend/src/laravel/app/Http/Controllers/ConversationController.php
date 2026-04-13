@@ -10,10 +10,43 @@ use Illuminate\Support\Facades\Auth;
 
 class ConversationController extends Controller
 {
+    /** GET /api/conversations/assistant — get or create the WellNest Assistant thread. */
+    public function assistant(Request $request): JsonResponse
+    {
+        $botId = \App\Support\Assistant::botUserId();
+        if (! $botId) {
+            return response()->json(['message' => 'Assistant is not configured. Run migrations and AssistantBotSeeder.'], 503);
+        }
+
+        $userId = Auth::id();
+        $user1Id = min((int) $userId, $botId);
+        $user2Id = max((int) $userId, $botId);
+
+        $conversation = Conversation::firstOrCreate(
+            ['user1_id' => $user1Id, 'user2_id' => $user2Id],
+            ['last_message_at' => null]
+        );
+
+        $conversation->load('user1:id,first_name,last_name,profile_photo_url', 'user2:id,first_name,last_name,profile_photo_url');
+        $other = $conversation->otherUser($request->user());
+
+        return response()->json([
+            'id' => $conversation->id,
+            'is_assistant' => true,
+            'other_user' => [
+                'id' => $other->id,
+                'name' => $other->name,
+                'profile_photo_url' => $this->fixMediaUrl($other->profile_photo_url ?? ''),
+            ],
+        ], 200);
+    }
+
     /** GET /api/conversations — list current user's conversations (Messenger-style). */
     public function index(Request $request): JsonResponse
     {
         $userId = Auth::id();
+        $botId = \App\Support\Assistant::botUserId();
+
         $conversations = Conversation::where('user1_id', $userId)
             ->orWhere('user2_id', $userId)
             ->with([
@@ -26,7 +59,7 @@ class ConversationController extends Controller
             ->orderByDesc('last_message_at')
             ->get();
 
-        $list = $conversations->map(function (Conversation $c) use ($userId) {
+        $list = $conversations->map(function (Conversation $c) use ($userId, $botId) {
             $other = (int) $c->user1_id === (int) $userId ? $c->user2 : $c->user1;
             $lastMessage = $c->messages->first();
             $unreadCount = $c->messages()
@@ -34,8 +67,11 @@ class ConversationController extends Controller
                 ->where('user_id', '!=', $userId)
                 ->count();
 
+            $isAssistant = $botId && (int) $other->id === (int) $botId;
+
             return [
                 'id' => $c->id,
+                'is_assistant' => $isAssistant,
                 'other_user' => [
                     'id' => $other->id,
                     'name' => $other->name,
@@ -51,7 +87,11 @@ class ConversationController extends Controller
             ];
         });
 
-        return response()->json(['data' => $list], 200);
+        $sorted = $list->sortByDesc(function (array $row) {
+            return $row['is_assistant'] ? 1 : 0;
+        })->values();
+
+        return response()->json(['data' => $sorted], 200);
     }
 
     /** GET /api/conversations/{conversation} — show one conversation (with paginated messages). */
