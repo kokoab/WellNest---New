@@ -19,9 +19,12 @@ class AdminModerationService {
       };
 
   /// GET /api/admin/reports — returns list of pending reports.
-  Future<List<Report>> fetchReports() async {
+  Future<List<Report>> fetchReports({String? range}) async {
+    final params = <String, String>{};
+    if (range != null && range.isNotEmpty) params['range'] = range;
+
     final response = await http.get(
-      Uri.parse('$_baseUrl/admin/reports'),
+      Uri.parse('$_baseUrl/admin/reports').replace(queryParameters: params.isEmpty ? null : params),
       headers: _headers,
     );
     if (response.statusCode == 200) {

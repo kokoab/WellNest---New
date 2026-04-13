@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Image;
 use App\Models\Recipe;
+use App\Models\RecipeView;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use App\Services\ActivityLogService;
-use App\Models\RecipeView;
 use Laravel\Sanctum\PersonalAccessToken;
+use App\Services\ActivityLogService;
 
 class RecipeController extends Controller
 {
@@ -41,6 +42,7 @@ class RecipeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name', 'images:id,path,imageable_id,imageable_type'])->orderBy('created_at', 'desc');
+        $range = $request->query('range');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -60,6 +62,11 @@ class RecipeController extends Controller
             });
         }
 
+        $startDate = $this->resolveStartDate($range);
+        if ($startDate !== null) {
+            $query->where('created_at', '>=', $startDate);
+        }
+
         $recipes = $query->paginate(10);
         $data = $recipes->toArray();
         $baseUrl = rtrim(config('app.url'), '/');
@@ -71,6 +78,16 @@ class RecipeController extends Controller
             $data['data'][$i]['ratings_count'] = $recipe->ratings()->count();
         }
         return response()->json($data);
+    }
+
+    private function resolveStartDate(?string $range): ?Carbon
+    {
+        return match ($range) {
+            'weekly' => now()->subWeek(),
+            'monthly' => now()->subMonth(),
+            'yearly' => now()->subYear(),
+            default => null,
+        };
     }
     /**
      * Show the form for creating a new resource.

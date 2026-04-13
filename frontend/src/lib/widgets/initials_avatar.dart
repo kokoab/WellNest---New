@@ -20,7 +20,6 @@ String formatPostTime(String? createdAt) {
 class InitialsAvatar extends StatelessWidget {
   final String name;
   final double size;
-  /// Resolved URL (e.g. from [resolveStorageDisplayUrl]); omit for initials only.
   final String? imageUrl;
 
   const InitialsAvatar({
@@ -43,13 +42,12 @@ class InitialsAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initials = getInitials(name);
-    final dpr = MediaQuery.of(context).devicePixelRatio;
-    final cw = (size * dpr).round().clamp(48, 512);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: const Color(0xFFFFEECC),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -58,46 +56,22 @@ class InitialsAvatar extends StatelessWidget {
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: imageUrl != null && imageUrl!.isNotEmpty
-          ? Image.network(
-              imageUrl!,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              filterQuality: FilterQuality.medium,
-              cacheWidth: cw,
-              errorBuilder: (_, __, ___) => _initialsLayer(initials),
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                  color: const Color(0xFFFFF8E7),
-                  alignment: Alignment.center,
-                  child: SizedBox(
-                    width: size * 0.45,
-                    height: size * 0.45,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primaryGreen,
-                      value: progress.expectedTotalBytes != null
-                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                          : null,
-                    ),
-                  ),
-                );
-              },
-            )
-          : _initialsLayer(initials),
+      child: ClipOval(
+        child: imageUrl != null && imageUrl!.trim().isNotEmpty
+            ? Image.network(
+                imageUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildInitials(initials),
+              )
+            : _buildInitials(initials),
+      ),
     );
   }
 
-  Widget _initialsLayer(String initials) {
-    return Container(
-      width: size,
-      height: size,
-      color: const Color(0xFFFFF8E7),
-      alignment: Alignment.center,
+  Widget _buildInitials(String initials) {
+    return Center(
       child: Text(
         initials,
         style: TextStyle(

@@ -63,91 +63,92 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     _load();
     _overlayEntry = OverlayEntry(
       builder: (overlayContext) {
-        final colorScheme = Theme.of(overlayContext).colorScheme;
         return GestureDetector(
-        onTap: _hideOverlay,
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            Positioned(
-              width: 320,
-              child: CompositedTransformFollower(
-                link: _layerLink,
-                showWhenUnlinked: false,
-                offset: const Offset(-285, 48),
-                child: Material(
-                  elevation: 8,
-                  borderRadius: BorderRadius.circular(12),
-                  color: colorScheme.surface,
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 400),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Builder(
-                        builder: (ctx) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildHeader(ctx),
-                              Flexible(
-                                child: _loading
-                                    ? const Padding(
-                                        padding: EdgeInsets.all(32),
-                                        child: Center(child: CircularProgressIndicator(color: wellGreen)),
-                                      )
-                                    : _notifications.isEmpty
-                                        ? Padding(
-                                            padding: const EdgeInsets.all(32),
-                                            child: Builder(
-                                              builder: (emptyCtx) {
-                                                final cs = Theme.of(emptyCtx).colorScheme;
-                                                return Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(Icons.notifications_none, size: 48, color: cs.onSurfaceVariant),
-                                                    const SizedBox(height: 12),
-                                                    Text(
-                                                      'No notifications yet',
-                                                      style: TextStyle(color: cs.onSurfaceVariant),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
+          onTap: _hideOverlay,
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            children: [
+              Positioned(
+                width: 340,
+                child: CompositedTransformFollower(
+                  link: _layerLink,
+                  showWhenUnlinked: false,
+                  offset: const Offset(-300, 52),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 480),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.13),
+                              blurRadius: 28,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 8),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Builder(
+                            builder: (ctx) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildHeader(ctx),
+                                  Flexible(
+                                    child: _loading
+                                        ? const Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 40),
+                                            child: Center(
+                                              child: CircularProgressIndicator(
+                                                color: wellGreen,
+                                                strokeWidth: 2.5,
+                                              ),
                                             ),
                                           )
-                                        : ListView.builder(
-                                            shrinkWrap: true,
-                                            padding: EdgeInsets.zero,
-                                            itemCount: _notifications.length,
-                                            itemBuilder: (c, index) {
-                                              final n = _notifications[index];
-                                              return _buildNotificationTile(c, n);
-                                            },
-                                          ),
-                              ),
-                            ],
-                          );
-                        },
+                                        : _notifications.isEmpty
+                                            ? _buildEmptyState()
+                                            : ListView.separated(
+                                                shrinkWrap: true,
+                                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                                itemCount: _notifications.length,
+                                                separatorBuilder: (_, __) => Divider(
+                                                  height: 1,
+                                                  indent: 66,
+                                                  endIndent: 14,
+                                                  color: Colors.grey.withOpacity(0.1),
+                                                ),
+                                                itemBuilder: (c, index) {
+                                                  final n = _notifications[index];
+                                                  return _buildNotificationTile(c, n);
+                                                },
+                                              ),
+                                  ),
+                                  _buildFooter(ctx),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
+            ],
+          ),
+        );
       },
     );
     if (context.mounted) {
@@ -159,30 +160,58 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 13),
+      decoration: const BoxDecoration(color: wellGreen),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          const Icon(Icons.notifications_rounded, color: Colors.white, size: 19),
+          const SizedBox(width: 8),
           const Text(
             'Notifications',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: wellGreen,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.2,
             ),
           ),
-          if (_unreadCount > 0)
-            TextButton(
-              onPressed: _markAllAsRead,
+          if (_unreadCount > 0) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: nestOrange,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Text(
-                'Mark all read',
-                style: TextStyle(fontSize: 13, color: wellGreen, fontWeight: FontWeight.w600),
+                '$_unreadCount new',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+          const Spacer(),
+          if (_unreadCount > 0)
+            GestureDetector(
+              onTap: _markAllAsRead,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Mark all read',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
         ],
@@ -190,25 +219,97 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: wellGreen.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 28,
+              color: wellGreen.withOpacity(0.45),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'All caught up!',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No notifications yet',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return GestureDetector(
+      onTap: _hideOverlay,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          border: Border(
+            top: BorderSide(color: Colors.grey.withOpacity(0.12)),
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'See all notifications',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: wellGreen,
+              ),
+            ),
+            SizedBox(width: 4),
+            Icon(Icons.arrow_forward_rounded, size: 14, color: wellGreen),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNotificationTile(BuildContext context, AppNotification n) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final isUnread = !n.isRead;
+    final colors = _colorsForType(n.type);
     return InkWell(
       onTap: () => _onTapNotification(n),
       child: Container(
-        color: n.isRead ? null : wellGreen.withOpacity(0.06),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: isUnread ? wellGreen.withOpacity(0.035) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Icon container
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: _colorForType(n.type).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
+                color: colors.bg,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(_iconForType(n.type), color: _colorForType(n.type), size: 20),
+              child: Icon(_iconForType(n.type), color: colors.fg, size: 19),
             ),
             const SizedBox(width: 12),
+            // Text
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,21 +317,43 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                   Text(
                     n.message,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: n.isRead ? FontWeight.normal : FontWeight.w600,
-                      color: colorScheme.onSurface,
+                      fontSize: 13,
+                      fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                      color: isUnread
+                          ? const Color(0xFF111111)
+                          : const Color(0xFF555555),
+                      height: 1.4,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     _formatTime(n.createdAt),
-                    style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isUnread
+                          ? wellGreen.withOpacity(0.7)
+                          : Colors.grey.shade400,
+                      fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ],
               ),
             ),
+            // Unread dot
+            if (isUnread)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 4),
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: colors.fg,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -336,35 +459,37 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     switch (type) {
       case 'recipe_liked':
       case 'post_liked':
-        return Icons.favorite;
+        return Icons.favorite_rounded;
       case 'recipe_rated':
-        return Icons.star;
+        return Icons.star_rounded;
       case 'recipe_comment':
-        return Icons.comment;
       case 'comment_received':
-        return Icons.comment;
+        return Icons.chat_bubble_rounded;
       case 'content_reported':
-        return Icons.flag;
+        return Icons.flag_rounded;
       default:
-        return Icons.notifications;
+        return Icons.notifications_rounded;
     }
   }
 
   Color _colorForType(String type) {
+    return _colorsForType(type).fg;
+  }
+
+  ({Color bg, Color fg}) _colorsForType(String type) {
     switch (type) {
       case 'recipe_liked':
       case 'post_liked':
-        return Colors.pink;
+        return (bg: const Color(0xFFFFEBF0), fg: const Color(0xFFE91E63));
       case 'recipe_rated':
-        return const Color(0xFFFDB813); // accentYellow
+        return (bg: const Color(0xFFFFF8E1), fg: const Color(0xFFF9A825));
       case 'recipe_comment':
-        return wellGreen;
       case 'comment_received':
-        return wellGreen;
+        return (bg: const Color(0xFFE8F5EE), fg: wellGreen);
       case 'content_reported':
-        return nestOrange;
+        return (bg: const Color(0xFFFFF0EC), fg: nestOrange);
       default:
-        return Colors.grey;
+        return (bg: const Color(0xFFF0F0F0), fg: const Color(0xFF757575));
     }
   }
 
@@ -403,29 +528,34 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            widget.child,
-            if (_unreadCount > 0)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: nestOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                  child: Text(
-                    _unreadCount > 99 ? '99+' : '$_unreadCount',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+            clipBehavior: Clip.none,
+            children: [
+              widget.child,
+              if (_unreadCount > 0)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: nestOrange,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    child: Text(
+                      _unreadCount > 99 ? '99+' : '$_unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );

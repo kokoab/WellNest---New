@@ -11,6 +11,7 @@ import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/user_service.dart';
+import 'package:my_app/screens/user_profile_screen.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -30,6 +31,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   String? _error;
   bool _liked = false;
   bool _saved = false;
+  bool _liking = false;
+  bool _saving = false;
   RecipeRatingsResponse? _ratings;
   RecipeRating? _userRating;
   int? _pendingStars;
@@ -179,21 +182,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Recipe',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        backgroundColor: wellGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
         actions: [
           if (_recipe != null && AuthService.instance.isLoggedIn)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
               onSelected: (v) async {
                 if (v == 'edit') {
                   Navigator.push(
@@ -206,13 +211,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   await _reportRecipe();
                 } else if (v == 'delete') {
                   await _deleteRecipe();
-                } else if (v == 'edit') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RecipeFormScreen(recipe: _recipe),
-                    ),
-                  ).then((_) => _load());
                 }
               },
               itemBuilder: (context) => [
@@ -272,14 +270,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          _recipe!.user != null
-                              ? 'By ${_recipe!.userDisplayName}'
-                              : 'By Unknown',
-                          style: TextStyle(
-                            fontFamily: 'HelveticaNow',
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
+                        GestureDetector(
+                          onTap: _recipe!.userId != null
+                              ? () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          UserProfileScreen(userId: _recipe!.userId!),
+                                    ),
+                                  )
+                              : null,
+                          child: Text(
+                            _recipe!.user != null
+                                ? 'By ${_recipe!.userDisplayName}'
+                                : 'By Unknown',
+                            style: TextStyle(
+                              fontFamily: 'HelveticaNow',
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              decoration: _recipe!.userId != null
+                                  ? TextDecoration.underline
+                                  : TextDecoration.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -310,9 +322,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: AuthService.instance.isLoggedIn
+                              child: OutlinedButton(
+                                onPressed: AuthService.instance.isLoggedIn &&
+                                        !_liking
                                     ? () async {
+                                        setState(() => _liking = true);
                                         try {
                                           if (_liked) {
                                             await VoteService.instance
@@ -340,34 +354,58 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                               ),
                                             );
                                           }
+                                        } finally {
+                                          if (mounted)
+                                            setState(() => _liking = false);
                                         }
                                       }
                                     : null,
-                                icon: Icon(
-                                  _liked
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  size: 20,
-                                  color: _liked ? Colors.pink : nestOrange,
-                                ),
-                                label: Text(
-                                  _liked ? 'Liked' : 'Like',
-                                  style: const TextStyle(
-                                    color: nestOrange,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: nestOrange,
                                   side: const BorderSide(color: nestOrange),
                                 ),
+                                child: _liking
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: nestOrange,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _liked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            size: 20,
+                                            color: _liked
+                                                ? Colors.pink
+                                                : nestOrange,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _liked ? 'Liked' : 'Like',
+                                            style: const TextStyle(
+                                              color: nestOrange,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
                             AppSpacing.gapH16,
                             Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: AuthService.instance.isLoggedIn
+                              child: OutlinedButton(
+                                onPressed: AuthService.instance.isLoggedIn &&
+                                        !_saving
                                     ? () async {
+                                        setState(() => _saving = true);
                                         try {
                                           if (_saved) {
                                             await SavedRecipeService.instance
@@ -409,27 +447,47 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                               ),
                                             );
                                           }
+                                        } finally {
+                                          if (mounted)
+                                            setState(() => _saving = false);
                                         }
                                       }
                                     : null,
-                                icon: Icon(
-                                  _saved
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  size: 20,
-                                  color: _saved ? wellGreen : wellGreen,
-                                ),
-                                label: Text(
-                                  _saved ? 'Saved' : 'Save',
-                                  style: const TextStyle(
-                                    color: wellGreen,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: wellGreen,
                                   side: const BorderSide(color: wellGreen),
                                 ),
+                                child: _saving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: wellGreen,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _saved
+                                                ? Icons.bookmark
+                                                : Icons.bookmark_border,
+                                            size: 20,
+                                            color: wellGreen,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _saved ? 'Saved' : 'Save',
+                                            style: const TextStyle(
+                                              color: wellGreen,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
                           ],
@@ -725,6 +783,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildIngredientsList() {
+    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final ingredients = _recipe!.ingredients;
     if (ingredients == null || ingredients.isEmpty) {
       return Padding(
@@ -750,14 +810,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
-              style: TextStyle(
-                fontFamily: 'HelveticaNow',
-                fontSize: 15,
-                color: Colors.grey.shade800,
-                height: 1.4,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 7),
+                  child: Icon(
+                    Icons.circle,
+                    size: 8,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }).toList(),
@@ -766,16 +840,36 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildInstructions() {
+    final theme = Theme.of(context);
+    final steps = _recipe!.instructions
+        .split(RegExp(r'\r?\n'))
+        .map((step) => step.trim())
+        .where((step) => step.isNotEmpty)
+        .toList();
+
+    if (steps.length <= 1) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SelectableText(
+          _recipe!.instructions,
+          style: theme.textTheme.bodyLarge?.copyWith(height: 1.75),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        _recipe!.instructions,
-        style: TextStyle(
-          fontFamily: 'HelveticaNow',
-          fontSize: 16,
-          height: 1.65,
-          color: Colors.grey.shade800,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(steps.length, (index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              '${index + 1}. ${steps[index]}',
+              style: theme.textTheme.bodyLarge?.copyWith(height: 1.75),
+            ),
+          );
+        }),
       ),
     );
   }

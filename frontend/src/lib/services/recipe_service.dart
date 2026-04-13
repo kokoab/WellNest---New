@@ -38,6 +38,7 @@ class RecipeService {
     int? userId,
     String? search,
     int page = 1,
+    String? range,
   }) async {
     final params = <String, String>{'page': '$page'};
     if (categoryId != null) params['category_id'] = '$categoryId';

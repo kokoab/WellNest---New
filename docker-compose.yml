@@ -38,7 +38,7 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
-      - BROADCAST_CONNECTION=reverb
+      - BROADCAST_CONNECTION=log
       - QUEUE_CONNECTION=database
       - REVERB_HOST=reverb
       - REVERB_PORT=8080

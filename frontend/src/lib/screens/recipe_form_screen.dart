@@ -54,6 +54,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   String? _submitError;
   String? _loadError;
   XFile? _pickedImage;
+  bool _pickingImage = false;
   final ImagePicker _picker = ImagePicker();
 
   bool get _isEditing => widget.recipe != null;
@@ -129,6 +130,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   }
 
   Future<void> _pickImage() async {
+    if (_pickingImage) return;
+    setState(() => _pickingImage = true);
     try {
       final XFile? picked = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -142,6 +145,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           SnackBar(content: Text('Could not pick image: $e'), backgroundColor: nestOrange),
         );
       }
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
     }
   }
 
@@ -331,8 +336,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           const SizedBox(height: 8),
         ],
         OutlinedButton.icon(
-          onPressed: _pickImage,
-          icon: const Icon(Icons.add_photo_alternate_outlined),
+          onPressed: _pickingImage ? null : _pickImage,
+          icon: _pickingImage
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2))
+              : const Icon(Icons.add_photo_alternate_outlined),
           label: Text(_pickedImage == null ? 'Add photo' : 'Change photo'),
           style: OutlinedButton.styleFrom(
             foregroundColor: wellGreen,

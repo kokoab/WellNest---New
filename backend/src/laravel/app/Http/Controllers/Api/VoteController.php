@@ -102,4 +102,26 @@ class VoteController extends Controller
 
         return response()->json(['message' => 'Post unliked', 'liked' => false]);
     }
+
+    /**
+     * Get like count and whether the current user liked a post.
+     */
+    public function getPostLikes(Request $request, Post $post): JsonResponse
+    {
+        $count = Vote::where('votable_type', Post::class)
+            ->where('votable_id', $post->id)
+            ->count();
+
+        $isLiked = $request->user()
+            ? Vote::where('user_id', $request->user()->id)
+                ->where('votable_type', Post::class)
+                ->where('votable_id', $post->id)
+                ->exists()
+            : false;
+
+        return response()->json([
+            'likes_count' => $count,
+            'is_liked'    => $isLiked,
+        ]);
+    }
 }

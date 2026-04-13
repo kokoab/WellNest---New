@@ -12,6 +12,8 @@ class CurrentUser {
   final String lastName;
   final String email;
   final String? profilePhotoUrl;
+  final int followersCount;
+  final int followingCount;
 
   CurrentUser({
     required this.id,
@@ -19,6 +21,8 @@ class CurrentUser {
     required this.lastName,
     required this.email,
     this.profilePhotoUrl,
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
   String get displayName => '${firstName} ${lastName}'.trim();
@@ -33,6 +37,47 @@ class CurrentUser {
       lastName: json['last_name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       profilePhotoUrl: json['profile_photo_url'] as String?,
+      followersCount: json['followers_count'] as int? ?? 0,
+      followingCount: json['following_count'] as int? ?? 0,
+    );
+  }
+}
+
+class PublicUserProfile {
+  final int id;
+  final String firstName;
+  final String lastName;
+  final String name;
+  final String? profilePhotoUrl;
+  final int followersCount;
+  final int followingCount;
+  final bool? isFollowing;
+
+  const PublicUserProfile({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    required this.name,
+    this.profilePhotoUrl,
+    this.followersCount = 0,
+    this.followingCount = 0,
+    this.isFollowing,
+  });
+
+  String get displayName => name.trim().isNotEmpty ? name.trim() : '$firstName $lastName'.trim();
+
+  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
+
+  factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
+    return PublicUserProfile(
+      id: json['id'] as int,
+      firstName: json['first_name'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      profilePhotoUrl: json['profile_photo_url'] as String?,
+      followersCount: json['followers_count'] as int? ?? 0,
+      followingCount: json['following_count'] as int? ?? 0,
+      isFollowing: json['is_following'] as bool?,
     );
   }
 }
@@ -68,6 +113,48 @@ class UserService {
     }
   }
 
+  Future<PublicUserProfile> fetchPublicProfile(int userId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/users/$userId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return PublicUserProfile.fromJson(data);
+    }
+
+    throw Exception('Failed to load profile');
+  }
+
+  Future<PublicUserProfile> followUser(int userId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/users/$userId/follow'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 201) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return PublicUserProfile.fromJson(data['user'] as Map<String, dynamic>);
+    }
+
+    throw Exception(_messageFromResponse(response, fallback: 'Failed to follow user'));
+  }
+
+  Future<PublicUserProfile> unfollowUser(int userId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/users/$userId/follow'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return PublicUserProfile.fromJson(data['user'] as Map<String, dynamic>);
+    }
+
+    throw Exception(_messageFromResponse(response, fallback: 'Failed to unfollow user'));
+  }
+
   /// POST /api/user/profile-photo — upload profile photo (auth required).
   Future<void> uploadProfilePhoto(XFile imageFile) async {
     final bytes = await imageFile.readAsBytes();
@@ -90,6 +177,15 @@ class UserService {
     if (response.statusCode != 201) {
       final err = jsonDecode(response.body) as Map<String, dynamic>?;
       throw Exception(err?['message'] as String? ?? 'Failed to upload profile photo');
+    }
+  }
+
+  String _messageFromResponse(http.Response response, {required String fallback}) {
+    try {
+      final err = jsonDecode(response.body) as Map<String, dynamic>?;
+      return err?['message'] as String? ?? fallback;
+    } catch (_) {
+      return fallback;
     }
   }
 }

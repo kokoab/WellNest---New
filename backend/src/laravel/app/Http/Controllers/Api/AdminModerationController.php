@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Services\ActivityLogService;
+use Carbon\Carbon;
 
 class AdminModerationController extends Controller
 {
@@ -19,9 +20,18 @@ class AdminModerationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $reports = Report::with(['user:id,first_name,last_name', 'reportable'])
+        $range = $request->query('range');
+
+        $reportsQuery = Report::with(['user:id,first_name,last_name', 'reportable'])
             ->where('status', 'pending')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'desc');
+
+        $startDate = $this->resolveStartDate($range);
+        if ($startDate !== null) {
+            $reportsQuery->where('created_at', '>=', $startDate);
+        }
+
+        $reports = $reportsQuery
             ->get()
             ->map(function (Report $r) {
                 $reportable = $r->reportable;
@@ -140,5 +150,15 @@ class AdminModerationController extends Controller
         $report->save();
         ActivityLogService::log('admin_moderation', 'unban_user', 'User unbanned.', $request->user()->id, $report);
         return response()->json(['message' => 'User unbanned'], 200);
+    }
+
+    private function resolveStartDate(?string $range): ?Carbon
+    {
+        return match ($range) {
+            'weekly' => now()->subWeek(),
+            'monthly' => now()->subMonth(),
+            'yearly' => now()->subYear(),
+            default => null,
+        };
     }
 }

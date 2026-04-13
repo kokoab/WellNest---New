@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class PostComment extends Model
 {
-    //
     protected $fillable = [
         'user_id',
         'post_id',
         'comment',
+        'image_url',
     ];
 
     public function user()

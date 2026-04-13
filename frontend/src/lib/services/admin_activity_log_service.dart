@@ -23,10 +23,12 @@ class AdminAuditLogService {
     int page = 1,
     String? category,
     String? action,
+    String? range,
   }) async {
     final params = <String, String>{'page': '$page'};
     if (category != null && category.isNotEmpty) params['category'] = category;
     if (action != null && action.isNotEmpty) params['action'] = action;
+    if (range != null && range.isNotEmpty) params['range'] = range;
     final uri = Uri.parse('$_baseUrl/admin/audit-logs').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
