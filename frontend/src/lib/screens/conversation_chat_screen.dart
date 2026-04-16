@@ -8,7 +8,10 @@ import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/services/user_service.dart';
+import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/quota_exceeded_dialog.dart';
+import 'package:my_app/widgets/system_refusal_bubble.dart';
 
 /// Single conversation: messages list + input. Subscribes to Reverb for live new messages.
 class ConversationChatScreen extends StatefulWidget {
@@ -50,6 +53,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   /// Non-null while the assistant is generating (shows typewriter / streaming bubble).
   String? _streamingPreview;
+
+  /// True once the backend returns 429 — disables the composer until the screen is re-opened.
+  bool _quotaBlocked = false;
 
   static const List<String> _suggestionChips = [
     'Healthy meal ideas',
@@ -189,6 +195,15 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
           _sending = false;
         });
       }
+    } on QuotaExceededException catch (e) {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _quotaBlocked = true;
+          if (widget.isAssistant) _streamingPreview = null;
+        });
+        QuotaExceededDialog.show(context, retryAfter: e.retryAfter);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -210,10 +225,17 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   }
 
   Widget _buildAssistantStreamingBubble(bool isDark) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final text = _streamingPreview ?? '';
     final display = text.isEmpty ? '…' : text;
+    final refusal = text.isNotEmpty && isAssistantRefusal(text);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -225,18 +247,25 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
           ),
           const SizedBox(width: 8),
           Flexible(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                display,
-                style: const TextStyle(color: Colors.white, fontSize: 21),
-              ),
-            ),
+            child: refusal
+                ? SystemRefusalBubble(text: display)
+                : Container(
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? colorScheme.surfaceContainerHighest
+                          : colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                    ),
+                    child: Text(
+                      display,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -246,9 +275,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   static const double _previewSize = 200;
 
   void _showAttachmentModal(String imageUrl) {
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: colorScheme.scrim.withValues(alpha: 0.88),
       barrierDismissible: true,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
@@ -267,14 +297,14 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                      child: CircularProgressIndicator(),
                     );
                   },
-                  errorBuilder: (_, __, ___) => const Center(
+                  errorBuilder: (_, __, ___) => Center(
                     child: Icon(
                       Icons.broken_image,
                       size: 64,
-                      color: Colors.white70,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -286,8 +316,8 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 onPressed: () => Navigator.of(ctx).pop(),
                 icon: const Icon(Icons.close),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.surface.withValues(alpha: 0.8),
+                  foregroundColor: colorScheme.onSurface,
                 ),
               ),
             ),
@@ -298,6 +328,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   }
 
   Widget _buildAttachmentPreview(Map<String, dynamic> att) {
+    final colorScheme = Theme.of(context).colorScheme;
     final path = att['file_path'] as String?;
     final name = att['file_name'] as String? ?? '';
     final type = (att['file_type'] as String? ?? '').toLowerCase();
@@ -320,7 +351,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
               return Container(
                 width: _previewSize,
                 height: _previewSize,
-                color: Colors.black12,
+                color: colorScheme.surfaceContainerHighest,
                 child: Center(
                   child: CircularProgressIndicator(
                     value: loadingProgress.expectedTotalBytes != null
@@ -334,11 +365,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
             errorBuilder: (_, __, ___) => Container(
               width: _previewSize,
               height: _previewSize,
-              color: Colors.black12,
-              child: const Icon(
+              color: colorScheme.surfaceContainerHighest,
+              child: Icon(
                 Icons.broken_image,
                 size: 48,
-                color: Colors.white70,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -348,17 +379,19 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white24,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.insert_drive_file, color: Colors.white70, size: 20),
+          Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 20),
           const SizedBox(width: 6),
           Text(
             name.isNotEmpty ? name : 'Attachment',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -429,7 +462,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -444,18 +480,16 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
             const SizedBox(width: 10),
             Text(
               widget.otherUserName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
+              style: textTheme.titleLarge?.copyWith(
+                color: colorScheme.onSurface,
               ),
             ),
           ],
         ),
         centerTitle: false,
-        backgroundColor: AppColors.primaryGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: colorScheme.onSurface,
+        iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
       ),
       body: Column(
         children: [
@@ -498,8 +532,15 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           m.attachments.isNotEmpty && m.content.trim().isEmpty;
                       final otherPhoto =
                           m.user?.displayProfilePhotoUrl ?? widget.otherUserProfilePhotoUrl;
+                      final isRefusal = !isMe &&
+                          widget.isAssistant &&
+                          m.content.trim().isNotEmpty &&
+                          isAssistantRefusal(m.content);
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.xs,
+                        ),
                         child: Row(
                           mainAxisAlignment:
                               isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -514,54 +555,60 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                               const SizedBox(width: 8),
                             ],
                             Flexible(
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 0,
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: attachmentOnly ? 0 : 14,
-                                  vertical: attachmentOnly ? 0 : 10,
-                                ),
-                                decoration: attachmentOnly
-                                    ? null
-                                    : BoxDecoration(
-                                        color: isMe
-                                            ? AppColors.primaryGreen.withOpacity(0.9)
-                                            : (isDark
-                                            ? Colors.grey.shade700
-                                            : Colors.grey.shade700),
-                                        borderRadius: BorderRadius.circular(16),
+                              child: isRefusal
+                                  ? SystemRefusalBubble(text: m.content)
+                                  : Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 0,
                                       ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (m.attachments.isNotEmpty)
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom: attachmentOnly ? 0 : 6,
-                                        ),
-                                        child: Wrap(
-                                          spacing: 4,
-                                          runSpacing: 4,
-                                          children: [
-                                            for (final att in m.attachments)
-                                              _buildAttachmentPreview(att),
-                                          ],
-                                        ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: attachmentOnly ? 0 : 14,
+                                        vertical: attachmentOnly ? 0 : 10,
                                       ),
-                                    if (m.content.trim().isNotEmpty)
-                                      Text(
-                                        m.content,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 21,
-                                        ),
+                                      decoration: attachmentOnly
+                                          ? null
+                                          : BoxDecoration(
+                                              color: isMe
+                                                  ? colorScheme.primary
+                                                  : (isDark
+                                                      ? colorScheme.surfaceContainerHighest
+                                                      : colorScheme.surfaceContainerLow),
+                                              borderRadius: BorderRadius.circular(
+                                                AppRadii.md,
+                                              ),
+                                            ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (m.attachments.isNotEmpty)
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                bottom: attachmentOnly ? 0 : 6,
+                                              ),
+                                              child: Wrap(
+                                                spacing: 4,
+                                                runSpacing: 4,
+                                                children: [
+                                                  for (final att in m.attachments)
+                                                    _buildAttachmentPreview(att),
+                                                ],
+                                              ),
+                                            ),
+                                          if (m.content.trim().isNotEmpty)
+                                            Text(
+                                              m.content,
+                                              style: textTheme.bodyLarge?.copyWith(
+                                                color: isMe
+                                                    ? colorScheme.onPrimary
+                                                    : colorScheme.onSurface,
+                                                fontSize: 17,
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                  ],
-                                ),
-                              ),
+                                    ),
                             ),
                             if (isMe) ...[
                               const SizedBox(width: 8),
@@ -591,11 +638,12 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           padding: const EdgeInsets.only(right: 8),
                           child: ActionChip(
                             label: Text(chip),
-                            onPressed: _sending ? null : () => _applyChip(chip),
-                            backgroundColor: AppColors.primaryGreen.withOpacity(0.12),
-                            labelStyle: const TextStyle(
-                              color: AppColors.primaryGreen,
-                              fontWeight: FontWeight.w500,
+                            onPressed: (_sending || _quotaBlocked) ? null : () => _applyChip(chip),
+                            backgroundColor: colorScheme.primary.withValues(
+                              alpha: 0.12,
+                            ),
+                            labelStyle: textTheme.labelLarge?.copyWith(
+                              color: colorScheme.primary,
                             ),
                           ),
                         ),
@@ -611,8 +659,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   IconButton(
+                    tooltip: 'Attach image',
                     onPressed:
-                        (_sending || _uploadingAttachment || _pickingImage || widget.isAssistant)
+                        (_sending || _uploadingAttachment || _pickingImage || widget.isAssistant || _quotaBlocked)
                         ? null
                         : _pickAndSendAttachment,
                     icon: _uploadingAttachment
@@ -623,18 +672,21 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           )
                         : const Icon(Icons.attach_file),
                     style: IconButton.styleFrom(
-                      foregroundColor: AppColors.primaryGreen,
+                      foregroundColor: colorScheme.primary,
+                      minimumSize: const Size.square(kMinTapTargetSize),
                     ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      style: const TextStyle(fontSize: 17),
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: TextStyle(fontSize: 17),
-                        border: OutlineInputBorder(),
+                      enabled: !_quotaBlocked,
+                      style: textTheme.bodyLarge?.copyWith(fontSize: 17),
+                      decoration: InputDecoration(
+                        hintText: _quotaBlocked
+                            ? 'Daily limit reached'
+                            : 'Type a message...',
+                        hintStyle: textTheme.bodyMedium?.copyWith(fontSize: 17),
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 14,
@@ -647,23 +699,22 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
+                    tooltip: 'Send message',
                     onPressed:
-                        (_sending || _uploadingAttachment || _pickingImage)
+                        (_sending || _uploadingAttachment || _pickingImage || _quotaBlocked)
                         ? null
                         : _send,
                     icon: _sending
                         ? const SizedBox(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.send),
                     style: IconButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      minimumSize: const Size.square(kMinTapTargetSize),
                     ),
                   ),
                 ],

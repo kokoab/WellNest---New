@@ -5,6 +5,7 @@ import 'package:my_app/models/conversation_list_item.dart';
 import 'package:my_app/models/user_search_result.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
+import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
@@ -149,27 +150,33 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   @override
   Widget build(BuildContext context) {
     final showSearchResults = _searchController.text.trim().isNotEmpty;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Messages',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 25,
-            fontWeight: FontWeight.w600,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
           ),
         ),
-        backgroundColor: AppColors.primaryGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: colorScheme.onSurface,
+        iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
         centerTitle: false,
         elevation: 0,
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.sm,
+            ),
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
@@ -185,17 +192,10 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                         },
                       )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
                 ),
-                filled: true,
-                fillColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
               ),
             ),
           ),
@@ -256,6 +256,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                               );
                               _load();
                             },
+                            borderRadius: BorderRadius.circular(AppRadii.md),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -288,10 +289,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                             Expanded(
                                               child: Text(
                                                 c.otherUser.name,
-                                                style: const TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.primaryGreen,
+                                                style: textTheme.titleSmall?.copyWith(
+                                                  color: colorScheme.onSurface,
                                                 ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
@@ -306,9 +305,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                               : (c.isAssistant
                                                     ? 'Ask for wellness tips, meals, or motivation'
                                                     : 'No messages yet'),
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: Colors.grey.shade600,
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -321,9 +319,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                       padding: const EdgeInsets.only(left: 8),
                                       child: Text(
                                         timeStr,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade600,
+                                        style: textTheme.labelMedium?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                     ),
@@ -336,14 +333,14 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: AppColors.accentOrange,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadii.sm,
+                                        ),
                                       ),
                                       child: Text(
                                         '${c.unreadCount > 99 ? 99 : c.unreadCount}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                        style: textTheme.labelSmall?.copyWith(
+                                          color: colorScheme.onSecondary,
                                         ),
                                       ),
                                     ),

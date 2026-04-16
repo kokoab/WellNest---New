@@ -24,6 +24,7 @@ use App\Http\Controllers\MessageAttachmentController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\RecipeRankingController;
+use App\Http\Controllers\Api\MealPlanController;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -104,6 +105,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('recipes/{recipe}/save', [SavedRecipeController::class, 'unsave']);
     Route::get('saved-recipes', [SavedRecipeController::class, 'index']);
     Route::get('recipes/{recipe}/saved', [SavedRecipeController::class, 'check']);
+
+    Route::get('meal-plans/export', [MealPlanController::class, 'export']);
+    Route::get('meal-plans', [MealPlanController::class, 'index']);
+    Route::post('meal-plans', [MealPlanController::class, 'store']);
+    Route::delete('meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
 
     Route::get('conversations/assistant', [ConversationController::class, 'assistant']);
     Route::get('conversations', [ConversationController::class, 'index']);

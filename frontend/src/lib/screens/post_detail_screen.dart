@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/theme/app_spacing.dart';
@@ -8,6 +9,7 @@ import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:image_picker/image_picker.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -19,14 +21,12 @@ class PostDetailScreen extends StatefulWidget {
 }
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-
   late Post _post;
   bool _liked = false;
   List<PostComment> _comments = [];
   bool _commentsLoaded = false;
   final TextEditingController _commentController = TextEditingController();
+  XFile? _selectedImage;
 
   @override
   void initState() {
@@ -53,16 +53,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null && mounted) {
+      setState(() => _selectedImage = image);
+    }
+  }
+
   Future<void> _addComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _selectedImage == null) return;
     try {
-      final comment = await PostService.instance.addComment(_post.id, text);
+      final comment = await PostService.instance.addComment(_post.id, text, image: _selectedImage);
       if (comment != null && mounted) {
         _commentController.clear();
+        setState(() => _selectedImage = null);
         setState(() => _comments = [..._comments, comment]);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comment added'), backgroundColor: wellGreen),
+          const SnackBar(content: Text('Comment added')),
         );
       }
     } catch (e) {
@@ -76,13 +85,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Post', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        backgroundColor: wellGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+        title: Text(
+          'Post',
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: colorScheme.onSurface,
+        iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
         elevation: 0,
       ),
       body: Column(
@@ -113,11 +132,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 children: [
                                   Text(
                                     _post.userName,
-                                    style: const TextStyle(
-                                      fontFamily: 'Recoleta',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: wellGreen,
+                                    style: textTheme.titleMedium?.copyWith(
+                                      color: colorScheme.onSurface,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -126,7 +142,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     style: TextStyle(
                                       fontFamily: 'HelveticaNow',
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -135,7 +151,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             if (AuthService.instance.isLoggedIn)
                               PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
-                                icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                                icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
                                 onSelected: (v) async {
                                   if (v == 'report') {
                                     final ok = await showDialog<bool>(
@@ -178,10 +194,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                           child: Text(
                             _post.content,
-                            style: const TextStyle(
+                            style: textTheme.bodyLarge?.copyWith(
                               fontFamily: 'HelveticaNow',
                               fontSize: 18,
-                              color: kBodyTextDark,
                               height: 1.4,
                             ),
                           ),
@@ -198,7 +213,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               errorBuilder: (_, __, ___) => Container(
                                 color: AppColors.imagePlaceholderGreen,
                                 height: 240,
-                                child: Icon(Icons.restaurant_menu, size: 64, color: wellGreen),
+                                child: Icon(
+                                  Icons.restaurant_menu,
+                                  size: 64,
+                                  color: colorScheme.primary,
+                                ),
                               ),
                             ),
                           ),
@@ -228,21 +247,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 },
                                 icon: Icon(
                                   _liked ? Icons.favorite : Icons.favorite_border,
-                                  color: nestOrange,
+                                  color: colorScheme.secondary,
                                   size: 22,
                                 ),
                                 label: Text(
                                   _liked ? 'Liked' : 'Like',
-                                  style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w600),
+                                  style: textTheme.labelLarge?.copyWith(
+                                    color: colorScheme.secondary,
+                                  ),
                                 ),
                                 style: TextButton.styleFrom(
-                                  foregroundColor: nestOrange,
+                                  foregroundColor: colorScheme.secondary,
                                 ),
                               ),
                             const Spacer(),
                             if (_post.recipeId != null)
                               Material(
-                                color: const Color(0x1A097333),
+                                color: colorScheme.primary.withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(20),
                                 child: InkWell(
                                   onTap: () => Navigator.push(
@@ -253,14 +274,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     ),
                                   ),
                                   borderRadius: BorderRadius.circular(20),
-                                  child: const Padding(
+                                  child: Padding(
                                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                     child: Text(
                                       'View Recipe',
-                                      style: TextStyle(
-                                        color: wellGreen,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
+                                      style: textTheme.labelLarge?.copyWith(
+                                        color: colorScheme.primary,
                                       ),
                                     ),
                                   ),
@@ -273,8 +292,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   ),
                 ),
                 // Divider between post and comments
-                const SliverToBoxAdapter(
-                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEAE6DF)),
+                SliverToBoxAdapter(
+                  child: Divider(height: 1, thickness: 1, color: theme.dividerColor),
                 ),
                 // Comments header
                 SliverToBoxAdapter(
@@ -282,11 +301,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
                     child: Text(
                       'Comments (${_comments.length})',
-                      style: TextStyle(
-                        fontFamily: 'HelveticaNow',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                      style: textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -298,7 +314,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     child: Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
-                        child: CircularProgressIndicator(color: wellGreen),
+                        child: CircularProgressIndicator(),
                       ),
                     ),
                   )
@@ -337,23 +353,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       children: [
                                         Text(
                                           c.userName,
-                                          style: const TextStyle(
+                                          style: textTheme.bodyMedium?.copyWith(
                                             fontFamily: 'HelveticaNow',
                                             fontWeight: FontWeight.bold,
                                             fontSize: 14,
-                                            color: kBodyTextDark,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           c.comment,
-                                          style: const TextStyle(
+                                          style: textTheme.bodyMedium?.copyWith(
                                             fontFamily: 'HelveticaNow',
                                             fontSize: 14,
-                                            color: kBodyTextDark,
                                             height: 1.35,
                                           ),
                                         ),
+                                        if (c.imageUrl != null && c.imageUrl!.isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(
+                                              c.imageUrl!,
+                                              height: 120,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                color: colorScheme.surfaceContainerHighest,
+                                                height: 120,
+                                                child: Icon(Icons.broken_image, color: colorScheme.onSurfaceVariant),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -361,7 +392,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               ),
                             ),
                             if (index < _comments.length - 1)
-                              Divider(height: 1, thickness: 0.5, color: Colors.grey[300]),
+                              Divider(height: 1, thickness: 0.5, color: theme.dividerColor),
                           ],
                         );
                       },
@@ -379,46 +410,97 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: theme.shadowColor.withValues(
+                        alpha: theme.brightness == Brightness.dark ? 0.24 : 0.06,
+                      ),
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),
                   ],
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _commentController,
-                        decoration: InputDecoration(
-                          hintText: 'Add a comment...',
-                          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
-                          filled: true,
-                          fillColor: const Color(0xFFF0F0F0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide.none,
+                    if (_selectedImage != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        height: 80,
+                        width: double.infinity,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_selectedImage!.path),
+                            fit: BoxFit.cover,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Material(
-                      color: wellGreen,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: _addComment,
-                        customBorder: const CircleBorder(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _commentController,
+                            style: textTheme.bodyMedium,
+                            decoration: InputDecoration(
+                              hintText: 'Add a comment...',
+                              hintStyle: textTheme.bodyMedium?.copyWith(fontSize: 15),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(30),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Material(
+                          color: colorScheme.surfaceContainerHighest,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: _pickImage,
+                            customBorder: const CircleBorder(),
+                            child: Semantics(
+                              button: true,
+                              label: _selectedImage != null
+                                  ? 'Change selected image'
+                                  : 'Add comment image',
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Icon(
+                                  _selectedImage != null
+                                      ? Icons.image
+                                      : Icons.image_outlined,
+                                  color: colorScheme.primary,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Material(
+                          color: colorScheme.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: _addComment,
+                            customBorder: const CircleBorder(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Semantics(
+                                button: true,
+                                label: 'Send comment',
+                                child: Icon(
+                                  Icons.send_rounded,
+                                  color: colorScheme.onPrimary,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

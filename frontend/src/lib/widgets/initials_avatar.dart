@@ -63,6 +63,8 @@ class InitialsAvatar extends StatelessWidget {
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
+                cacheWidth: (size * 2).toInt(),
+                cacheHeight: (size * 2).toInt(),
                 errorBuilder: (_, __, ___) => _buildInitials(initials),
               )
             : _buildInitials(initials),

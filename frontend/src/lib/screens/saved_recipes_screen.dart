@@ -5,6 +5,7 @@ import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/skeleton_loaders.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
@@ -83,7 +84,16 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
 
   Widget _buildContent() {
     if (_loading && _recipes.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF097333)));
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: SavedRecipeCardSkeleton(),
+          );
+        },
+      );
     }
     if (_error != null && _recipes.isEmpty) {
       return Center(
