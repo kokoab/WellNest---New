@@ -89,6 +89,10 @@ class User extends Authenticatable
         return $this->belongsToMany(Recipe::class, 'saved_recipes')
             ->withTimestamps();
     }
+    public function mealPlans(): HasMany
+    {
+        return $this->hasMany(MealPlan::class);
+    }
     public function conversations(): HasMany
     {
         return Conversation::where('user1_id', $this->id)

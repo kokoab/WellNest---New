@@ -9,6 +9,20 @@ import '../models/user_search_result.dart';
 import 'auth_service.dart';
 import 'reverb_service.dart';
 
+/// Thrown when the user exceeds the daily message quota (HTTP 429).
+class QuotaExceededException implements Exception {
+  final String message;
+  final String? retryAfter;
+
+  const QuotaExceededException({
+    this.message = 'You have reached your daily message limit.',
+    this.retryAfter,
+  });
+
+  @override
+  String toString() => message;
+}
+
 class ConversationService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
@@ -116,6 +130,15 @@ class ConversationService {
       headers: _headers,
       body: jsonEncode({'content': content}),
     );
+    if (response.statusCode == 429) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw QuotaExceededException(
+        message: data?['message'] as String? ??
+            'You have reached your daily message limit.',
+        retryAfter: response.headers['retry-after'] ??
+            data?['retry_after'] as String?,
+      );
+    }
     if (response.statusCode != 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
       throw Exception(data?['message'] as String? ?? 'Failed to send message');

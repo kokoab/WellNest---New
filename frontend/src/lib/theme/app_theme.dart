@@ -17,6 +17,7 @@ const Color kNestOrange = kAccentOrange;
 /// Display serif (must match `family` in [pubspec.yaml] under `flutter: fonts:`).
 const String kFontGeorgiaPro = 'GeorgiaPro';
 const String kFontHelveticaNow = 'HelveticaNow';
+const String kFontAppFamily = kFontHelveticaNow;
 
 /// Figma-style tracking in **thousandths of 1em** (e.g. `-30` → `-0.03em` letter-spacing).
 const double kGeorgiaProTrackingFigma = -30;
@@ -175,6 +176,15 @@ class AppDurations {
   static const Duration short = Duration(milliseconds: 200);
   static const Duration medium = Duration(milliseconds: 300);
   static const Duration long = Duration(milliseconds: 400);
+}
+
+/// Shared corner radii used by legacy and new widgets.
+class AppRadii {
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 16;
+  static const double lg = 20;
+  static const double xl = 24;
 }
 
 /// Standardized curves
