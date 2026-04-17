@@ -17,11 +17,13 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
+import 'package:my_app/services/meal_planner_service.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
 import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/weekly_meal_planner_strip.dart';
 import 'feed_page.dart';
 import 'recipe_ranking_screen.dart';
@@ -457,6 +459,37 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         },
                         onAssignRecipe: (day, recipeId) {
                           setState(() => _plannedRecipes[day] = recipeId);
+                          final selected = recipeId == null
+                              ? null
+                              : _recipes.cast<Recipe?>().firstWhere(
+                                  (r) => r?.id == recipeId,
+                                  orElse: () => null,
+                                );
+                          unawaited(
+                            MealPlannerService.instance.logAssignment(
+                              day: day,
+                              weekStart: _plannerWeekStart,
+                              recipeId: recipeId,
+                              recipeTitle: selected?.title,
+                            ).then((ok) {
+                              if (!mounted) return;
+                              if (!ok) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Meal planner log failed'),
+                                    duration: Duration(milliseconds: 1100),
+                                  ),
+                                );
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Meal planner activity logged'),
+                                  duration: Duration(milliseconds: 900),
+                                ),
+                              );
+                            }),
+                          );
                         },
                       ),
                       const SizedBox(height: 16),
@@ -609,14 +642,14 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       children: [
         Row(
           children: [
-            const Expanded(
-              child: Text(
-                'Top Ranked Recipes',
-                style: TextStyle(
-                  fontFamily: 'Recoleta',
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: wellGreen,
+            Expanded(
+              child: GeorgiaProDisplaySquish(
+                child: Text(
+                  'Top Ranked Recipes',
+                  style: georgiaProTextStyle(
+                    fontSize: 28,
+                    color: wellGreen,
+                  ),
                 ),
               ),
             ),
@@ -880,16 +913,16 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                recipe.title,
-                style: TextStyle(
-                  fontFamily: 'Recoleta',
-                  color: kPrimaryGreen,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              GeorgiaProDisplaySquish(
+                child: Text(
+                  recipe.title,
+                  style: georgiaProTextStyle(
+                    fontSize: 14,
+                    color: kPrimaryGreen,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
               AppSpacing.gapV4,
               if (recipe.category != null) ...[

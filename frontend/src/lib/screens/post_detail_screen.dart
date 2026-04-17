@@ -8,6 +8,7 @@ import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -111,13 +112,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _post.userName,
-                                    style: const TextStyle(
-                                      fontFamily: 'Recoleta',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: wellGreen,
+                                  GeorgiaProDisplaySquish(
+                                    child: Text(
+                                      _post.userName,
+                                      style: georgiaProTextStyle(
+                                        fontSize: 16,
+                                        color: wellGreen,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 2),

@@ -7,6 +7,7 @@ use App\Support\Assistant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
@@ -161,7 +162,15 @@ class UserController extends Controller
 
     public function currentUser(Request $request): JsonResponse
     {
-        $user = $request->user()->loadCount(['followers', 'following']);
+        $user = $request->user();
+
+        try {
+            $user->loadCount(['followers', 'following']);
+        } catch (\Throwable $e) {
+            Log::warning('currentUser: follower counts unavailable', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'id' => $user->id,
@@ -169,8 +178,8 @@ class UserController extends Controller
             'last_name' => $user->last_name,
             'email' => $user->email,
             'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
-            'followers_count' => $user->followers_count,
-            'following_count' => $user->following_count,
+            'followers_count' => (int) ($user->followers_count ?? 0),
+            'following_count' => (int) ($user->following_count ?? 0),
         ]);
     }
 

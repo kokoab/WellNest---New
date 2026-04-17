@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class WellnestSplashScreen extends StatelessWidget {
   const WellnestSplashScreen({super.key});
@@ -25,18 +26,17 @@ class WellnestSplashScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(
-                    fontFamily: 'Recoleta',
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.5,
+              GeorgiaProDisplaySquish(
+                alignment: Alignment.center,
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: georgiaProDisplayStyle(fontSize: 40),
+                    children: const [
+                      TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
+                      TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
+                    ],
                   ),
-                  children: [
-                    TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
-                    TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
-                  ],
                 ),
               ),
               const SizedBox(height: 12),

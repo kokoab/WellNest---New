@@ -14,6 +14,7 @@ import 'package:my_app/theme/app_theme.dart';
 class ConversationChatScreen extends StatefulWidget {
   final int conversationId;
   final String otherUserName;
+
   /// Resolved display URL for the other participant (optional).
   final String? otherUserProfilePhotoUrl;
 
@@ -234,7 +235,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
               ),
               child: Text(
                 display,
-                style: const TextStyle(color: Colors.white, fontSize: 21),
+                style: const TextStyle(color: Colors.white, fontSize: 18),
               ),
             ),
           ),
@@ -476,17 +477,22 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       ],
                     ),
                   )
-                : _messages.isEmpty && !(widget.isAssistant && _streamingPreview != null)
+                : _messages.isEmpty &&
+                      !(widget.isAssistant && _streamingPreview != null)
                 ? const Center(child: Text('No messages yet. Say hello!'))
                 : ListView.builder(
                     controller: _scrollController,
                     reverse: true,
                     itemCount:
                         _messages.length +
-                        (widget.isAssistant && _streamingPreview != null ? 1 : 0),
+                        (widget.isAssistant && _streamingPreview != null
+                            ? 1
+                            : 0),
                     itemBuilder: (context, index) {
                       final streamExtra =
-                          widget.isAssistant && _streamingPreview != null ? 1 : 0;
+                          widget.isAssistant && _streamingPreview != null
+                          ? 1
+                          : 0;
                       if (streamExtra == 1 && index == 0) {
                         return _buildAssistantStreamingBubble(isDark);
                       }
@@ -497,12 +503,17 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       final attachmentOnly =
                           m.attachments.isNotEmpty && m.content.trim().isEmpty;
                       final otherPhoto =
-                          m.user?.displayProfilePhotoUrl ?? widget.otherUserProfilePhotoUrl;
+                          m.user?.displayProfilePhotoUrl ??
+                          widget.otherUserProfilePhotoUrl;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
                         child: Row(
-                          mainAxisAlignment:
-                              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          mainAxisAlignment: isMe
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             if (!isMe) ...[
@@ -527,10 +538,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                     ? null
                                     : BoxDecoration(
                                         color: isMe
-                                            ? AppColors.primaryGreen.withOpacity(0.9)
+                                            ? AppColors.primaryGreen
+                                                  .withOpacity(0.9)
                                             : (isDark
-                                            ? Colors.grey.shade700
-                                            : Colors.grey.shade700),
+                                                  ? Colors.grey.shade700
+                                                  : Colors.grey.shade700),
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                 child: Column(
@@ -556,7 +568,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                         m.content,
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 21,
+                                          fontSize: 18,
                                         ),
                                       ),
                                   ],
@@ -592,7 +604,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           child: ActionChip(
                             label: Text(chip),
                             onPressed: _sending ? null : () => _applyChip(chip),
-                            backgroundColor: AppColors.primaryGreen.withOpacity(0.12),
+                            backgroundColor: AppColors.primaryGreen.withOpacity(
+                              0.12,
+                            ),
                             labelStyle: const TextStyle(
                               color: AppColors.primaryGreen,
                               fontWeight: FontWeight.w500,
@@ -612,7 +626,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 children: [
                   IconButton(
                     onPressed:
-                        (_sending || _uploadingAttachment || _pickingImage || widget.isAssistant)
+                        (_sending ||
+                            _uploadingAttachment ||
+                            _pickingImage ||
+                            widget.isAssistant)
                         ? null
                         : _pickAndSendAttachment,
                     icon: _uploadingAttachment

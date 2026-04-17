@@ -12,6 +12,7 @@ import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/user_service.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -259,16 +260,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Step 1: Title & Author
-                        Text(
-                          _recipe!.title,
-                          style: const TextStyle(
-                            fontFamily: 'Recoleta',
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: wellGreen,
-                            height: 1.25,
+                        GeorgiaProDisplaySquish(
+                          child: Text(
+                            _recipe!.title,
+                            style: georgiaProTextStyle(
+                              fontSize: 26,
+                              color: wellGreen,
+                            ),
                           ),
                         ),
+                        if (_recipe!.description != null &&
+                            _recipe!.description!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _recipe!.description!.trim(),
+                            style: TextStyle(
+                              fontFamily: 'HelveticaNow',
+                              fontSize: 16,
+                              height: 1.45,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         GestureDetector(
                           onTap: _recipe!.userId != null

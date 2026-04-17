@@ -5,6 +5,7 @@ import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
@@ -65,13 +66,13 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
           AppSpacing.gapV16,
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-            child: const Text(
-              'Saved Recipes',
-              style: TextStyle(
-                fontFamily: 'Recoleta',
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: wellGreen,
+            child: GeorgiaProDisplaySquish(
+              child: Text(
+                'Saved Recipes',
+                style: georgiaProTextStyle(
+                  fontSize: 28,
+                  color: wellGreen,
+                ),
               ),
             ),
           ),
@@ -219,16 +220,16 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      recipe.title,
-                      style: const TextStyle(
-                        fontFamily: 'Recoleta',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFF097333),
+                    GeorgiaProDisplaySquish(
+                      child: Text(
+                        recipe.title,
+                        style: georgiaProTextStyle(
+                          fontSize: 18,
+                          color: const Color(0xFF097333),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(

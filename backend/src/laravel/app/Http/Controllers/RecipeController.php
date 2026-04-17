@@ -97,6 +97,7 @@ class RecipeController extends Controller
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
             'instructions' => 'required|string',
             'prep_time' => 'required|integer',
             'ingredients' => 'nullable|array',
@@ -176,6 +177,7 @@ class RecipeController extends Controller
         $validated = $request->validate([
             'category_id' => 'sometimes|exists:categories,id',
             'title' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
             'instructions' => 'sometimes|string',
             'prep_time' => 'sometimes|integer',
             'ingredients' => 'nullable|array',

@@ -31,14 +31,31 @@ class CurrentUser {
   String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
+    int count(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v.toString()) ?? 0;
+    }
+
+    final idRaw = json['id'];
+    final id = idRaw is int
+        ? idRaw
+        : idRaw is num
+            ? idRaw.toInt()
+            : int.tryParse(idRaw?.toString() ?? '');
+    if (id == null) {
+      throw FormatException('CurrentUser JSON missing or invalid id');
+    }
+
     return CurrentUser(
-      id: json['id'] as int,
+      id: id,
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       profilePhotoUrl: json['profile_photo_url'] as String?,
-      followersCount: json['followers_count'] as int? ?? 0,
-      followingCount: json['following_count'] as int? ?? 0,
+      followersCount: count(json['followers_count']),
+      followingCount: count(json['following_count']),
     );
   }
 }

@@ -6,6 +6,7 @@ class Recipe {
   final int? userId;
   final int categoryId;
   final String title;
+  final String? description;
   final String instructions;
   final int prepTime; // minutes
   final String? createdAt;
@@ -22,6 +23,7 @@ class Recipe {
     this.userId,
     required this.categoryId,
     required this.title,
+    this.description,
     required this.instructions,
     required this.prepTime,
     this.createdAt,
@@ -70,6 +72,7 @@ class Recipe {
       userId: json['user_id'] as int?,
       categoryId: json['category_id'] as int,
       title: json['title'] as String? ?? '',
+      description: json['description'] as String?,
       instructions: json['instructions'] as String? ?? '',
       prepTime: (json['prep_time'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at'] as String?,
@@ -86,6 +89,7 @@ class Recipe {
   Map<String, dynamic> toJson() => {
         'category_id': categoryId,
         'title': title,
+        if (description != null) 'description': description,
         'instructions': instructions,
         'prep_time': prepTime,
       };

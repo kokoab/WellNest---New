@@ -15,6 +15,8 @@ import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:provider/provider.dart';
+import 'package:my_app/providers/theme_provider.dart';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 enum _Section { overview, users, moderation, auditLogs }
@@ -65,6 +67,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   bool _exportingReportsCsv = false;
   bool _exportingInsightsCsv = false;
   bool _exportingUsersCsv = false;
+  bool _exportingAuditLogsCsv = false;
   bool _hasLoadedAllOnce = false;
   int _rankingsRefreshNonce = 0;
 
@@ -92,31 +95,49 @@ class _AdminDashboardState extends State<AdminDashboard>
   // ── loaders ────────────────────────────────────────────────────────────────
   Future<void> _loadReports() async {
     if (!mounted) return;
-    setState(() { _reportsLoading = true; _reportsError = null; });
+    setState(() {
+      _reportsLoading = true;
+      _reportsError = null;
+    });
     try {
       final list = await AdminModerationService.instance.fetchReports(
         range: _reportsRange.apiValue,
       );
       if (!mounted) return;
-      setState(() { _reports = list; _reportsLoading = false; });
+      setState(() {
+        _reports = list;
+        _reportsLoading = false;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _reportsError = e.toString().replaceFirst('Exception: ', ''); _reportsLoading = false; });
+      setState(() {
+        _reportsError = e.toString().replaceFirst('Exception: ', '');
+        _reportsLoading = false;
+      });
     }
   }
 
   Future<void> _loadUsers() async {
     if (!mounted) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final list = await AdminUserService.instance.fetchUsers(
         range: _usersRange.apiValue,
       );
       if (!mounted) return;
-      setState(() { _users = list; _loading = false; });
+      setState(() {
+        _users = list;
+        _loading = false;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
     }
   }
 
@@ -126,7 +147,10 @@ class _AdminDashboardState extends State<AdminDashboard>
     try {
       final res = await RecipeService.instance.fetchRecipes(page: 1);
       if (!mounted) return;
-      setState(() { _recipeTotal = res.total; _recipeTotalLoading = false; });
+      setState(() {
+        _recipeTotal = res.total;
+        _recipeTotalLoading = false;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _recipeTotalLoading = false);
@@ -135,17 +159,26 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _loadAuditLogs() async {
     if (!mounted) return;
-    setState(() { _logsLoading = true; _logsError = null; });
+    setState(() {
+      _logsLoading = true;
+      _logsError = null;
+    });
     try {
       final res = await AdminAuditLogService.instance.fetchLogs(
         page: 1,
         range: _logsRange.apiValue,
       );
       if (!mounted) return;
-      setState(() { _auditLogs = res.logs; _logsLoading = false; });
+      setState(() {
+        _auditLogs = res.logs;
+        _logsLoading = false;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _logsError = e.toString().replaceFirst('Exception: ', ''); _logsLoading = false; });
+      setState(() {
+        _logsError = e.toString().replaceFirst('Exception: ', '');
+        _logsLoading = false;
+      });
     }
   }
 
@@ -162,17 +195,39 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (_exportingReportsCsv) return;
     setState(() => _exportingReportsCsv = true);
     try {
-      final rows = <String>['id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label'];
+      final rows = <String>[
+        'id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label',
+      ];
       for (final r in _reports) {
         final type = r.reportable?.type ?? '';
         final id = r.reportable?.id ?? 0;
-        final label = r.reportableLabel.replaceAll(',', ' ').replaceAll('\n', ' ');
-        rows.add([r.id, _escapeCsv(r.reporter), _escapeCsv(r.reason), _escapeCsv(r.details), _escapeCsv(r.status), _escapeCsv(r.createdAt), _escapeCsv(type), id, _escapeCsv(label)].join(','));
+        final label = r.reportableLabel
+            .replaceAll(',', ' ')
+            .replaceAll('\n', ' ');
+        rows.add(
+          [
+            r.id,
+            _escapeCsv(r.reporter),
+            _escapeCsv(r.reason),
+            _escapeCsv(r.details),
+            _escapeCsv(r.status),
+            _escapeCsv(r.createdAt),
+            _escapeCsv(type),
+            id,
+            _escapeCsv(label),
+          ].join(','),
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'content_reports_export.csv', mimeType: 'text/csv');
-      await Share.shareXFiles([xfile], subject: 'WellNest Content Reports Export');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'Content Reports Export.csv',
+        mimeType: 'text/csv',
+      );
+      await Share.shareXFiles([
+        xfile,
+      ], subject: 'WellNest Content Reports Export');
       if (!mounted) return;
       _showSnack('Reports exported');
     } catch (e) {
@@ -190,9 +245,8 @@ class _AdminDashboardState extends State<AdminDashboard>
       final filteredUsers = await AdminUserService.instance.fetchUsers(
         range: _insightsRange.apiValue,
       );
-      final filteredReports = await AdminModerationService.instance.fetchReports(
-        range: _insightsRange.apiValue,
-      );
+      final filteredReports = await AdminModerationService.instance
+          .fetchReports(range: _insightsRange.apiValue);
 
       final totalUsers = filteredUsers.length;
       final activeUsers = filteredUsers.where((u) => u.isActive).length;
@@ -224,19 +278,27 @@ class _AdminDashboardState extends State<AdminDashboard>
         'Open Reports,${filteredReports.length}',
         '',
         'Most Popular Recipes',
-        'rank,id,title,category,average_rating,ratings_count'
+        'rank,id,title,category,average_rating,ratings_count',
       ];
       for (var i = 0; i < topRecipes.length; i++) {
         final r = topRecipes[i];
         final cat = r.category?.name ?? '';
         final avg = r.averageRating?.toStringAsFixed(1) ?? '0';
         final cnt = r.ratingsCount ?? 0;
-        rows.add('${i + 1},${r.id},${_escapeCsv(r.title)},${_escapeCsv(cat)},$avg,$cnt');
+        rows.add(
+          '${i + 1},${r.id},${_escapeCsv(r.title)},${_escapeCsv(cat)},$avg,$cnt',
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'admin_insights_export.csv', mimeType: 'text/csv');
-      await Share.shareXFiles([xfile], subject: 'WellNest Admin Insights Report');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'Admin Insights Export.csv',
+        mimeType: 'text/csv',
+      );
+      await Share.shareXFiles([
+        xfile,
+      ], subject: 'WellNest Admin Insights Report');
       if (!mounted) return;
       _showSnack('Insights report exported');
     } catch (e) {
@@ -253,11 +315,17 @@ class _AdminDashboardState extends State<AdminDashboard>
     try {
       final rows = <String>['id,name,email,status'];
       for (final u in _users) {
-        rows.add('${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}');
+        rows.add(
+          '${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}',
+        );
       }
       final csv = rows.join('\n');
       final bytes = Uint8List.fromList(csv.codeUnits);
-      final xfile = XFile.fromData(bytes, name: 'users_export.csv', mimeType: 'text/csv');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'WellNest Users.csv',
+        mimeType: 'text/csv',
+      );
       await Share.shareXFiles([xfile], subject: 'WellNest Users Export');
       if (!mounted) return;
       _showSnack('Users exported');
@@ -269,17 +337,47 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
+  Future<void> _exportAuditLogsCsv() async {
+    if (_exportingAuditLogsCsv) return;
+    setState(() => _exportingAuditLogsCsv = true);
+    try {
+      final bytes = await AdminAuditLogService.instance.exportCsv(
+        range: _logsRange.apiValue,
+      );
+      final xfile = XFile.fromData(
+        Uint8List.fromList(bytes),
+        name: 'audit_logs_export.csv',
+        mimeType: 'text/csv',
+      );
+      await Share.shareXFiles([xfile], subject: 'WellNest Audit Logs Export');
+      if (!mounted) return;
+      _showSnack('Audit logs exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
+    } finally {
+      if (mounted) setState(() => _exportingAuditLogsCsv = false);
+    }
+  }
+
   // ── user actions ───────────────────────────────────────────────────────────
   List<AdminUser> get _filteredUsers {
     if (_searchQuery.trim().isEmpty) return _users;
     final q = _searchQuery.trim().toLowerCase();
-    return _users.where((u) => u.email.toLowerCase().contains(q) || u.name.toLowerCase().contains(q)).toList();
+    return _users
+        .where(
+          (u) =>
+              u.email.toLowerCase().contains(q) ||
+              u.name.toLowerCase().contains(q),
+        )
+        .toList();
   }
 
   Future<void> _confirmDeactivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Deactivate account?',
-      content: 'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
+      content:
+          'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
       actionLabel: 'Deactivate',
       actionColor: kAccentOrange,
     );
@@ -290,7 +388,8 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmActivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Activate account?',
-      content: 'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
+      content:
+          'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
       actionLabel: 'Activate',
       actionColor: kPrimaryGreen,
     );
@@ -302,7 +401,9 @@ class _AdminDashboardState extends State<AdminDashboard>
     try {
       await AdminUserService.instance.updateUserStatus(userId, status);
       if (!mounted) return;
-      _showSnack(status == 'active' ? 'Account activated' : 'Account deactivated');
+      _showSnack(
+        status == 'active' ? 'Account activated' : 'Account deactivated',
+      );
       _loadUsers();
     } catch (e) {
       if (!mounted) return;
@@ -313,7 +414,8 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmDelete(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Delete account permanently?',
-      content: 'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
+      content:
+          'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
       actionLabel: 'Delete',
       actionColor: Colors.red,
     );
@@ -361,10 +463,18 @@ class _AdminDashboardState extends State<AdminDashboard>
         title: Text(title),
         content: Text(content),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: actionColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+            style: FilledButton.styleFrom(
+              backgroundColor: actionColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
             child: Text(actionLabel),
           ),
         ],
@@ -437,7 +547,8 @@ class _AdminDashboardState extends State<AdminDashboard>
           collapsed: _sidebarCollapsed,
           currentSection: _currentSection,
           onSectionChanged: (s) => setState(() => _currentSection = s),
-          onToggleCollapsed: () => setState(() => _sidebarCollapsed = !_sidebarCollapsed),
+          onToggleCollapsed: () =>
+              setState(() => _sidebarCollapsed = !_sidebarCollapsed),
           onLogout: _handleLogout,
           theme: theme,
         ),
@@ -448,6 +559,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 theme: theme,
                 currentSection: _currentSection,
                 onRefresh: _loadAll,
+                onToggleTheme: _toggleTheme,
               ),
               Expanded(
                 child: RefreshIndicator(
@@ -471,7 +583,14 @@ class _AdminDashboardState extends State<AdminDashboard>
   Widget _buildNarrowLayout(ThemeData theme) {
     return Column(
       children: [
-        _TopBar(theme: theme, currentSection: _currentSection, onRefresh: _loadAll, showMenuButton: true, onMenuPressed: _handleLogout),
+        _TopBar(
+          theme: theme,
+          currentSection: _currentSection,
+          onRefresh: _loadAll,
+          showMenuButton: true,
+          onMenuPressed: _handleLogout,
+          onToggleTheme: _toggleTheme,
+        ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => _loadAll(),
@@ -499,6 +618,10 @@ class _AdminDashboardState extends State<AdminDashboard>
     Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
   }
 
+  void _toggleTheme() {
+    context.read<ThemeProvider>().toggleTheme();
+  }
+
   // ── section content router ─────────────────────────────────────────────────
   Widget _buildSectionContent(ThemeData theme, {required bool isWide}) {
     switch (_currentSection) {
@@ -515,7 +638,8 @@ class _AdminDashboardState extends State<AdminDashboard>
           auditLogs: _auditLogs,
           exportingInsightsCsv: _exportingInsightsCsv,
           selectedInsightsRange: _insightsRange,
-          onInsightsRangeChanged: (range) => setState(() => _insightsRange = range),
+          onInsightsRangeChanged: (range) =>
+              setState(() => _insightsRange = range),
           onExportInsights: _exportInsightsCsv,
           rankingsRefreshNonce: _rankingsRefreshNonce,
         );
@@ -563,11 +687,13 @@ class _AdminDashboardState extends State<AdminDashboard>
           loading: _logsLoading,
           error: _logsError,
           selectedRange: _logsRange,
+          exporting: _exportingAuditLogsCsv,
           onRangeChanged: (range) {
             setState(() => _logsRange = range);
             _loadAuditLogs();
           },
           onRefresh: _loadAuditLogs,
+          onExport: _exportAuditLogsCsv,
         );
     }
   }
@@ -605,7 +731,9 @@ class _Sidebar extends StatelessWidget {
         color: bg,
         border: Border(
           right: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.06),
           ),
         ),
       ),
@@ -614,9 +742,13 @@ class _Sidebar extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           // Logo / collapse toggle
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : AppSpacing.md),
+            padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 12 : AppSpacing.md,
+            ),
             child: Row(
-              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: collapsed
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.spaceBetween,
               children: [
                 if (!collapsed)
                   Image.asset('lib/assets/images/logo1.png', height: 36),
@@ -626,7 +758,9 @@ class _Sidebar extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(6),
                     child: Icon(
-                      collapsed ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+                      collapsed
+                          ? Icons.chevron_right_rounded
+                          : Icons.chevron_left_rounded,
                       color: theme.colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
@@ -637,26 +771,73 @@ class _Sidebar extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           // Nav items
-          _NavItem(section: _Section.overview, currentSection: currentSection, icon: Icons.dashboard_rounded, label: 'Overview', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
-          _NavItem(section: _Section.users, currentSection: currentSection, icon: Icons.people_alt_rounded, label: 'Users', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
-          _NavItem(section: _Section.moderation, currentSection: currentSection, icon: Icons.shield_rounded, label: 'Moderation', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
-          _NavItem(section: _Section.auditLogs, currentSection: currentSection, icon: Icons.history_rounded, label: 'Audit Logs', collapsed: collapsed, onTap: onSectionChanged, theme: theme),
+          _NavItem(
+            section: _Section.overview,
+            currentSection: currentSection,
+            icon: Icons.dashboard_rounded,
+            label: 'Overview',
+            collapsed: collapsed,
+            onTap: onSectionChanged,
+            theme: theme,
+          ),
+          _NavItem(
+            section: _Section.users,
+            currentSection: currentSection,
+            icon: Icons.people_alt_rounded,
+            label: 'Users',
+            collapsed: collapsed,
+            onTap: onSectionChanged,
+            theme: theme,
+          ),
+          _NavItem(
+            section: _Section.moderation,
+            currentSection: currentSection,
+            icon: Icons.shield_rounded,
+            label: 'Moderation',
+            collapsed: collapsed,
+            onTap: onSectionChanged,
+            theme: theme,
+          ),
+          _NavItem(
+            section: _Section.auditLogs,
+            currentSection: currentSection,
+            icon: Icons.history_rounded,
+            label: 'Audit Logs',
+            collapsed: collapsed,
+            onTap: onSectionChanged,
+            theme: theme,
+          ),
           const Spacer(),
           // Logout
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : AppSpacing.md, vertical: AppSpacing.lg),
+            padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 12 : AppSpacing.md,
+              vertical: AppSpacing.lg,
+            ),
             child: InkWell(
               onTap: onLogout,
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : AppSpacing.md, vertical: 12),
+                padding: EdgeInsets.symmetric(
+                  horizontal: collapsed ? 0 : AppSpacing.md,
+                  vertical: 12,
+                ),
                 child: Row(
-                  mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                  mainAxisAlignment: collapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
                   children: [
                     Icon(Icons.logout_rounded, color: kAccentOrange, size: 20),
                     if (!collapsed) ...[
                       AppSpacing.gapH8,
-                      Text('Logout', style: TextStyle(color: kAccentOrange, fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: kAccentOrange,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -694,7 +875,10 @@ class _NavItem extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 12, vertical: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: collapsed ? 8 : 12,
+        vertical: 3,
+      ),
       child: Tooltip(
         message: collapsed ? label : '',
         preferBelow: false,
@@ -703,7 +887,10 @@ class _NavItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 14, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 0 : 14,
+              vertical: 12,
+            ),
             decoration: BoxDecoration(
               color: isActive
                   ? kPrimaryGreen.withValues(alpha: isDark ? 0.25 : 0.1)
@@ -711,12 +898,16 @@ class _NavItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              mainAxisAlignment: collapsed
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: [
                 Icon(
                   icon,
                   size: 20,
-                  color: isActive ? kPrimaryGreen : theme.colorScheme.onSurfaceVariant,
+                  color: isActive
+                      ? kPrimaryGreen
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
                 if (!collapsed) ...[
                   AppSpacing.gapH8,
@@ -725,7 +916,9 @@ class _NavItem extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isActive ? kPrimaryGreen : theme.colorScheme.onSurfaceVariant,
+                      color: isActive
+                          ? kPrimaryGreen
+                          : theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -744,7 +937,11 @@ class _BottomNav extends StatelessWidget {
   final ValueChanged<_Section> onSectionChanged;
   final ThemeData theme;
 
-  const _BottomNav({required this.currentSection, required this.onSectionChanged, required this.theme});
+  const _BottomNav({
+    required this.currentSection,
+    required this.onSectionChanged,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -752,16 +949,46 @@ class _BottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06))),
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
+        ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _BottomNavItem(icon: Icons.dashboard_rounded, label: 'Overview', section: _Section.overview, currentSection: currentSection, onTap: onSectionChanged),
-          _BottomNavItem(icon: Icons.people_alt_rounded, label: 'Users', section: _Section.users, currentSection: currentSection, onTap: onSectionChanged),
-          _BottomNavItem(icon: Icons.shield_rounded, label: 'Reports', section: _Section.moderation, currentSection: currentSection, onTap: onSectionChanged),
-          _BottomNavItem(icon: Icons.history_rounded, label: 'Logs', section: _Section.auditLogs, currentSection: currentSection, onTap: onSectionChanged),
+          _BottomNavItem(
+            icon: Icons.dashboard_rounded,
+            label: 'Overview',
+            section: _Section.overview,
+            currentSection: currentSection,
+            onTap: onSectionChanged,
+          ),
+          _BottomNavItem(
+            icon: Icons.people_alt_rounded,
+            label: 'Users',
+            section: _Section.users,
+            currentSection: currentSection,
+            onTap: onSectionChanged,
+          ),
+          _BottomNavItem(
+            icon: Icons.shield_rounded,
+            label: 'Reports',
+            section: _Section.moderation,
+            currentSection: currentSection,
+            onTap: onSectionChanged,
+          ),
+          _BottomNavItem(
+            icon: Icons.history_rounded,
+            label: 'Logs',
+            section: _Section.auditLogs,
+            currentSection: currentSection,
+            onTap: onSectionChanged,
+          ),
         ],
       ),
     );
@@ -775,7 +1002,13 @@ class _BottomNavItem extends StatelessWidget {
   final _Section currentSection;
   final ValueChanged<_Section> onTap;
 
-  const _BottomNavItem({required this.icon, required this.label, required this.section, required this.currentSection, required this.onTap});
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.section,
+    required this.currentSection,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -790,7 +1023,14 @@ class _BottomNavItem extends StatelessWidget {
           children: [
             Icon(icon, size: 22, color: isActive ? kPrimaryGreen : Colors.grey),
             const SizedBox(height: 3),
-            Text(label, style: TextStyle(fontSize: 10, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400, color: isActive ? kPrimaryGreen : Colors.grey)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                color: isActive ? kPrimaryGreen : Colors.grey,
+              ),
+            ),
           ],
         ),
       ),
@@ -805,6 +1045,7 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onRefresh;
   final bool showMenuButton;
   final VoidCallback? onMenuPressed;
+  final VoidCallback onToggleTheme;
 
   const _TopBar({
     required this.theme,
@@ -812,14 +1053,19 @@ class _TopBar extends StatelessWidget {
     required this.onRefresh,
     this.showMenuButton = false,
     this.onMenuPressed,
+    required this.onToggleTheme,
   });
 
   String get _title {
     switch (currentSection) {
-      case _Section.overview: return 'Overview';
-      case _Section.users: return 'User Management';
-      case _Section.moderation: return 'Content Moderation';
-      case _Section.auditLogs: return 'Audit Logs';
+      case _Section.overview:
+        return 'Overview';
+      case _Section.users:
+        return 'User Management';
+      case _Section.moderation:
+        return 'Content Moderation';
+      case _Section.auditLogs:
+        return 'Audit Logs';
     }
   }
 
@@ -827,11 +1073,18 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: Border(
-          bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+          bottom: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
         ),
       ),
       child: Row(
@@ -842,11 +1095,15 @@ class _TopBar extends StatelessWidget {
               icon: const Icon(Icons.logout_rounded),
               color: kAccentOrange,
             ),
-          if (!showMenuButton) Image.asset('lib/assets/images/logo1.png', height: 32),
+          if (!showMenuButton)
+            Image.asset('lib/assets/images/logo1.png', height: 32),
           AppSpacing.gapH16,
           Text(
             _title,
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 18),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
           ),
           const Spacer(),
           IconButton(
@@ -854,9 +1111,22 @@ class _TopBar extends StatelessWidget {
             icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20),
             tooltip: 'Refresh',
           ),
+          IconButton(
+            onPressed: onToggleTheme,
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: kPrimaryGreen,
+              size: 20,
+            ),
+            tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+          ),
           NotificationsDropdown(
             iconColor: kAccentOrange,
-            child: Icon(Icons.notifications_outlined, color: kAccentOrange, size: 22),
+            child: Icon(
+              Icons.notifications_outlined,
+              color: kAccentOrange,
+              size: 22,
+            ),
           ),
         ],
       ),
@@ -875,10 +1145,12 @@ class _OverviewRecipeRankingsCard extends StatefulWidget {
   });
 
   @override
-  State<_OverviewRecipeRankingsCard> createState() => _OverviewRecipeRankingsCardState();
+  State<_OverviewRecipeRankingsCard> createState() =>
+      _OverviewRecipeRankingsCardState();
 }
 
-class _OverviewRecipeRankingsCardState extends State<_OverviewRecipeRankingsCard> {
+class _OverviewRecipeRankingsCardState
+    extends State<_OverviewRecipeRankingsCard> {
   List<RecipeRankingItem> _rows = [];
   bool _loading = true;
   String? _error;
@@ -958,7 +1230,10 @@ class _OverviewRecipeRankingsCardState extends State<_OverviewRecipeRankingsCard
         theme: theme,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+          child: Text(
+            _error!,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
         ),
       );
     }
@@ -976,7 +1251,10 @@ class _OverviewRecipeRankingsCardState extends State<_OverviewRecipeRankingsCard
                 labelText: 'Time window',
                 border: OutlineInputBorder(),
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               items: const [
                 DropdownMenuItem(value: '7d', child: Text('Last 7 days')),
@@ -1038,9 +1316,17 @@ class _OverviewRecipeRankingsCardState extends State<_OverviewRecipeRankingsCard
                           return DataRow(
                             cells: [
                               DataCell(Text('${i + 1}')),
-                              DataCell(Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                              DataCell(
+                                Text(
+                                  r.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               DataCell(Text('${r.viewsCount}')),
-                              DataCell(Text(r.averageRating.toStringAsFixed(2))),
+                              DataCell(
+                                Text(r.averageRating.toStringAsFixed(2)),
+                              ),
                               DataCell(Text('${r.ratingsCount}')),
                               DataCell(Text(r.score.toStringAsFixed(3))),
                             ],
@@ -1096,48 +1382,168 @@ class _OverviewSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeUsers = users.where((u) => u.isActive).length;
+    final mealPlannerLogs = auditLogs
+        .where((l) => l.category.toLowerCase() == 'meal_planner')
+        .toList();
+    final mealPlannerActions = mealPlannerLogs.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Welcome
-        Text('Good day, Admin', style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+        Text(
+          'Good day, Admin',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         AppSpacing.gapV4,
         Text(
           'Here\'s a snapshot of your WellNest community.',
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         AppSpacing.gapV24,
         isWide
             ? Row(
                 children: [
-                  Expanded(child: _StatCard(theme: theme, title: 'Total Users', value: loading ? '…' : '${users.length}', icon: Icons.people_alt_rounded, color: const Color(0xFF3C6DF0))),
+                  Expanded(
+                    child: _StatCard(
+                      theme: theme,
+                      title: 'Total Users',
+                      value: loading ? '…' : '${users.length}',
+                      icon: Icons.people_alt_rounded,
+                      color: const Color(0xFF3C6DF0),
+                    ),
+                  ),
                   AppSpacing.gapH16,
-                  Expanded(child: _StatCard(theme: theme, title: 'Active Users', value: loading ? '…' : '$activeUsers', icon: Icons.person_rounded, color: kPrimaryGreen)),
+                  Expanded(
+                    child: _StatCard(
+                      theme: theme,
+                      title: 'Active Users',
+                      value: loading ? '…' : '$activeUsers',
+                      icon: Icons.person_rounded,
+                      color: kPrimaryGreen,
+                    ),
+                  ),
                   AppSpacing.gapH16,
-                  Expanded(child: _StatCard(theme: theme, title: 'Total Recipes', value: recipeTotalLoading ? '…' : '$recipeTotal', icon: Icons.restaurant_menu_rounded, color: const Color(0xFFFFC700))),
+                  Expanded(
+                    child: _StatCard(
+                      theme: theme,
+                      title: 'Total Recipes',
+                      value: recipeTotalLoading ? '…' : '$recipeTotal',
+                      icon: Icons.restaurant_menu_rounded,
+                      color: const Color(0xFFFFC700),
+                    ),
+                  ),
                   AppSpacing.gapH16,
-                  Expanded(child: _StatCard(theme: theme, title: 'Open Reports', value: reportsLoading ? '…' : '${reports.length}', icon: Icons.flag_rounded, color: const Color(0xFFEA4C89))),
+                  Expanded(
+                    child: _StatCard(
+                      theme: theme,
+                      title: 'Open Reports',
+                      value: reportsLoading ? '…' : '${reports.length}',
+                      icon: Icons.flag_rounded,
+                      color: const Color(0xFFEA4C89),
+                    ),
+                  ),
                 ],
               )
             : Column(
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _StatCard(theme: theme, title: 'Total Users', value: loading ? '…' : '${users.length}', icon: Icons.people_alt_rounded, color: const Color(0xFF3C6DF0))),
+                      Expanded(
+                        child: _StatCard(
+                          theme: theme,
+                          title: 'Total Users',
+                          value: loading ? '…' : '${users.length}',
+                          icon: Icons.people_alt_rounded,
+                          color: const Color(0xFF3C6DF0),
+                        ),
+                      ),
                       AppSpacing.gapH12,
-                      Expanded(child: _StatCard(theme: theme, title: 'Active Users', value: loading ? '…' : '$activeUsers', icon: Icons.person_rounded, color: kPrimaryGreen)),
+                      Expanded(
+                        child: _StatCard(
+                          theme: theme,
+                          title: 'Active Users',
+                          value: loading ? '…' : '$activeUsers',
+                          icon: Icons.person_rounded,
+                          color: kPrimaryGreen,
+                        ),
+                      ),
                     ],
                   ),
                   AppSpacing.gapV12,
                   Row(
                     children: [
-                      Expanded(child: _StatCard(theme: theme, title: 'Total Recipes', value: recipeTotalLoading ? '…' : '$recipeTotal', icon: Icons.restaurant_menu_rounded, color: const Color(0xFFFFC700))),
+                      Expanded(
+                        child: _StatCard(
+                          theme: theme,
+                          title: 'Total Recipes',
+                          value: recipeTotalLoading ? '…' : '$recipeTotal',
+                          icon: Icons.restaurant_menu_rounded,
+                          color: const Color(0xFFFFC700),
+                        ),
+                      ),
                       AppSpacing.gapH12,
-                      Expanded(child: _StatCard(theme: theme, title: 'Open Reports', value: reportsLoading ? '…' : '${reports.length}', icon: Icons.flag_rounded, color: const Color(0xFFEA4C89))),
+                      Expanded(
+                        child: _StatCard(
+                          theme: theme,
+                          title: 'Open Reports',
+                          value: reportsLoading ? '…' : '${reports.length}',
+                          icon: Icons.flag_rounded,
+                          color: const Color(0xFFEA4C89),
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
+        AppSpacing.gapV24,
+        _SectionHeader(
+          theme: theme,
+          title: 'Meal Planner Overview',
+          subtitle: 'Recent user planning activity',
+        ),
+        AppSpacing.gapV12,
+        _Card(
+          theme: theme,
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: kPrimaryGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: kPrimaryGreen,
+                ),
+              ),
+              AppSpacing.gapH12,
+              Expanded(
+                child: Text(
+                  'Meal planner actions logged: $mealPlannerActions',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        AppSpacing.gapV12,
+        if (mealPlannerLogs.isEmpty)
+          _EmptyState(
+            theme: theme,
+            message:
+                'No meal planner activity yet. Plan meals on user dashboard to populate this section.',
+          )
+        else
+          _RecentLogsList(theme: theme, logs: mealPlannerLogs.take(5).toList()),
         AppSpacing.gapV24,
         // Export insights button
         Row(
@@ -1151,23 +1557,48 @@ class _OverviewSection extends StatelessWidget {
               onPressed: exportingInsightsCsv ? null : onExportInsights,
               style: FilledButton.styleFrom(
                 backgroundColor: kPrimaryGreen,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
               ),
               icon: exportingInsightsCsv
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : const Icon(Icons.download_rounded, size: 20),
-              label: Text(exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report'),
+              label: Text(
+                exportingInsightsCsv ? 'Exporting…' : 'Export Insights Report',
+              ),
             ),
           ],
         ),
         AppSpacing.gapV24,
-        _SectionHeader(theme: theme, title: 'Recipe rankings', subtitle: 'Views, ratings, and combined score'),
+        _SectionHeader(
+          theme: theme,
+          title: 'Recipe rankings',
+          subtitle: 'Views, ratings, and combined score',
+        ),
         AppSpacing.gapV12,
-        _OverviewRecipeRankingsCard(theme: theme, refreshNonce: rankingsRefreshNonce),
+        _OverviewRecipeRankingsCard(
+          theme: theme,
+          refreshNonce: rankingsRefreshNonce,
+        ),
         AppSpacing.gapV24,
         // Recent activity summary
-        _SectionHeader(theme: theme, title: 'Recent Activity', subtitle: 'Last 5 activity logs'),
+        _SectionHeader(
+          theme: theme,
+          title: 'Recent Activity',
+          subtitle: 'Last 5 activity logs',
+        ),
         AppSpacing.gapV12,
         if (auditLogs.isEmpty)
           _EmptyState(theme: theme, message: 'No audit logs yet')
@@ -1206,25 +1637,53 @@ class _RecentLogsList extends StatelessWidget {
                         color: kPrimaryGreen.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.history_rounded, size: 18, color: kPrimaryGreen),
+                      child: const Icon(
+                        Icons.history_rounded,
+                        size: 18,
+                        color: kPrimaryGreen,
+                      ),
                     ),
                     AppSpacing.gapH12,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(log.description, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface), overflow: TextOverflow.ellipsis),
+                          Text(
+                            log.description,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           AppSpacing.gapV4,
-                          Text('${log.actorName ?? 'System'} • ${log.category}', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                          Text(
+                            '${log.actorName ?? 'System'} • ${log.category}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     AppSpacing.gapH8,
-                    Text(log.createdAt ?? '', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      log.createdAt ?? '',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (!isLast) Divider(height: 1, color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+              if (!isLast)
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                ),
             ],
           );
         }).toList(),
@@ -1275,19 +1734,41 @@ class _UsersSection extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _SectionHeader(theme: theme, title: 'Registered Users', subtitle: loading ? 'Loading…' : '${users.length} users total'),
+              child: _SectionHeader(
+                theme: theme,
+                title: 'Registered Users',
+                subtitle: loading ? 'Loading…' : '${users.length} users total',
+              ),
             ),
-            _DateRangeDropdown(
-              value: selectedRange,
-              onChanged: onRangeChanged,
-            ),
+            _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
             AppSpacing.gapH8,
             if (!loading) ...[
-              IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+              IconButton(
+                onPressed: onRefresh,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: kPrimaryGreen,
+                  size: 20,
+                ),
+              ),
               FilledButton.icon(
                 onPressed: exporting ? null : onExport,
-                style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
-                icon: exporting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.download_rounded, size: 18),
+                style: FilledButton.styleFrom(
+                  backgroundColor: kPrimaryGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                icon: exporting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded, size: 18),
                 label: Text(exporting ? 'Exporting…' : 'Export'),
               ),
             ],
@@ -1299,22 +1780,50 @@ class _UsersSection extends StatelessWidget {
           onChanged: onSearchChanged,
           decoration: InputDecoration(
             hintText: 'Search by name or email…',
-            prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant, size: 20),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
             filled: true,
-            fillColor: theme.brightness == Brightness.dark ? const Color(0xFF2A2A2A) : Colors.white,
+            fillColor: theme.brightness == Brightness.dark
+                ? const Color(0xFF2A2A2A)
+                : Colors.white,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
         AppSpacing.gapV16,
         if (loading && users.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(
+                color: kPrimaryGreen,
+                strokeWidth: 2,
+              ),
+            ),
+          )
         else if (error != null)
           _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
         else if (users.isEmpty)
-          _EmptyState(theme: theme, message: searchQuery.isEmpty ? 'No users yet' : 'No users match your search')
+          _EmptyState(
+            theme: theme,
+            message: searchQuery.isEmpty
+                ? 'No users yet'
+                : 'No users match your search',
+          )
         else
-          _UsersTable(theme: theme, users: users, onDeactivate: onDeactivate, onActivate: onActivate, onDelete: onDelete),
+          _UsersTable(
+            theme: theme,
+            users: users,
+            onDeactivate: onDeactivate,
+            onActivate: onActivate,
+            onDelete: onDelete,
+          ),
         AppSpacing.gapV32,
       ],
     );
@@ -1357,37 +1866,84 @@ class _ModerationSection extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _SectionHeader(theme: theme, title: 'Content Reports', subtitle: loading ? 'Loading…' : '${reports.length} pending reports'),
+              child: _SectionHeader(
+                theme: theme,
+                title: 'Content Reports',
+                subtitle: loading
+                    ? 'Loading…'
+                    : '${reports.length} pending reports',
+              ),
             ),
-            _DateRangeDropdown(
-              value: selectedRange,
-              onChanged: onRangeChanged,
-            ),
+            _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
             AppSpacing.gapH8,
             if (!loading) ...[
-              IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+              IconButton(
+                onPressed: onRefresh,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: kPrimaryGreen,
+                  size: 20,
+                ),
+              ),
               FilledButton.icon(
                 onPressed: exporting ? null : onExport,
-                style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
-                icon: exporting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.download_rounded, size: 18),
+                style: FilledButton.styleFrom(
+                  backgroundColor: kPrimaryGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                icon: exporting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded, size: 18),
                 label: Text(exporting ? 'Exporting…' : 'Export'),
               ),
               if (reports.isNotEmpty) ...[
                 AppSpacing.gapH8,
-                IconButton(onPressed: onDeleteAll, icon: Icon(Icons.delete_sweep_rounded, color: kAccentOrange, size: 20), tooltip: 'Delete all reports'),
+                IconButton(
+                  onPressed: onDeleteAll,
+                  icon: Icon(
+                    Icons.delete_sweep_rounded,
+                    color: kAccentOrange,
+                    size: 20,
+                  ),
+                  tooltip: 'Delete all reports',
+                ),
               ],
             ],
           ],
         ),
         AppSpacing.gapV16,
         if (loading && reports.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(
+                color: kPrimaryGreen,
+                strokeWidth: 2,
+              ),
+            ),
+          )
         else if (error != null)
           _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
         else if (reports.isEmpty)
-          _EmptyState(theme: theme, message: 'No pending reports — all clear! ✓')
+          _EmptyState(
+            theme: theme,
+            message: 'No pending reports — all clear! ✓',
+          )
         else
-          _ReportsTable(theme: theme, reports: reports, onAction: onReportAction),
+          _ReportsTable(
+            theme: theme,
+            reports: reports,
+            onAction: onReportAction,
+          ),
         AppSpacing.gapV32,
       ],
     );
@@ -1400,18 +1956,22 @@ class _AuditLogsSection extends StatelessWidget {
   final List<ActivityLog> logs;
   final bool loading;
   final String? error;
+  final bool exporting;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
+  final VoidCallback onExport;
 
   const _AuditLogsSection({
     required this.theme,
     required this.logs,
     required this.loading,
     required this.error,
+    required this.exporting,
     required this.selectedRange,
     required this.onRangeChanged,
     required this.onRefresh,
+    required this.onExport,
   });
 
   @override
@@ -1421,18 +1981,55 @@ class _AuditLogsSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: _SectionHeader(theme: theme, title: 'Audit Logs', subtitle: 'Recent system and moderation events')),
-            _DateRangeDropdown(
-              value: selectedRange,
-              onChanged: onRangeChanged,
+            Expanded(
+              child: _SectionHeader(
+                theme: theme,
+                title: 'Audit Logs',
+                subtitle: 'Recent system and moderation events',
+              ),
+            ),
+            _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
+            AppSpacing.gapH8,
+            OutlinedButton.icon(
+              onPressed: exporting ? null : onExport,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kPrimaryGreen,
+                side: BorderSide(color: kPrimaryGreen.withValues(alpha: 0.35)),
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              icon: exporting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_rounded, size: 18),
+              label: Text(exporting ? 'Exporting…' : 'Export CSV'),
             ),
             AppSpacing.gapH8,
-            if (!loading) IconButton(onPressed: onRefresh, icon: Icon(Icons.refresh_rounded, color: kPrimaryGreen, size: 20)),
+            if (!loading)
+              IconButton(
+                onPressed: onRefresh,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: kPrimaryGreen,
+                  size: 20,
+                ),
+              ),
           ],
         ),
         AppSpacing.gapV16,
         if (loading && logs.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2)))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(
+                color: kPrimaryGreen,
+                strokeWidth: 2,
+              ),
+            ),
+          )
         else if (error != null)
           _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
         else if (logs.isEmpty)
@@ -1459,22 +2056,35 @@ Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
     decoration: BoxDecoration(
       color: isDark ? theme.colorScheme.surface : Colors.white,
       borderRadius: BorderRadius.circular(16),
-      boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
+      boxShadow: isDark
+          ? null
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
     ),
-    child: LayoutBuilder(builder: (ctx, constraints) {
-      return SizedBox(
-        height: height,
-        child: Scrollbar(
-          thumbVisibility: true,
-          child: SingleChildScrollView(
+    child: LayoutBuilder(
+      builder: (ctx, constraints) {
+        return SizedBox(
+          height: height,
+          child: Scrollbar(
+            thumbVisibility: true,
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(constraints: BoxConstraints(minWidth: constraints.maxWidth), child: child),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: child,
+                ),
+              ),
             ),
           ),
-        ),
-      );
-    }),
+        );
+      },
+    ),
   );
 }
 
@@ -1487,14 +2097,37 @@ Widget _flexTable({
   return Table(
     columnWidths: columnWidths,
     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-    border: TableBorder(horizontalInside: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.07))),
+    border: TableBorder(
+      horizontalInside: BorderSide(
+        color: theme.colorScheme.outline.withValues(alpha: 0.07),
+      ),
+    ),
     children: [
       TableRow(
-        decoration: BoxDecoration(color: theme.brightness == Brightness.dark ? const Color(0xFF252525) : const Color(0xFFF9F9F9)),
-        children: headers.map((h) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          child: Text(h, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 10, color: theme.colorScheme.onSurfaceVariant, letterSpacing: 0.8)),
-        )).toList(),
+        decoration: BoxDecoration(
+          color: theme.brightness == Brightness.dark
+              ? const Color(0xFF252525)
+              : const Color(0xFFF9F9F9),
+        ),
+        children: headers
+            .map(
+              (h) => Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 13,
+                ),
+                child: Text(
+                  h,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
       ),
       ...rows,
     ],
@@ -1504,10 +2137,14 @@ Widget _flexTable({
 TableRow _tableRow(ThemeData theme, List<Widget> cells, Color? bg) {
   return TableRow(
     decoration: BoxDecoration(color: bg),
-    children: cells.map((c) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-      child: Align(alignment: Alignment.centerLeft, child: c),
-    )).toList(),
+    children: cells
+        .map(
+          (c) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+            child: Align(alignment: Alignment.centerLeft, child: c),
+          ),
+        )
+        .toList(),
   );
 }
 
@@ -1519,36 +2156,92 @@ class _UsersTable extends StatelessWidget {
   final void Function(AdminUser) onActivate;
   final void Function(AdminUser) onDelete;
 
-  const _UsersTable({required this.theme, required this.users, required this.onDeactivate, required this.onActivate, required this.onDelete});
+  const _UsersTable({
+    required this.theme,
+    required this.users,
+    required this.onDeactivate,
+    required this.onActivate,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return _wrapTable(theme, users.length, _flexTable(
-      theme: theme,
-      columnWidths: const {0: FlexColumnWidth(0.4), 1: FlexColumnWidth(1.4), 2: FlexColumnWidth(2), 3: FlexColumnWidth(0.9), 4: FlexColumnWidth(1.2)},
-      headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
-      rows: users.asMap().entries.map((e) {
-        final user = e.value;
-        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
-        return _tableRow(theme, [
-          Text('${user.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
-          Text(user.name.isEmpty ? '—' : user.name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
-          Text(user.email, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          _StatusChip(isActive: user.isActive),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (user.isActive)
-                _ActionIconBtn(icon: Icons.person_off_rounded, color: kAccentOrange, tooltip: 'Deactivate', onPressed: () => onDeactivate(user))
-              else
-                _ActionIconBtn(icon: Icons.person_add_rounded, color: kPrimaryGreen, tooltip: 'Activate', onPressed: () => onActivate(user)),
-              AppSpacing.gapH4,
-              _ActionIconBtn(icon: Icons.delete_outline, color: Colors.red, tooltip: 'Delete', onPressed: () => onDelete(user)),
-            ],
-          ),
-        ], bg);
-      }).toList(),
-    ));
+    return _wrapTable(
+      theme,
+      users.length,
+      _flexTable(
+        theme: theme,
+        columnWidths: const {
+          0: FlexColumnWidth(0.4),
+          1: FlexColumnWidth(1.4),
+          2: FlexColumnWidth(2),
+          3: FlexColumnWidth(0.9),
+          4: FlexColumnWidth(1.2),
+        },
+        headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+        rows: users.asMap().entries.map((e) {
+          final user = e.value;
+          final bg = e.key.isEven
+              ? null
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.15,
+                );
+          return _tableRow(theme, [
+            Text(
+              '${user.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              user.name.isEmpty ? '—' : user.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              user.email,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            _StatusChip(isActive: user.isActive),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (user.isActive)
+                  _ActionIconBtn(
+                    icon: Icons.person_off_rounded,
+                    color: kAccentOrange,
+                    tooltip: 'Deactivate',
+                    onPressed: () => onDeactivate(user),
+                  )
+                else
+                  _ActionIconBtn(
+                    icon: Icons.person_add_rounded,
+                    color: kPrimaryGreen,
+                    tooltip: 'Activate',
+                    onPressed: () => onActivate(user),
+                  ),
+                AppSpacing.gapH4,
+                _ActionIconBtn(
+                  icon: Icons.delete_outline,
+                  color: Colors.red,
+                  tooltip: 'Delete',
+                  onPressed: () => onDelete(user),
+                ),
+              ],
+            ),
+          ], bg);
+        }).toList(),
+      ),
+    );
   }
 }
 
@@ -1558,38 +2251,124 @@ class _ReportsTable extends StatelessWidget {
   final List<Report> reports;
   final Future<void> Function(int, String) onAction;
 
-  const _ReportsTable({required this.theme, required this.reports, required this.onAction});
+  const _ReportsTable({
+    required this.theme,
+    required this.reports,
+    required this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return _wrapTable(theme, reports.length, _flexTable(
-      theme: theme,
-      columnWidths: const {0: FlexColumnWidth(0.35), 1: FlexColumnWidth(0.7), 2: FlexColumnWidth(1.4), 3: FlexColumnWidth(1.1), 4: FlexColumnWidth(0.9), 5: FlexColumnWidth(0.85), 6: FlexColumnWidth(1.1)},
-      headers: ['ID', 'TYPE', 'CONTENT', 'REPORTER', 'REASON', 'DATE', 'ACTIONS'],
-      rows: reports.asMap().entries.map((e) {
-        final r = e.value;
-        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
-        return _tableRow(theme, [
-          Text('${r.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
-          _TypeChip(type: r.reportable?.type ?? 'unknown'),
-          Text(r.reportableLabel, overflow: TextOverflow.ellipsis, maxLines: 2, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(r.reporter ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(r.reason ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(r.createdAt, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ActionIconBtn(icon: Icons.close, color: theme.colorScheme.onSurfaceVariant, tooltip: 'Dismiss', onPressed: () => onAction(r.id, 'dismiss'), size: 16),
-              _ActionIconBtn(icon: Icons.check, color: kPrimaryGreen, tooltip: 'Approve', onPressed: () => onAction(r.id, 'approve'), size: 16),
-              if (r.isRecipeReport || r.isPostReport)
-                _ActionIconBtn(icon: Icons.delete_outline, color: kAccentOrange, tooltip: 'Remove content', onPressed: () => onAction(r.id, 'remove-content'), size: 16),
-              if (r.isUserReport)
-                _ActionIconBtn(icon: Icons.block, color: Colors.red, tooltip: 'Suspend user', onPressed: () => onAction(r.id, 'suspend-user'), size: 16),
-            ],
-          ),
-        ], bg);
-      }).toList(),
-    ));
+    return _wrapTable(
+      theme,
+      reports.length,
+      _flexTable(
+        theme: theme,
+        columnWidths: const {
+          0: FlexColumnWidth(0.35),
+          1: FlexColumnWidth(0.7),
+          2: FlexColumnWidth(1.4),
+          3: FlexColumnWidth(1.1),
+          4: FlexColumnWidth(0.9),
+          5: FlexColumnWidth(0.85),
+          6: FlexColumnWidth(1.1),
+        },
+        headers: [
+          'ID',
+          'TYPE',
+          'CONTENT',
+          'REPORTER',
+          'REASON',
+          'DATE',
+          'ACTIONS',
+        ],
+        rows: reports.asMap().entries.map((e) {
+          final r = e.value;
+          final bg = e.key.isEven
+              ? null
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.15,
+                );
+          return _tableRow(theme, [
+            Text(
+              '${r.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            _TypeChip(type: r.reportable?.type ?? 'unknown'),
+            Text(
+              r.reportableLabel,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              r.reporter ?? '—',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              r.reason ?? '—',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              r.createdAt,
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ActionIconBtn(
+                  icon: Icons.close,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  tooltip: 'Dismiss',
+                  onPressed: () => onAction(r.id, 'dismiss'),
+                  size: 16,
+                ),
+                _ActionIconBtn(
+                  icon: Icons.check,
+                  color: kPrimaryGreen,
+                  tooltip: 'Approve',
+                  onPressed: () => onAction(r.id, 'approve'),
+                  size: 16,
+                ),
+                if (r.isRecipeReport || r.isPostReport)
+                  _ActionIconBtn(
+                    icon: Icons.delete_outline,
+                    color: kAccentOrange,
+                    tooltip: 'Remove content',
+                    onPressed: () => onAction(r.id, 'remove-content'),
+                    size: 16,
+                  ),
+                if (r.isUserReport)
+                  _ActionIconBtn(
+                    icon: Icons.block,
+                    color: Colors.red,
+                    tooltip: 'Suspend user',
+                    onPressed: () => onAction(r.id, 'suspend-user'),
+                    size: 16,
+                  ),
+              ],
+            ),
+          ], bg);
+        }).toList(),
+      ),
+    );
   }
 }
 
@@ -1602,23 +2381,77 @@ class _AuditLogsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapTable(theme, logs.length, _flexTable(
-      theme: theme,
-      columnWidths: const {0: FlexColumnWidth(0.35), 1: FlexColumnWidth(1), 2: FlexColumnWidth(0.9), 3: FlexColumnWidth(0.9), 4: FlexColumnWidth(2), 5: FlexColumnWidth(1)},
-      headers: ['ID', 'DATE', 'CATEGORY', 'ACTION', 'DESCRIPTION', 'ACTOR'],
-      rows: logs.asMap().entries.map((e) {
-        final log = e.value;
-        final bg = e.key.isEven ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
-        return _tableRow(theme, [
-          Text('${log.id}', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
-          Text(log.createdAt ?? '—', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-          Text(log.category, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(log.action, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(log.description, overflow: TextOverflow.ellipsis, maxLines: 2, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-          Text(log.actorName ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface)),
-        ], bg);
-      }).toList(),
-    ));
+    return _wrapTable(
+      theme,
+      logs.length,
+      _flexTable(
+        theme: theme,
+        columnWidths: const {
+          0: FlexColumnWidth(0.35),
+          1: FlexColumnWidth(1),
+          2: FlexColumnWidth(0.9),
+          3: FlexColumnWidth(0.9),
+          4: FlexColumnWidth(2),
+          5: FlexColumnWidth(1),
+        },
+        headers: ['ID', 'DATE', 'CATEGORY', 'ACTION', 'DESCRIPTION', 'ACTOR'],
+        rows: logs.asMap().entries.map((e) {
+          final log = e.value;
+          final bg = e.key.isEven
+              ? null
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.15,
+                );
+          return _tableRow(theme, [
+            Text(
+              '${log.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              log.createdAt ?? '—',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              log.category,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              log.action,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              log.description,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              log.actorName ?? '—',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ], bg);
+        }).toList(),
+      ),
+    );
   }
 }
 
@@ -1630,7 +2463,13 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _StatCard({required this.theme, required this.title, required this.value, required this.icon, required this.color});
+  const _StatCard({
+    required this.theme,
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1640,7 +2479,15 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? theme.cardColor : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
         border: Border.all(color: color.withValues(alpha: 0.12), width: 1.5),
       ),
       child: Column(
@@ -1648,13 +2495,30 @@ class _StatCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(icon, color: color, size: 20),
           ),
           AppSpacing.gapV12,
-          Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface, fontSize: 26)),
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.onSurface,
+              fontSize: 26,
+            ),
+          ),
           AppSpacing.gapV4,
-          Text(title, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: 12)),
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -1674,11 +2538,24 @@ class _Card extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding:
+          padding ??
+          const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
       decoration: BoxDecoration(
         color: isDark ? theme.cardColor : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: child,
     );
@@ -1690,16 +2567,31 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _SectionHeader({required this.theme, required this.title, required this.subtitle});
+  const _SectionHeader({
+    required this.theme,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 17)),
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
         AppSpacing.gapV4,
-        Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -1719,9 +2611,18 @@ class _EmptyState extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.inbox_rounded, size: 40, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            Icon(
+              Icons.inbox_rounded,
+              size: 40,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
             AppSpacing.gapV12,
-            Text(message, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -1734,7 +2635,11 @@ class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ErrorState({required this.theme, required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.theme,
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1746,11 +2651,20 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline_rounded, size: 36, color: kAccentOrange),
             AppSpacing.gapV12,
-            Text(message, textAlign: TextAlign.center, style: TextStyle(color: kAccentOrange, fontSize: 13)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kAccentOrange, fontSize: 13),
+            ),
             AppSpacing.gapV16,
             FilledButton(
               onPressed: onRetry,
-              style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+              style: FilledButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
               child: const Text('Retry'),
             ),
           ],
@@ -1764,10 +2678,7 @@ class _DateRangeDropdown extends StatelessWidget {
   final _DateRangeFilter value;
   final ValueChanged<_DateRangeFilter> onChanged;
 
-  const _DateRangeDropdown({
-    required this.value,
-    required this.onChanged,
-  });
+  const _DateRangeDropdown({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -1790,7 +2701,11 @@ class _DateRangeDropdown extends StatelessWidget {
               SizedBox(
                 width: 16,
                 child: isSelected
-                    ? const Icon(Icons.check_rounded, size: 14, color: kPrimaryGreen)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: kPrimaryGreen,
+                      )
                     : null,
               ),
               AppSpacing.gapH8,
@@ -1828,7 +2743,11 @@ class _DateRangeDropdown extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.white),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
           ],
         ),
       ),
@@ -1843,7 +2762,13 @@ class _ActionIconBtn extends StatelessWidget {
   final VoidCallback onPressed;
   final double size;
 
-  const _ActionIconBtn({required this.icon, required this.color, required this.tooltip, required this.onPressed, this.size = 18});
+  const _ActionIconBtn({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onPressed,
+    this.size = 18,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1851,7 +2776,10 @@ class _ActionIconBtn extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, size: size, color: color),
       tooltip: tooltip,
-      style: IconButton.styleFrom(padding: const EdgeInsets.all(6), minimumSize: const Size(30, 30)),
+      style: IconButton.styleFrom(
+        padding: const EdgeInsets.all(6),
+        minimumSize: const Size(30, 30),
+      ),
     );
   }
 }
@@ -1864,8 +2792,18 @@ class _TypeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(color: kPrimaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-      child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kPrimaryGreen)),
+      decoration: BoxDecoration(
+        color: kPrimaryGreen.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        type,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: kPrimaryGreen,
+        ),
+      ),
     );
   }
 }
@@ -1879,12 +2817,18 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive ? kPrimaryGreen.withValues(alpha: 0.1) : kAccentOrange.withValues(alpha: 0.1),
+        color: isActive
+            ? kPrimaryGreen.withValues(alpha: 0.1)
+            : kAccentOrange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         isActive ? 'Active' : 'Inactive',
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isActive ? kPrimaryGreen : kAccentOrange),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: isActive ? kPrimaryGreen : kAccentOrange,
+        ),
       ),
     );
   }

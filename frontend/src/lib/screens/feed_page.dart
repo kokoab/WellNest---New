@@ -14,6 +14,7 @@ import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
@@ -208,15 +209,15 @@ class _FeedPageState extends State<FeedPage> {
                         child: WellnestHeader(),
                       ),
                       AppSpacing.gapV16,
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                        child: Text(
-                          'Feed',
-                          style: TextStyle(
-                            fontFamily: 'Recoleta',
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryGreen,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                        child: GeorgiaProDisplaySquish(
+                          child: Text(
+                            'Feed',
+                            style: georgiaProTextStyle(
+                              fontSize: 28,
+                              color: AppColors.primaryGreen,
+                            ),
                           ),
                         ),
                       ),
@@ -600,14 +601,15 @@ class _FeedPageState extends State<FeedPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(post.content),
                 ),
-                if (post.imageUrl.isNotEmpty) ...[
+                if (post.displayImageUrl != null &&
+                    post.displayImageUrl!.isNotEmpty) ...[
                   const SizedBox(height: 15),
                   ClipRRect(
                     borderRadius: post.content.isEmpty
                         ? const BorderRadius.vertical(top: Radius.circular(20))
                         : BorderRadius.zero,
                     child: Image.network(
-                      post.imageUrl,
+                      post.displayImageUrl!,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,

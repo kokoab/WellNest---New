@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -81,13 +82,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Log In',
-                style: TextStyle(
-                  fontFamily: 'Recoleta',
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: kPrimaryGreen,
+              GeorgiaProDisplaySquish(
+                alignment: Alignment.center,
+                child: Text(
+                  'Log In',
+                  style: georgiaProTextStyle(
+                    fontSize: 32,
+                    color: kPrimaryGreen,
+                  ),
                 ),
               ),
               const SizedBox(height: 40),
