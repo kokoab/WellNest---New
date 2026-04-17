@@ -91,7 +91,7 @@ class _SystemRefusalBubbleState extends State<SystemRefusalBubble>
               child: Text(
                 widget.text,
                 style: TextStyle(
-                  fontFamily: kFontHelveticaNow,
+                  fontFamily: kFontAppFamily,
                   fontSize: 17,
                   color: textColor,
                   height: 1.45,

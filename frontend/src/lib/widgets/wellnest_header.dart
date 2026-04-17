@@ -1,70 +1,157 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
-/// Logo + "Wellnest" on the left, notification bell + chat on the right.
+/// Logo + two-tone wordmark on the left; chat + notifications in soft pill actions.
 class WellnestHeader extends StatelessWidget {
-  static const double logoHeight = 40.0;
-  static const double iconSize = 28.0;
-  static const double fontSize = 22.0;
+  static const double _logoHeight = 38.0;
+  static const double _iconSize = 22.0;
 
   const WellnestHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        /// LEFT SIDE (Logo + Title)
+        Expanded(
+          child: Row(
+            children: [
+              Image.asset(
+                'lib/assets/images/logo1.png',
+                height: _logoHeight,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: RichText(
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  text: TextSpan(
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      height: 1.05,
+                    ),
+                    children: const [
+                      TextSpan(
+                        text: 'well',
+                        style: TextStyle(color: AppColors.primaryGreen),
+                      ),
+                      TextSpan(
+                        text: 'nest',
+                        style: TextStyle(color: AppColors.accentOrange),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'lib/assets/images/logo1.png',
-              height: logoHeight,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Wellnest',
-              style: TextStyle(
-                fontFamily: 'Recoleta',
-                fontSize: fontSize,
-                fontWeight: FontWeight.bold,
+            _HeaderActionPill(
+              isDark: isDark,
+              colorScheme: cs,
+              onTap: () => Navigator.of(context).pushNamed('/conversations'),
+              child: Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: _iconSize,
                 color: AppColors.primaryGreen,
               ),
             ),
-          ],
-        ),
-
-        /// RIGHT SIDE (Chat + Notifications)
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed('/conversations'),
-              icon: Icon(
-                Icons.chat_bubble_outline,
-                color: AppColors.accentOrange,
-                size: iconSize,
-              ),
-              padding: EdgeInsets.zero,
-              constraints:
-                  const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-
-            NotificationsDropdown(
-              iconColor: AppColors.accentOrange,
-              child: Icon(
-                Icons.notifications,
-                color: AppColors.accentOrange,
-                size: iconSize,
+            const SizedBox(width: 10),
+            _HeaderActionPill(
+              isDark: isDark,
+              colorScheme: cs,
+              child: NotificationsDropdown(
+                iconColor: AppColors.accentOrange,
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppColors.accentOrange,
+                  size: _iconSize,
+                ),
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _HeaderActionPill extends StatelessWidget {
+  const _HeaderActionPill({
+    required this.isDark,
+    required this.colorScheme,
+    required this.child,
+    this.onTap,
+  });
+
+  final bool isDark;
+  final ColorScheme colorScheme;
+  final Widget child;
+  final VoidCallback? onTap;
+
+  static const double _radius = 14.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = isDark
+        ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.85)
+        : colorScheme.surfaceContainerLowest;
+    final borderColor =
+        colorScheme.outline.withValues(alpha: isDark ? 0.28 : 0.14);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(_radius),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: isDark ? 12 : 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_radius),
+        child: onTap != null
+            ? Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(_radius),
+                  splashColor: colorScheme.primary.withValues(alpha: 0.12),
+                  highlightColor: colorScheme.primary.withValues(alpha: 0.06),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: child,
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 2,
+                ),
+                child: child,
+              ),
+      ),
     );
   }
 }

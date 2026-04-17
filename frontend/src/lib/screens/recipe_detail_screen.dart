@@ -23,8 +23,6 @@ class RecipeDetailScreen extends StatefulWidget {
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
 
   Recipe? _recipe;
   bool _loading = true;
@@ -37,6 +35,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   RecipeRating? _userRating;
   int? _pendingStars;
   bool _submittingRating = false;
+  bool _editingRating = false;
   final TextEditingController _reviewController = TextEditingController();
   int? _currentUserId;
   bool get _isOwner =>
@@ -121,9 +120,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       await ReportService.instance.reportRecipe(_recipe!.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Report submitted'),
-            backgroundColor: wellGreen,
+          SnackBar(
+            content: const Text('Report submitted'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
       }
@@ -132,7 +131,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: nestOrange,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
@@ -163,9 +162,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       await RecipeService.instance.deleteRecipe(widget.recipeId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recipe deleted'),
-          backgroundColor: wellGreen,
+        SnackBar(
+          content: const Text('Recipe deleted'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
       Navigator.pop(context, true);
@@ -174,7 +173,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
     }
@@ -188,13 +187,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          'Recipe',
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: Text('Recipe', style: theme.textTheme.titleLarge),
         actions: [
           if (_recipe != null && AuthService.instance.isLoggedIn)
             PopupMenuButton<String>(
@@ -225,7 +218,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: wellGreen))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : _error != null
           ? Center(
               child: Padding(
@@ -236,12 +229,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: nestOrange),
+                      style: TextStyle(color: colorScheme.secondary),
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _load,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -261,11 +253,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         // Step 1: Title & Author
                         Text(
                           _recipe!.title,
-                          style: const TextStyle(
-                            fontFamily: 'Recoleta',
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: wellGreen,
+                          style: theme.textTheme.headlineSmall?.copyWith(
                             height: 1.25,
                           ),
                         ),
@@ -284,10 +272,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                             _recipe!.user != null
                                 ? 'By ${_recipe!.userDisplayName}'
                                 : 'By Unknown',
-                            style: TextStyle(
-                              fontFamily: 'HelveticaNow',
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                               decoration: _recipe!.userId != null
                                   ? TextDecoration.underline
                                   : TextDecoration.none,
@@ -301,18 +287,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           children: [
                             _buildMetaRow(),
                             const Spacer(),
-                            const Icon(
-                              Icons.star,
-                              color: Color(0xFFF9BD21),
+                            Icon(
+                              Icons.star_rounded,
+                              color: kAccentYellow,
                               size: 20,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '${(_ratings?.averageRating ?? _recipe?.averageRating ?? 0.0).toStringAsFixed(1)} (${_ratings?.ratingsCount ?? _recipe?.ratingsCount ?? 0})',
-                              style: TextStyle(
-                                fontFamily: 'HelveticaNow',
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -361,16 +345,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                       }
                                     : null,
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: nestOrange,
-                                  side: const BorderSide(color: nestOrange),
+                                  foregroundColor: colorScheme.secondary,
+                                  side: BorderSide(color: colorScheme.secondary),
                                 ),
                                 child: _liking
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: nestOrange,
+                                          color: colorScheme.secondary,
                                         ),
                                       )
                                     : Row(
@@ -385,13 +369,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             size: 20,
                                             color: _liked
                                                 ? Colors.pink
-                                                : nestOrange,
+                                                : colorScheme.secondary,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             _liked ? 'Liked' : 'Like',
-                                            style: const TextStyle(
-                                              color: nestOrange,
+                                            style: TextStyle(
+                                              color: colorScheme.secondary,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -428,7 +412,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                                       ? 'Saved to favorites'
                                                       : 'Removed from favorites',
                                                 ),
-                                                backgroundColor: wellGreen,
+                                                backgroundColor: colorScheme.primary,
                                               ),
                                             );
                                           }
@@ -454,16 +438,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                       }
                                     : null,
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: wellGreen,
-                                  side: const BorderSide(color: wellGreen),
+                                  foregroundColor: colorScheme.primary,
+                                  side: BorderSide(color: colorScheme.primary),
                                 ),
                                 child: _saving
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: wellGreen,
+                                          color: colorScheme.primary,
                                         ),
                                       )
                                     : Row(
@@ -476,13 +460,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                                 ? Icons.bookmark
                                                 : Icons.bookmark_border,
                                             size: 20,
-                                            color: wellGreen,
+                                            color: colorScheme.primary,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             _saved ? 'Saved' : 'Save',
-                                            style: const TextStyle(
-                                              color: wellGreen,
+                                            style: TextStyle(
+                                              color: colorScheme.primary,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -494,7 +478,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         ),
                         const SizedBox(height: 24),
                         // Step 4: Flat content sections
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildSectionTitle('Reviews'),
                         const SizedBox(height: 12),
@@ -502,13 +486,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         AppSpacing.gapV8,
                         _buildReviewsList(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildSectionTitle('Ingredients'),
                         const SizedBox(height: 12),
                         _buildIngredientsList(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildSectionTitle('Instructions'),
                         const SizedBox(height: 12),
@@ -548,21 +532,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       height: height,
       width: double.infinity,
       color: AppColors.imagePlaceholderGreen,
-      child: Icon(Icons.restaurant_menu, size: 80, color: wellGreen),
+      child: Icon(Icons.restaurant_menu, size: 80, color: kPrimaryGreen),
     );
   }
 
   Widget _buildReviewsList() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final ratings = _ratings?.ratings ?? [];
     if (ratings.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Text(
           'No reviews yet. Be the first to rate!',
-          style: TextStyle(
-            fontFamily: 'HelveticaNow',
-            color: Colors.grey.shade600,
-            fontSize: 15,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
       );
@@ -577,20 +561,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             children: [
               Text(
                 r.userDisplayName,
-                style: const TextStyle(
-                  fontFamily: 'HelveticaNow',
-                  fontWeight: FontWeight.w600,
-                  color: wellGreen,
-                  fontSize: 14,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 r.comment ?? '',
-                style: TextStyle(
-                  fontFamily: 'HelveticaNow',
-                  fontSize: 14,
-                  color: Colors.grey.shade800,
+                style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.4,
                 ),
               ),
@@ -622,26 +600,50 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildInteractiveRating() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final hasUserRating = _userRating != null;
-    final canRate = AuthService.instance.isLoggedIn && !hasUserRating;
+    final isLoggedIn = AuthService.instance.isLoggedIn;
+    final showForm = isLoggedIn && (!hasUserRating || _editingRating);
 
-    if (!canRate) {
-      if (hasUserRating) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            'You rated this ${_userRating!.rating}/5${_userRating!.comment != null && _userRating!.comment!.isNotEmpty ? ': "${_userRating!.comment}"' : ''}',
-            style: TextStyle(
-              fontFamily: 'HelveticaNow',
-              color: Colors.grey.shade700,
-              fontSize: 14,
-              fontStyle: FontStyle.italic,
+    if (!showForm && hasUserRating) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                'You rated this ${_userRating!.rating}/5${_userRating!.comment != null && _userRating!.comment!.isNotEmpty ? ': "${_userRating!.comment}"' : ''}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ),
-          ),
-        );
-      }
-      return const SizedBox.shrink();
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _editingRating = true;
+                  _pendingStars = _userRating!.rating;
+                  _reviewController.text = _userRating!.comment ?? '';
+                });
+              },
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+      );
     }
+
+    if (!isLoggedIn) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -652,13 +654,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'Tap to rate: ',
-                style: TextStyle(
-                  fontFamily: 'HelveticaNow',
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade800,
-                ),
+                _editingRating ? 'Update your rating: ' : 'Tap to rate: ',
+                style: theme.textTheme.titleSmall,
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -668,10 +665,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   return IconButton(
                     onPressed: () => setState(() => _pendingStars = star),
                     icon: Icon(
-                      selected ? Icons.star : Icons.star_border,
+                      selected ? Icons.star_rounded : Icons.star_border_rounded,
                       color: selected
-                          ? const Color(0xFFF9BD21)
-                          : Colors.grey.shade300,
+                          ? kAccentYellow
+                          : colorScheme.outlineVariant,
                       size: 28,
                     ),
                     padding: const EdgeInsets.all(4),
@@ -689,82 +686,102 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             TextField(
               controller: _reviewController,
               maxLines: 3,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Write a review (optional)...',
-                hintStyle: TextStyle(
-                  fontFamily: 'HelveticaNow',
-                  color: Colors.grey.shade500,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
+                contentPadding: EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,
                 ),
               ),
             ),
             const SizedBox(height: 10),
-            FilledButton(
-              onPressed: _submittingRating
-                  ? null
-                  : () async {
-                      if (_pendingStars == null) return;
-                      setState(() => _submittingRating = true);
-                      try {
-                        await RatingService.instance.submitRating(
-                          recipeId: _recipe!.id,
-                          rating: _pendingStars!,
-                          comment: _reviewController.text.trim().isEmpty
-                              ? null
-                              : _reviewController.text.trim(),
-                        );
-                        if (!mounted) return;
-                        _reviewController.clear();
+            Row(
+              children: [
+                if (_editingRating) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
                         setState(() {
-                          _submittingRating = false;
+                          _editingRating = false;
                           _pendingStars = null;
+                          _reviewController.clear();
                         });
-                        _load();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Thanks for your rating!'),
-                              backgroundColor: wellGreen,
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _submittingRating
+                        ? null
+                        : () async {
+                            if (_pendingStars == null) return;
+                            setState(() => _submittingRating = true);
+                            try {
+                              await RatingService.instance.submitRating(
+                                recipeId: _recipe!.id,
+                                rating: _pendingStars!,
+                                comment: _reviewController.text.trim().isEmpty
+                                    ? null
+                                    : _reviewController.text.trim(),
+                              );
+                              if (!mounted) return;
+                              _reviewController.clear();
+                              setState(() {
+                                _submittingRating = false;
+                                _pendingStars = null;
+                                _editingRating = false;
+                              });
+                              _load();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      _editingRating
+                                          ? 'Rating updated!'
+                                          : 'Thanks for your rating!',
+                                    ),
+                                    backgroundColor: colorScheme.primary,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                setState(() => _submittingRating = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      e.toString().replaceFirst(
+                                        'Exception: ',
+                                        '',
+                                      ),
+                                    ),
+                                    backgroundColor: colorScheme.secondary,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                    ),
+                    child: _submittingRating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          setState(() => _submittingRating = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                e.toString().replaceFirst('Exception: ', ''),
-                              ),
-                              backgroundColor: nestOrange,
-                            ),
-                          );
-                        }
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: wellGreen,
-                minimumSize: const Size(double.infinity, 44),
-              ),
-              child: _submittingRating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Submit rating'),
+                          )
+                        : Text(_editingRating
+                            ? 'Update rating'
+                            : 'Submit rating'),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -773,15 +790,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: wellGreen,
-        letterSpacing: 0.3,
-      ),
-    );
+    return Text(title, style: Theme.of(context).textTheme.titleMedium);
   }
 
   Widget _buildIngredientsList() {
@@ -794,7 +803,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Text(
           'No ingredients listed.',
           style: TextStyle(
-            fontFamily: 'HelveticaNow',
+            fontFamily: kFontAppFamily,
             color: Colors.grey.shade600,
             fontSize: 15,
           ),
@@ -883,27 +892,26 @@ class _MetaChip extends StatelessWidget {
 
   const _MetaChip({required this.icon, required this.label});
 
-  static const Color wellGreen = Color(0xFF097333);
-
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: wellGreen.withOpacity(0.12),
+        color: colorScheme.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: wellGreen),
+          Icon(icon, size: 18, color: colorScheme.primary),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: wellGreen,
+              color: colorScheme.primary,
             ),
           ),
         ],

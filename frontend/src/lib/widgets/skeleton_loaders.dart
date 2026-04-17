@@ -136,6 +136,45 @@ class TopRankedCardSkeleton extends StatelessWidget {
   }
 }
 
+/// Skeleton matching a carousel slide: full-bleed image with text overlay at the bottom.
+class CarouselSlideSkeleton extends StatelessWidget {
+  const CarouselSlideSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerWrap(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const _Bone(radius: 0),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  _Bone(width: 36, height: 20, radius: 12),
+                  SizedBox(height: 6),
+                  _Bone(width: 160, height: 16),
+                  SizedBox(height: 6),
+                  _Bone(width: 100, height: 13),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Skeleton matching the saved-recipe list row: 90x90 thumb + text.
 class SavedRecipeCardSkeleton extends StatelessWidget {
   const SavedRecipeCardSkeleton({super.key});

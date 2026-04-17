@@ -282,7 +282,7 @@ class _WeeklyMealPlannerStripState extends State<WeeklyMealPlannerStrip> {
                       Text(
                         'Weekly Meal Planner',
                         style: TextStyle(
-                          fontFamily: kFontRecoleta,
+                          fontFamily: kFontAppFamily,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: colorScheme.primary,
@@ -646,7 +646,7 @@ class _SavedRecipePickerSheetState extends State<_SavedRecipePickerSheet> {
                       Text(
                         'Plan for $dayName',
                         style: TextStyle(
-                          fontFamily: kFontRecoleta,
+                          fontFamily: kFontAppFamily,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: colorScheme.primary,

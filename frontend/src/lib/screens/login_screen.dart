@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
         title: Text(
           "Login",
           style: textTheme.titleMedium?.copyWith(
-            fontFamily: 'HelveticaNow',
+            fontFamily: kFontAppFamily,
             fontSize: 16,
             color: colorScheme.onSurface,
           ),

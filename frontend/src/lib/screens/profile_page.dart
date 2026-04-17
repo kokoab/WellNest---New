@@ -260,10 +260,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: _loggingOut
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: nestOrange, strokeWidth: 2))
                       : Icon(Icons.logout, size: 18, color: nestOrange),
-                  label: const Text(
+                  label: Text(
                     'Logout',
                     style: TextStyle(
-                      fontFamily: 'HelveticaNow',
+                      fontFamily: kFontAppFamily,
                       fontWeight: FontWeight.bold,
                       color: nestOrange,
                       fontSize: 16,
@@ -287,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
       title: Text(
         'Dark Mode',
         style: TextStyle(
-          fontFamily: 'HelveticaNow',
+          fontFamily: kFontAppFamily,
           fontSize: 16,
           color: Theme.of(context).colorScheme.onSurface,
         ),

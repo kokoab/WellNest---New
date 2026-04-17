@@ -52,6 +52,22 @@ class SavedRecipeService {
     return false;
   }
 
+  /// Paginates all saved recipes to collect their IDs into a [Set].
+  Future<Set<int>> fetchAllSavedRecipeIds() async {
+    final ids = <int>{};
+    int page = 1;
+    int lastPage = 1;
+    do {
+      final resp = await fetchSavedRecipes(page: page);
+      for (final r in resp.recipes) {
+        ids.add(r.id);
+      }
+      lastPage = resp.lastPage;
+      page++;
+    } while (page <= lastPage);
+    return ids;
+  }
+
   /// GET /api/saved-recipes — paginated list
   Future<RecipeListResponse> fetchSavedRecipes({int page = 1}) async {
     final uri = Uri.parse('$_baseUrl/saved-recipes').replace(queryParameters: {'page': '$page'});

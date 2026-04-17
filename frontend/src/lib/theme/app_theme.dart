@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Brand color palette
 const Color kPrimaryGreen = Color(0xFF097333);
@@ -103,9 +104,14 @@ ThemeData get darkTheme {
   );
 }
 
-/// Font families
-const String kFontRecoleta = 'Recoleta';
-const String kFontHelveticaNow = 'HelveticaNow';
+/// Typography inspired by **Meta-style** product UI (not a font clone): a clear neo-grotesque
+/// sans, strong headline hierarchy, slight negative tracking on titles, and relaxed line
+/// height for readable “feed” body copy. Face: [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans).
+String? _appFontFamilyCache;
+
+/// Resolved [TextStyle.fontFamily] for the app UI font (cached after first use).
+String get kFontAppFamily =>
+    _appFontFamilyCache ??= GoogleFonts.plusJakartaSans().fontFamily!;
 
 /// Brand colors and shared design tokens
 class AppColors {
@@ -142,28 +148,19 @@ class AppRadii {
   static const double xl = 24.0;
 }
 
-TextStyle recoleta({
+TextStyle appText({
   double? fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
+  double? height,
+  double? letterSpacing,
 }) =>
-    TextStyle(
-      fontFamily: kFontRecoleta,
+    GoogleFonts.plusJakartaSans(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
-    );
-
-TextStyle helveticaNow({
-  double? fontSize,
-  FontWeight fontWeight = FontWeight.w400,
-  Color? color,
-}) =>
-    TextStyle(
-      fontFamily: kFontHelveticaNow,
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
     );
 
 ThemeData _buildTheme({
@@ -188,7 +185,7 @@ ThemeData _buildTheme({
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    fontFamily: kFontHelveticaNow,
+    fontFamily: kFontAppFamily,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: scaffoldBackgroundColor,
     canvasColor: scaffoldBackgroundColor,
@@ -251,8 +248,7 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: const TextStyle(
-          fontFamily: kFontHelveticaNow,
+        textStyle: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
@@ -268,8 +264,7 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: const TextStyle(
-          fontFamily: kFontHelveticaNow,
+        textStyle: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
@@ -284,8 +279,7 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: const TextStyle(
-          fontFamily: kFontHelveticaNow,
+        textStyle: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
           fontSize: 15,
         ),
@@ -295,8 +289,7 @@ ThemeData _buildTheme({
       style: TextButton.styleFrom(
         foregroundColor: colorScheme.primary,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        textStyle: const TextStyle(
-          fontFamily: kFontHelveticaNow,
+        textStyle: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
           fontSize: 15,
         ),
@@ -390,71 +383,87 @@ TextTheme _buildTextTheme({
   required Color bodyColor,
   required Color mutedColor,
 }) {
+  const headlineTracking = -0.4;
+  const titleTracking = -0.2;
+
   return TextTheme(
-    displayLarge: recoleta(
+    displayLarge: appText(
       fontSize: 34,
       fontWeight: FontWeight.bold,
       color: titleColor,
+      letterSpacing: headlineTracking,
     ),
-    displayMedium: recoleta(
+    displayMedium: appText(
       fontSize: 30,
       fontWeight: FontWeight.bold,
       color: titleColor,
+      letterSpacing: headlineTracking,
     ),
-    headlineSmall: recoleta(
+    headlineSmall: appText(
       fontSize: 24,
       fontWeight: FontWeight.bold,
       color: titleColor,
+      letterSpacing: headlineTracking,
     ),
-    headlineMedium: recoleta(
+    headlineMedium: appText(
       fontSize: 28,
       fontWeight: FontWeight.bold,
       color: titleColor,
+      letterSpacing: headlineTracking,
     ),
-    titleLarge: recoleta(
+    titleLarge: appText(
       fontSize: 20,
       fontWeight: FontWeight.w700,
       color: titleColor,
+      letterSpacing: titleTracking,
     ),
-    titleMedium: recoleta(
+    titleMedium: appText(
       fontSize: 18,
       fontWeight: FontWeight.w600,
       color: titleColor,
+      letterSpacing: titleTracking,
     ),
-    titleSmall: helveticaNow(
+    titleSmall: appText(
       fontSize: 16,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       color: bodyColor,
+      letterSpacing: 0.1,
     ),
-    bodyLarge: helveticaNow(
+    bodyLarge: appText(
       fontSize: 16,
       fontWeight: FontWeight.w400,
       color: bodyColor,
-    ).copyWith(height: 1.45),
-    bodyMedium: helveticaNow(
-      fontSize: 14,
+      height: 1.5,
+    ),
+    bodyMedium: appText(
+      fontSize: 15,
       fontWeight: FontWeight.w400,
       color: bodyColor,
-    ).copyWith(height: 1.45),
-    bodySmall: helveticaNow(
+      height: 1.5,
+    ),
+    bodySmall: appText(
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: mutedColor,
-    ).copyWith(height: 1.35),
-    labelLarge: helveticaNow(
+      height: 1.42,
+    ),
+    labelLarge: appText(
       fontSize: 15,
       fontWeight: FontWeight.w700,
       color: bodyColor,
+      letterSpacing: 0.15,
     ),
-    labelMedium: helveticaNow(
+    labelMedium: appText(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: mutedColor,
+      letterSpacing: 0.1,
     ),
-    labelSmall: helveticaNow(
+    labelSmall: appText(
       fontSize: 12,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       color: mutedColor,
+      letterSpacing: 0.12,
     ),
   );
 }

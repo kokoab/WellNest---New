@@ -140,7 +140,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   Text(
                                     formatPostTime(_post.createdAt),
                                     style: TextStyle(
-                                      fontFamily: 'HelveticaNow',
+                                      fontFamily: kFontAppFamily,
                                       fontSize: 12,
                                       color: colorScheme.onSurfaceVariant,
                                     ),
@@ -195,7 +195,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           child: Text(
                             _post.content,
                             style: textTheme.bodyLarge?.copyWith(
-                              fontFamily: 'HelveticaNow',
+                              fontFamily: kFontAppFamily,
                               fontSize: 18,
                               height: 1.4,
                             ),
@@ -354,7 +354,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         Text(
                                           c.userName,
                                           style: textTheme.bodyMedium?.copyWith(
-                                            fontFamily: 'HelveticaNow',
+                                            fontFamily: kFontAppFamily,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 14,
                                           ),
@@ -363,7 +363,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         Text(
                                           c.comment,
                                           style: textTheme.bodyMedium?.copyWith(
-                                            fontFamily: 'HelveticaNow',
+                                            fontFamily: kFontAppFamily,
                                             fontSize: 14,
                                             height: 1.35,
                                           ),

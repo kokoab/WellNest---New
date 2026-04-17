@@ -138,9 +138,9 @@ class RecipeGridView extends StatefulWidget {
 }
 
 class _RecipeGridViewState extends State<RecipeGridView> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color accentYellow = Color(0xFFFDB813);
+  static const Color wellGreen = kPrimaryGreen;
+  static const Color nestOrange = kAccentOrange;
+  static const Color accentYellow = kAccentYellow;
 
   List<Recipe> _recipes = [];
   List<Category> _categories = [];
@@ -164,6 +164,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   List<RecipeRankingItem> _topRanked = [];
   bool _loadingRanked = false;
   DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
+  late final PageController _carouselController;
+  int _carouselPage = 0;
+  Timer? _carouselAutoPlay;
+  Set<int> _savedRecipeIds = {};
 
   TextEditingController _getReviewController(int recipeId) {
     _reviewControllers[recipeId] ??= TextEditingController();
@@ -175,14 +179,18 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     for (final c in _reviewControllers.values) c.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();
+    _carouselAutoPlay?.cancel();
+    _carouselController.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    _carouselController = PageController(viewportFraction: 0.85);
     _load();
     _loadTopRanked();
+    _loadSavedIds();
   }
 
   Future<void> _loadTopRanked() async {
@@ -194,13 +202,46 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       );
       if (!mounted) return;
       setState(() {
-        _topRanked = all.take(3).toList();
+        _topRanked = all.take(10).toList();
         _loadingRanked = false;
+        _carouselPage = 0;
       });
+      if (_carouselController.hasClients) {
+        _carouselController.jumpToPage(0);
+      }
+      _startCarouselAutoPlay();
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingRanked = false);
     }
+  }
+
+  void _startCarouselAutoPlay() {
+    _carouselAutoPlay?.cancel();
+    if (_topRanked.length <= 1) return;
+    _carouselAutoPlay = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) {
+        if (!mounted || !_carouselController.hasClients) return;
+        try {
+          final next = (_carouselPage + 1) % _topRanked.length;
+          _carouselController.animateToPage(
+            next,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        } catch (_) {}
+      },
+    );
+  }
+
+  Future<void> _loadSavedIds() async {
+    if (!AuthService.instance.isLoggedIn) return;
+    try {
+      final ids = await SavedRecipeService.instance.fetchAllSavedRecipeIds();
+      if (!mounted) return;
+      setState(() => _savedRecipeIds = ids);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -283,6 +324,45 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     _loadRecipes();
   }
 
+  Future<void> _toggleSaved(int recipeId) async {
+    if (!AuthService.instance.isLoggedIn) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to save recipes')),
+      );
+      return;
+    }
+    final wasSaved = _savedRecipeIds.contains(recipeId);
+    setState(() {
+      if (wasSaved) {
+        _savedRecipeIds.remove(recipeId);
+      } else {
+        _savedRecipeIds.add(recipeId);
+      }
+    });
+    try {
+      if (wasSaved) {
+        await SavedRecipeService.instance.unsaveRecipe(recipeId);
+      } else {
+        await SavedRecipeService.instance.saveRecipe(recipeId);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (wasSaved) {
+          _savedRecipeIds.add(recipeId);
+        } else {
+          _savedRecipeIds.remove(recipeId);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Widget _buildRecipeImagePlaceholder(BuildContext context) {
     return Container(
       color: AppColors.imagePlaceholderGreen,
@@ -305,9 +385,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       bottom: false,
       child: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([_load(), _loadTopRanked()]);
+          await Future.wait([_load(), _loadTopRanked(), _loadSavedIds()]);
         },
-        color: wellGreen,
+        color: colorScheme.primary,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -448,23 +528,16 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         const SizedBox(height: 8),
                       ],
                       if (_categories.isNotEmpty) const SizedBox(height: 10),
+                      _buildTopRankedSection(),
+                      const SizedBox(height: 16),
                       WeeklyMealPlannerStrip(
                         weekStart: _plannerWeekStart,
                         onWeekChanged: (nextWeekStart) {
                           setState(() => _plannerWeekStart = nextWeekStart);
                         },
                       ),
-                      const SizedBox(height: 16),
-                      _buildTopRankedSection(),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Discover',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ),
+                      const SizedBox(height: 20),
+                      Text('Discover', style: theme.textTheme.titleLarge),
                       const SizedBox(height: 8),
                     ],
                   ),
@@ -608,7 +681,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     ];
   }
 
-  /// Shown for every user: header + "See all" always; preview row when data exists.
+  /// Shown for every user: header + "See all" always; carousel when data exists.
   Widget _buildTopRankedSection() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -620,14 +693,22 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Top Ranked Recipes',
-                style: TextStyle(
-                  fontFamily: 'Recoleta',
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
+              child: Text('Top Ranked', style: theme.textTheme.titleLarge),
+            ),
+            IconButton(
+              onPressed: _loadingRanked ? null : _loadTopRanked,
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 20,
+                color: _loadingRanked
+                    ? colorScheme.outlineVariant
+                    : colorScheme.onSurfaceVariant,
+              ),
+              tooltip: 'Refresh rankings',
+              style: IconButton.styleFrom(
+                padding: const EdgeInsets.all(8),
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
             TextButton(
@@ -645,125 +726,217 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         if (_loadingRanked) ...[
           const SizedBox(height: 8),
           SizedBox(
-            height: 180,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
+            height: 200,
+            child: PageView.builder(
+              controller: PageController(viewportFraction: 0.85),
               itemCount: 3,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, __) => const TopRankedCardSkeleton(),
+              itemBuilder: (_, __) => const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: CarouselSlideSkeleton(),
+              ),
             ),
           ),
         ] else if (_topRanked.isNotEmpty) ...[
           const SizedBox(height: 8),
           SizedBox(
-            height: 180,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
+            height: 200,
+            child: PageView.builder(
+              controller: _carouselController,
+              onPageChanged: (i) {
+                setState(() => _carouselPage = i);
+                _startCarouselAutoPlay();
+              },
               itemCount: _topRanked.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, i) {
                 final r = _topRanked[i];
-                return InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (_) => RecipeDetailScreen(recipeId: r.id),
-                    ),
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                      border: isDark
-                          ? Border.all(color: colorScheme.outlineVariant.withOpacity(0.5))
-                          : null,
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDark ? Colors.black.withOpacity(0.3) : const Color(0x14000000),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: r.displayImageUrl != null
-                                ? Image.network(
-                                    r.displayImageUrl!,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    cacheWidth: 440,
-                                    cacheHeight: 300,
-                                  )
-                                : Container(
-                                    color: isDark
-                                        ? colorScheme.surfaceContainerHighest
-                                        : const Color(0xFFE6F0EA),
-                                    child: Icon(Icons.restaurant, color: colorScheme.onSurfaceVariant),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '#${i + 1} ${r.title}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '⭐ ${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 14,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${r.viewsCount}',
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: _buildCarouselSlide(r, i, isDark, colorScheme),
                 );
               },
             ),
           ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_topRanked.length, (i) {
+              final active = i == _carouselPage;
+              return AnimatedContainer(
+                duration: AppDurations.short,
+                width: active ? 18 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                decoration: BoxDecoration(
+                  color: active
+                      ? colorScheme.primary
+                      : colorScheme.outline.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
         ] else ...[
           const SizedBox(height: 6),
           Text(
-            'No ranked recipes in the last 7 days yet. View a recipe or add a rating — they will show up here.',
-            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+            'No ranked recipes yet. View or rate a recipe and they will appear here.',
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildCarouselSlide(
+    RecipeRankingItem r,
+    int index,
+    bool isDark,
+    ColorScheme colorScheme,
+  ) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => RecipeDetailScreen(recipeId: r.id),
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          color: Theme.of(context).cardColor,
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.35)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            r.displayImageUrl != null
+                ? Image.network(
+                    r.displayImageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: 600,
+                    cacheHeight: 400,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: isDark
+                          ? colorScheme.surfaceContainerHighest
+                          : AppColors.imagePlaceholderGreen,
+                      child: Icon(
+                        Icons.restaurant_menu,
+                        size: 48,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : Container(
+                    color: isDark
+                        ? colorScheme.surfaceContainerHighest
+                        : AppColors.imagePlaceholderGreen,
+                    child: Icon(
+                      Icons.restaurant_menu,
+                      size: 48,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 36, 14, 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.75),
+                    ],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '#${index + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      r.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.star_rounded, size: 16, color: kAccentYellow),
+                        const SizedBox(width: 4),
+                        Text(
+                          r.averageRating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          ' (${r.ratingsCount})',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.visibility_outlined,
+                          size: 14,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${r.viewsCount}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -831,7 +1004,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         crossAxisCount;
     final aspectRatios = [0.85, 1.05, 1.25, 1.0, 1.2];
     final aspect = aspectRatios[index % aspectRatios.length];
-    final ratingsCount = recipe.ratingsCount ?? 0;
 
     return AnimatedPressScale(
       onTap: () async {
@@ -842,26 +1014,33 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
           ),
         );
-        if (mounted) _load();
+        if (mounted) {
+          _load();
+          _loadSavedIds();
+        }
       },
       semanticLabel: 'View recipe, ${recipe.title}',
       child: Container(
         decoration: BoxDecoration(
           color: theme.cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
           border: isDark
-              ? Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5))
+              ? Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                )
               : null,
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.black.withOpacity(0.3) : const Color(0x14097333),
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.3)
+                  : Colors.black.withValues(alpha: 0.06),
               blurRadius: isDark ? 8 : 12,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: _buildCollapsedCard(recipe, cardWidth, aspect, ratingsCount),
+        child: _buildCollapsedCard(recipe, cardWidth, aspect),
       ),
     );
   }
@@ -870,42 +1049,77 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     Recipe recipe,
     double cardWidth,
     double aspect,
-    int ratingsCount,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final avgRating = recipe.averageRating;
+    final ratingsCount = recipe.ratingsCount ?? 0;
+    final isSaved = _savedRecipeIds.contains(recipe.id);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AspectRatio(
-          aspectRatio: 1 / aspect,
-          child:
-              recipe.displayImageUrl != null &&
-                  recipe.displayImageUrl!.isNotEmpty
-              ? Image.network(
-                  recipe.displayImageUrl!,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  cacheWidth: 600,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: AppColors.imagePlaceholderGreen,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: colorScheme.primary,
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) =>
-                      _buildRecipeImagePlaceholder(context),
-                )
-              : _buildRecipeImagePlaceholder(context),
+        Stack(
+          children: [
+            AspectRatio(
+              aspectRatio: 1 / aspect,
+              child: recipe.displayImageUrl != null &&
+                      recipe.displayImageUrl!.isNotEmpty
+                  ? Image.network(
+                      recipe.displayImageUrl!,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      cacheWidth: 600,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: AppColors.imagePlaceholderGreen,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: colorScheme.primary,
+                              strokeWidth: 2,
+                              value:
+                                  loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress
+                                              .cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) =>
+                          _buildRecipeImagePlaceholder(context),
+                    )
+                  : _buildRecipeImagePlaceholder(context),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.7),
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _toggleSaved(recipe.id),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      size: 20,
+                      color: isSaved
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -915,8 +1129,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               Text(
                 recipe.title,
                 style: TextStyle(
-                  fontFamily: 'Recoleta',
-                  color: colorScheme.primary,
+                  fontFamily: kFontAppFamily,
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
@@ -925,58 +1139,62 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               ),
               AppSpacing.gapV4,
               if (recipe.category != null) ...[
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xs / 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        recipe.category!.name,
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    recipe.category!.name,
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
                 AppSpacing.gapV4,
               ],
               Row(
                 children: [
-                  Icon(Icons.schedule, size: 12, color: colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.schedule,
+                    size: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   AppSpacing.gapH4,
                   Text(
                     '${recipe.prepTime} min',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
-                  if (ratingsCount > 0) ...[
+                  const Spacer(),
+                  Icon(Icons.star_rounded, size: 14, color: kAccentYellow),
+                  const SizedBox(width: 3),
+                  Text(
+                    avgRating != null && avgRating > 0
+                        ? avgRating.toStringAsFixed(1)
+                        : 'New',
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (ratingsCount > 0)
                     Text(
-                      ' · ',
+                      ' ($ratingsCount)',
                       style: TextStyle(
                         color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
-                    Icon(Icons.star, size: 12, color: accentYellow),
-                    AppSpacing.gapH4,
-                    Text(
-                      '$ratingsCount',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ],
@@ -1407,8 +1625,6 @@ class _FilterChip extends StatelessWidget {
     required this.onTap,
   });
 
-  static const Color wellGreen = Color(0xFF097333);
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1417,10 +1633,12 @@ class _FilterChip extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppDurations.short,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? wellGreen : colorScheme.surfaceContainerHighest,
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -1428,7 +1646,9 @@ class _FilterChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              color: selected
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -1453,7 +1673,6 @@ class _ExpandedLikeButton extends StatefulWidget {
 }
 
 class _ExpandedLikeButtonState extends State<_ExpandedLikeButton> {
-  static const Color nestOrange = Color(0xFFEF5026);
   late bool _liked;
 
   @override
@@ -1501,13 +1720,18 @@ class _ExpandedLikeButtonState extends State<_ExpandedLikeButton> {
             },
             icon: Icon(
               _liked ? Icons.favorite : Icons.favorite_border,
-              color: _liked ? nestOrange : Colors.grey.shade600,
+              color: _liked
+                  ? Theme.of(context).colorScheme.secondary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
             ),
           ),
           Text(
             _liked ? 'Liked' : 'Like',
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -1530,7 +1754,6 @@ class _ExpandedSaveButton extends StatefulWidget {
 }
 
 class _ExpandedSaveButtonState extends State<_ExpandedSaveButton> {
-  static const Color wellGreen = Color(0xFF097333);
   late bool _saved;
 
   @override
@@ -1570,7 +1793,7 @@ class _ExpandedSaveButtonState extends State<_ExpandedSaveButton> {
                       content: Text(
                         _saved ? 'Saved to favorites' : 'Removed from favorites',
                       ),
-                      backgroundColor: wellGreen,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 }
@@ -1588,13 +1811,18 @@ class _ExpandedSaveButtonState extends State<_ExpandedSaveButton> {
             },
             icon: Icon(
               _saved ? Icons.bookmark : Icons.bookmark_border,
-              color: _saved ? wellGreen : Colors.grey.shade600,
+              color: _saved
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
             ),
           ),
           Text(
             _saved ? 'Saved' : 'Save',
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
           ),
         ],
       ),

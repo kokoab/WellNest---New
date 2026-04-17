@@ -1,10 +1,5 @@
-# Font Setup: Recoleta (main) & Helvetica Now (sub)
+# Fonts
 
-Add your font files here:
+The app uses **[Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans)** via [`google_fonts`](https://pub.dev/packages/google_fonts), with spacing and line heights tuned for a **Meta-inspired** (clean hierarchy, readable body) feel—not Meta’s proprietary fonts. No local font registration in `pubspec.yaml` is required.
 
-- `Recoleta/Recoleta-Regular.ttf`
-- `Recoleta/Recoleta-Bold.ttf`
-- `HelveticaNow/HelveticaNow-Regular.ttf`
-- `HelveticaNow/HelveticaNow-Bold.ttf`
-
-If your files use different names (e.g. `RecoletaRegular.otf`), update `pubspec.yaml` under `flutter.fonts` to match.
+The `nexa/` folder and other files here are **legacy** and are not referenced by the current build.

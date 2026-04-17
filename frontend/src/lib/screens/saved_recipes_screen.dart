@@ -66,10 +66,10 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
           AppSpacing.gapV16,
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-            child: const Text(
+            child: Text(
               'Saved Recipes',
               style: TextStyle(
-                fontFamily: 'Recoleta',
+                fontFamily: kFontAppFamily,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: wellGreen,
@@ -231,8 +231,8 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                   children: [
                     Text(
                       recipe.title,
-                      style: const TextStyle(
-                        fontFamily: 'Recoleta',
+                      style: TextStyle(
+                        fontFamily: kFontAppFamily,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                         color: Color(0xFF097333),
@@ -244,7 +244,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                     Text(
                       'By ${recipe.userDisplayName}',
                       style: TextStyle(
-                        fontFamily: 'HelveticaNow',
+                        fontFamily: kFontAppFamily,
                         fontSize: 14,
                         color: Colors.grey.shade700,
                       ),
@@ -259,7 +259,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                         Text(
                           '${avg.toStringAsFixed(1)} ($count)',
                           style: TextStyle(
-                            fontFamily: 'HelveticaNow',
+                            fontFamily: kFontAppFamily,
                             fontSize: 13,
                             color: Colors.grey.shade700,
                           ),

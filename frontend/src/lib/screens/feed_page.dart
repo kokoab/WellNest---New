@@ -180,12 +180,12 @@ class _FeedPageState extends State<FeedPage> {
                         child: WellnestHeader(),
                       ),
                       AppSpacing.gapV16,
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
                         child: Text(
                           'Feed',
                           style: TextStyle(
-                            fontFamily: 'Recoleta',
+                            fontFamily: kFontAppFamily,
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryGreen,

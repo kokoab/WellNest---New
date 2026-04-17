@@ -1462,14 +1462,20 @@ Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
       boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
     ),
     child: LayoutBuilder(builder: (ctx, constraints) {
+      // Horizontal scroll must be the outer axis so it receives a bounded height from
+      // [SizedBox]. Nesting vertical-then-horizontal gives the inner horizontal view
+      // unbounded maxHeight and breaks layout / hit-testing (e.g. after admin login).
       return SizedBox(
         height: height,
         child: Scrollbar(
           thumbVisibility: true,
           child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(constraints: BoxConstraints(minWidth: constraints.maxWidth), child: child),
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: SingleChildScrollView(
+                child: child,
+              ),
             ),
           ),
         ),

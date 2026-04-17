@@ -5,6 +5,7 @@ import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/category_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/theme/app_theme.dart';
 
 class RecipeFormScreen extends StatefulWidget {
   final Recipe? recipe;
@@ -18,17 +19,20 @@ class RecipeFormScreen extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          height: MediaQuery.of(ctx).size.height * 0.92,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (ctx) {
+        final cardColor = Theme.of(ctx).cardColor;
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            height: MediaQuery.of(ctx).size.height * 0.92,
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: RecipeFormScreen(recipe: recipe, asModal: true),
           ),
-          child: RecipeFormScreen(recipe: recipe, asModal: true),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -37,8 +41,6 @@ class RecipeFormScreen extends StatefulWidget {
 }
 
 class _RecipeFormScreenState extends State<RecipeFormScreen> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -142,7 +144,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     } catch (e) {
       if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not pick image: $e'), backgroundColor: nestOrange),
+          SnackBar(content: Text('Could not pick image: $e'), backgroundColor: Theme.of(context).colorScheme.secondary),
         );
       }
     } finally {
@@ -199,7 +201,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditing ? 'Recipe updated' : 'Recipe created'),
-          backgroundColor: wellGreen,
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
       if (!context.mounted) return;
@@ -214,16 +216,15 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   }
 
   Widget _buildIngredientsSection() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Ingredients',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
         ),
         const SizedBox(height: 8),
         ...List.generate(_ingredients.length, (i) {
@@ -236,9 +237,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   flex: 2,
                   child: TextFormField(
                     initialValue: _ingredients[i]['name'],
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'e.g. Flour',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
                     onChanged: (v) => _ingredients[i]['name'] = v,
@@ -249,9 +249,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   width: 60,
                   child: TextFormField(
                     initialValue: _ingredients[i]['quantity'],
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Qty',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
                     keyboardType: TextInputType.number,
@@ -263,16 +262,15 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   width: 70,
                   child: TextFormField(
                     initialValue: _ingredients[i]['unit'],
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'e.g. cup',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
                     onChanged: (v) => _ingredients[i]['unit'] = v,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.remove_circle_outline, color: nestOrange, size: 22),
+                  icon: Icon(Icons.remove_circle_outline, color: colorScheme.secondary, size: 22),
                   onPressed: _ingredients.length > 1
                       ? () => setState(() => _ingredients.removeAt(i))
                       : null,
@@ -283,24 +281,23 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         }),
         TextButton.icon(
           onPressed: () => setState(() => _ingredients.add({'name': '', 'quantity': '1', 'unit': ''})),
-          icon: Icon(Icons.add, color: wellGreen, size: 20),
-          label: Text('Add ingredient', style: TextStyle(color: wellGreen, fontWeight: FontWeight.w600)),
+          icon: const Icon(Icons.add, size: 20),
+          label: const Text('Add ingredient'),
         ),
       ],
     );
   }
 
   Widget _buildImageSection() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Recipe photo',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade700,
-          ),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
         ),
         const SizedBox(height: 8),
         if (_pickedImage != null) ...[
@@ -312,7 +309,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   alignment: Alignment.topRight,
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
                       child: Image.memory(
                         snapshot.data! as Uint8List,
                         height: 160,
@@ -330,7 +327,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   ],
                 );
               }
-              return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
+              return SizedBox(
+                height: 160,
+                child: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
+              );
             },
           ),
           const SizedBox(height: 8),
@@ -338,19 +338,20 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         OutlinedButton.icon(
           onPressed: _pickingImage ? null : _pickImage,
           icon: _pickingImage
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2))
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 2),
+                )
               : const Icon(Icons.add_photo_alternate_outlined),
           label: Text(_pickedImage == null ? 'Add photo' : 'Change photo'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: wellGreen,
-            side: const BorderSide(color: wellGreen),
-          ),
         ),
       ],
     );
   }
 
   Widget _buildFormContent() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Form(
       key: _formKey,
       child: Column(
@@ -360,13 +361,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: nestOrange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.secondary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppRadii.sm),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_loadError!, style: const TextStyle(color: nestOrange)),
+                  Text(_loadError!, style: TextStyle(color: colorScheme.secondary)),
                   const SizedBox(height: 8),
                   TextButton.icon(
                     onPressed: _loadCategories,
@@ -382,21 +383,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: nestOrange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.secondary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppRadii.sm),
               ),
-              child: Text(_submitError!, style: const TextStyle(color: nestOrange)),
+              child: Text(_submitError!, style: TextStyle(color: colorScheme.secondary)),
             ),
             const SizedBox(height: 16),
           ],
           DropdownButtonFormField<int>(
             value: _categories.isEmpty ? null : _selectedCategoryId,
-            decoration: InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
+            decoration: const InputDecoration(labelText: 'Category'),
             hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
             items: _categories
                 .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
@@ -411,24 +407,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _titleController,
-            decoration: InputDecoration(
-              labelText: 'Title',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
+            decoration: const InputDecoration(labelText: 'Title'),
             validator: _validateTitle,
             maxLength: 255,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _instructionsController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'Instructions',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               alignLabelWithHint: true,
-              filled: true,
-              fillColor: Colors.grey.shade50,
             ),
             validator: _validateInstructions,
             maxLines: 4,
@@ -436,23 +424,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _prepTimeController,
-            decoration: InputDecoration(
-              labelText: 'Prep time (minutes)',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
+            decoration: const InputDecoration(labelText: 'Prep time (minutes)'),
             keyboardType: TextInputType.number,
             validator: _validatePrepTime,
           ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _submit,
-            style: FilledButton.styleFrom(
-              backgroundColor: wellGreen,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
             child: _saving
                 ? const SizedBox(
                     height: 24,
@@ -468,20 +446,14 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     if (widget.asModal) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -489,17 +461,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               children: [
                 Text(
                   _isEditing ? 'Edit Recipe' : 'New Recipe',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade900,
-                  ),
+                  style: theme.textTheme.titleLarge,
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context, false),
-                  icon: Icon(Icons.close, color: Colors.grey.shade600),
+                  icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.grey.shade100,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
                   ),
                 ),
               ],
@@ -508,7 +476,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           const SizedBox(height: 8),
           Flexible(
             child: _loadingCategories
-                ? const Center(child: CircularProgressIndicator(color: wellGreen))
+                ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: _buildFormContent(),
@@ -526,13 +494,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         ),
         title: Text(
           _isEditing ? 'Edit Recipe' : 'New Recipe',
-          style: const TextStyle(color: Colors.white),
+          style: theme.textTheme.titleLarge,
         ),
-        backgroundColor: wellGreen,
-        foregroundColor: Colors.white,
       ),
       body: _loadingCategories
-          ? const Center(child: CircularProgressIndicator(color: wellGreen))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: _buildFormContent(),
