@@ -17,7 +17,6 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/services/meal_planner_service.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
@@ -78,7 +77,8 @@ class _UserDashboardState extends State<UserDashboard> {
                     builder: (context) => ConversationChatScreen(
                       conversationId: conv.id,
                       otherUserName: conv.otherUser.name,
-                      otherUserProfilePhotoUrl: conv.otherUser.displayProfilePhotoUrl,
+                      otherUserProfilePhotoUrl:
+                          conv.otherUser.displayProfilePhotoUrl,
                       isAssistant: true,
                     ),
                   ),
@@ -87,9 +87,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      e.toString().replaceFirst('Exception: ', ''),
-                    ),
+                    content: Text(e.toString().replaceFirst('Exception: ', '')),
                   ),
                 );
               }
@@ -164,8 +162,16 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   int _loadRecipesGeneration = 0;
   List<RecipeRankingItem> _topRanked = [];
   bool _loadingRanked = false;
+  final Map<int, bool> _topRankedSaved = {};
+  final Set<int> _topRankedSaving = <int>{};
+  final Map<int, bool> _recipeSaved = {};
+  final Set<int> _recipeSaving = <int>{};
+  final PageController _topRankedPageController = PageController(
+    viewportFraction: 0.9,
+  );
+  final ValueNotifier<int> _topRankedPage = ValueNotifier<int>(0);
   DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
-  final Map<DateTime, int?> _plannedRecipes = {};
+  bool _plannerExpanded = false;
 
   TextEditingController _getReviewController(int recipeId) {
     _reviewControllers[recipeId] ??= TextEditingController();
@@ -177,6 +183,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     for (final c in _reviewControllers.values) c.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();
+    _topRankedPageController.dispose();
+    _topRankedPage.dispose();
     super.dispose();
   }
 
@@ -194,9 +202,25 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         window: '7d',
         mode: 'combined',
       );
+      final top = all.take(3).toList();
+      final savedState = <int, bool>{};
+      if (AuthService.instance.isLoggedIn) {
+        for (final r in top) {
+          try {
+            savedState[r.id] = await SavedRecipeService.instance.isSaved(r.id);
+          } catch (_) {
+            savedState[r.id] = false;
+          }
+        }
+      }
       if (!mounted) return;
       setState(() {
-        _topRanked = all.take(3).toList();
+        _topRanked = top;
+        _topRankedSaved
+          ..clear()
+          ..addAll(savedState);
+        _recipeSaved.addAll(savedState);
+        _topRankedPage.value = 0;
         _loadingRanked = false;
       });
     } catch (_) {
@@ -450,50 +474,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         const SizedBox(height: 8),
                       ],
                       if (_categories.isNotEmpty) const SizedBox(height: 10),
-                      WeeklyMealPlannerStrip(
-                        weekStart: _plannerWeekStart,
-                        selections: _plannedRecipes,
-                        recipes: _recipes,
-                        onWeekChanged: (nextWeekStart) {
-                          setState(() => _plannerWeekStart = nextWeekStart);
-                        },
-                        onAssignRecipe: (day, recipeId) {
-                          setState(() => _plannedRecipes[day] = recipeId);
-                          final selected = recipeId == null
-                              ? null
-                              : _recipes.cast<Recipe?>().firstWhere(
-                                  (r) => r?.id == recipeId,
-                                  orElse: () => null,
-                                );
-                          unawaited(
-                            MealPlannerService.instance.logAssignment(
-                              day: day,
-                              weekStart: _plannerWeekStart,
-                              recipeId: recipeId,
-                              recipeTitle: selected?.title,
-                            ).then((ok) {
-                              if (!mounted) return;
-                              if (!ok) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Meal planner log failed'),
-                                    duration: Duration(milliseconds: 1100),
-                                  ),
-                                );
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Meal planner activity logged'),
-                                  duration: Duration(milliseconds: 900),
-                                ),
-                              );
-                            }),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
                       _buildTopRankedSection(),
+                      const SizedBox(height: 16),
+                      _buildMealPlannerSection(),
                       const SizedBox(height: 16),
                       const Text(
                         'Discover',
@@ -516,6 +499,69 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMealPlannerSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            dense: true,
+            visualDensity: const VisualDensity(vertical: -2),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 2,
+            ),
+            leading: const Icon(Icons.calendar_month, color: kPrimaryGreen),
+            title: const Text(
+              'Weekly Meal Planner',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: kPrimaryGreen,
+              ),
+            ),
+            subtitle: Text(
+              _plannerExpanded ? 'Pick meals for each day' : 'Tap to expand.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            trailing: Icon(
+              _plannerExpanded ? Icons.expand_less : Icons.expand_more,
+              color: kPrimaryGreen,
+            ),
+            onTap: () => setState(() => _plannerExpanded = !_plannerExpanded),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 220),
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeOut,
+            crossFadeState: _plannerExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox(height: 0),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: WeeklyMealPlannerStrip(
+                weekStart: _plannerWeekStart,
+                onWeekChanged: (nextWeekStart) {
+                  setState(() => _plannerWeekStart = nextWeekStart);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -646,10 +692,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               child: GeorgiaProDisplaySquish(
                 child: Text(
                   'Top Ranked Recipes',
-                  style: georgiaProTextStyle(
-                    fontSize: 28,
-                    color: wellGreen,
-                  ),
+                  style: georgiaProTextStyle(fontSize: 28, color: wellGreen),
                 ),
               ),
             ),
@@ -671,74 +714,200 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ] else if (_topRanked.isNotEmpty) ...[
           const SizedBox(height: 8),
           SizedBox(
-            height: 180,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
+            height: 250,
+            child: PageView.builder(
+              controller: _topRankedPageController,
+              padEnds: false,
               itemCount: _topRanked.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, i) {
-                final r = _topRanked[i];
-                return InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (_) => RecipeDetailScreen(recipeId: r.id),
-                    ),
+              onPageChanged: (i) => _topRankedPage.value = i,
+              itemBuilder: (_, i) =>
+                  _buildTopRankedCarouselCard(_topRanked[i], i),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<int>(
+            valueListenable: _topRankedPage,
+            builder: (_, page, __) => Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_topRanked.length, (i) {
+                final active = i == page;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 18 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: active ? wellGreen : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: r.displayImageUrl != null
-                                ? Image.network(
-                                    r.displayImageUrl!,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    color: const Color(0xFFE6F0EA),
-                                    child: const Icon(Icons.restaurant),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '#${i + 1} ${r.title}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '⭐ ${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 12,
-                                ),
+                );
+              }),
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 6),
+          Text(
+            'No ranked recipes in the last 7 days yet. View a recipe or add a rating — they will show up here.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTopRankedCarouselCard(RecipeRankingItem r, int index) {
+    final isSaved = _topRankedSaved[r.id] ?? false;
+    final saving = _topRankedSaving.contains(r.id);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => RecipeDetailScreen(recipeId: r.id),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                      child: r.displayImageUrl != null
+                          ? Image.network(
+                              r.displayImageUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              color: const Color(0xFFE6F0EA),
+                              child: const Center(
+                                child: Icon(Icons.restaurant, size: 38),
                               ),
                             ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '★ ${r.averageRating.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton.filledTonal(
+                        onPressed: (!AuthService.instance.isLoggedIn || saving)
+                            ? null
+                            : () => _toggleTopRankedSaved(r),
+                        icon: saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                isSaved
+                                    ? Icons.bookmark
+                                    : Icons.bookmark_border,
+                                color: isSaved ? nestOrange : wellGreen,
+                              ),
+                        tooltip: isSaved ? 'Remove favorite' : 'Save favorite',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '#${index + 1} ${r.title}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (r.category != null &&
+                                  r.category!.trim().isNotEmpty) ...[
+                                Flexible(
+                                  child: Text(
+                                    r.category!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Icon(Icons.star, size: 14, color: accentYellow),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  '${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Icon(
                               Icons.visibility_outlined,
                               size: 14,
@@ -756,20 +925,77 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ] else ...[
-          const SizedBox(height: 6),
-          Text(
-            'No ranked recipes in the last 7 days yet. View a recipe or add a rating — they will show up here.',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-          ),
-        ],
-      ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _toggleTopRankedSaved(RecipeRankingItem r) async {
+    if (!AuthService.instance.isLoggedIn) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to save recipes')));
+      return;
+    }
+    final currentlySaved = _topRankedSaved[r.id] ?? false;
+    setState(() => _topRankedSaving.add(r.id));
+    try {
+      if (currentlySaved) {
+        await SavedRecipeService.instance.unsaveRecipe(r.id);
+      } else {
+        await SavedRecipeService.instance.saveRecipe(r.id);
+      }
+      if (!mounted) return;
+      setState(() {
+        _topRankedSaved[r.id] = !currentlySaved;
+        _recipeSaved[r.id] = !currentlySaved;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _topRankedSaving.remove(r.id));
+    }
+  }
+
+  Future<void> _toggleRecipeSaved(Recipe recipe) async {
+    if (!AuthService.instance.isLoggedIn) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to save recipes')));
+      return;
+    }
+    if (_recipeSaving.contains(recipe.id)) return;
+
+    setState(() => _recipeSaving.add(recipe.id));
+    try {
+      final currentlySaved =
+          _recipeSaved[recipe.id] ??
+          await SavedRecipeService.instance.isSaved(recipe.id);
+      if (currentlySaved) {
+        await SavedRecipeService.instance.unsaveRecipe(recipe.id);
+      } else {
+        await SavedRecipeService.instance.saveRecipe(recipe.id);
+      }
+      if (!mounted) return;
+      setState(() => _recipeSaved[recipe.id] = !currentlySaved);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _recipeSaving.remove(recipe.id));
+    }
   }
 
   Future<void> _onCardTap(Recipe recipe, int index) async {
@@ -879,33 +1105,65 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         // Image on top - AspectRatio ensures proper sizing without overflow
         AspectRatio(
           aspectRatio: 1 / aspect,
-          child:
-              recipe.displayImageUrl != null &&
-                  recipe.displayImageUrl!.isNotEmpty
-              ? Image.network(
-                  recipe.displayImageUrl!,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  cacheWidth: 600,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: AppColors.imagePlaceholderGreen,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: wellGreen,
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                              : null,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+                  ? Image.network(
+                      recipe.displayImageUrl!,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      cacheWidth: 600,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: AppColors.imagePlaceholderGreen,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: wellGreen,
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) =>
+                          _buildRecipeImagePlaceholder(context),
+                    )
+                  : _buildRecipeImagePlaceholder(context),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton.filledTonal(
+                  onPressed: _recipeSaving.contains(recipe.id)
+                      ? null
+                      : () => _toggleRecipeSaved(recipe),
+                  icon: _recipeSaving.contains(recipe.id)
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          (_recipeSaved[recipe.id] ?? false)
+                              ? Icons.bookmark
+                              : Icons.bookmark_border,
+                          color: (_recipeSaved[recipe.id] ?? false)
+                              ? nestOrange
+                              : wellGreen,
                         ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) =>
-                      _buildRecipeImagePlaceholder(context),
-                )
-              : _buildRecipeImagePlaceholder(context),
+                  tooltip: (_recipeSaved[recipe.id] ?? false)
+                      ? 'Remove favorite'
+                      : 'Save favorite',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         // Text block below (Pinterest caption style)
         Padding(
@@ -960,24 +1218,24 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                     '${recipe.prepTime} min',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
-                  if (ratingsCount > 0) ...[
-                    Text(
-                      ' · ',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Icon(Icons.star, size: 12, color: accentYellow),
-                    AppSpacing.gapH4,
-                    Text(
-                      '$ratingsCount',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(width: 8),
+                  Icon(Icons.star, size: 12, color: accentYellow),
+                  AppSpacing.gapH4,
+                  Text(
+                    (recipe.averageRating ?? 0).toStringAsFixed(1),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                  AppSpacing.gapH4,
+                  Text(
+                    '${recipe.viewsCount ?? 0}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
                 ],
               ),
             ],

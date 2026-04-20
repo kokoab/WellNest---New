@@ -72,10 +72,11 @@ class RecipeController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
         foreach ($data['data'] as $i => $recipeData) {
             $recipe = $recipes->getCollection()[$i];
-            $firstImage = $recipe->images->first();
-            $data['data'][$i]['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+            $latestImage = $recipe->images()->latest('id')->first();
+            $data['data'][$i]['image_url'] = $latestImage ? $baseUrl . '/storage/' . $latestImage->path : null;
             $data['data'][$i]['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
             $data['data'][$i]['ratings_count'] = $recipe->ratings()->count();
+            $data['data'][$i]['views_count'] = $recipe->views()->count();
         }
         return response()->json($data);
     }
@@ -147,10 +148,11 @@ class RecipeController extends Controller
 
         $data = $recipe->toArray();
         $baseUrl = rtrim(config('app.url'), '/');
-        $firstImage = $recipe->images()->first();
-        $data['image_url'] = $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null;
+        $latestImage = $recipe->images()->latest('id')->first();
+        $data['image_url'] = $latestImage ? $baseUrl . '/storage/' . $latestImage->path : null;
         $data['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
         $data['ratings_count'] = $recipe->ratings()->count();
+        $data['views_count'] = $recipe->views()->count();
 
 
         $viewer = $this->userFromOptionalBearer($request);
@@ -226,6 +228,12 @@ class RecipeController extends Controller
         $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ]);
+
+        // Replace existing recipe image(s) so "change photo" really swaps the cover.
+        foreach ($recipe->images as $image) {
+            Storage::disk('public')->delete($image->path);
+            $image->delete();
+        }
 
         $file = $request->file('image');
         $path = $file->store('recipes', 'public');
