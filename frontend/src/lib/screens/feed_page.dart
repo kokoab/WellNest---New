@@ -42,8 +42,8 @@ class _FeedPageState extends State<FeedPage> {
   final Map<int, int> _postCommentsCount = {};
   // Loading indicators per post
   final Map<int, bool> _liking = {};
-  final Map<int, bool> _commenting = {};   // loading comments (expand)
-  final Map<int, bool> _submitting = {};   // submitting a comment
+  final Map<int, bool> _commenting = {}; // loading comments (expand)
+  final Map<int, bool> _submitting = {}; // submitting a comment
   final Map<int, XFile?> _commentImages = {};
   CurrentUser? _currentUser;
   final Map<int, List<PostComment>> _postComments = {};
@@ -54,9 +54,10 @@ class _FeedPageState extends State<FeedPage> {
   String get _initials {
     final first = (_currentUser?.firstName ?? '').trim();
     final last = (_currentUser?.lastName ?? '').trim();
-    final initials = '${first.isNotEmpty ? first[0] : ''}${last.isNotEmpty ? last[0] : ''}'
-        .toUpperCase()
-        .trim();
+    final initials =
+        '${first.isNotEmpty ? first[0] : ''}${last.isNotEmpty ? last[0] : ''}'
+            .toUpperCase()
+            .trim();
     return initials.isEmpty ? '?' : initials;
   }
 
@@ -198,19 +199,28 @@ class _FeedPageState extends State<FeedPage> {
             SliverToBoxAdapter(
               child: RepaintBoundary(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AppSpacing.gapV8,
                       const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                        ),
                         child: WellnestHeader(),
                       ),
                       AppSpacing.gapV16,
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
+                        padding: const EdgeInsets.fromLTRB(
+                          0,
+                          0,
+                          0,
+                          AppSpacing.md,
+                        ),
                         child: GeorgiaProDisplaySquish(
                           child: Text(
                             'Feed',
@@ -237,14 +247,19 @@ class _FeedPageState extends State<FeedPage> {
                 hasScrollBody: false,
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: Text('No posts yet. Sign in to create one!')),
+                  child: Center(
+                    child: Text('No posts yet. Sign in to create one!'),
+                  ),
                 ),
               )
             else if (posts.isEmpty && _feedScope == _FeedScope.following)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 40,
+                    horizontal: 24,
+                  ),
                   child: Center(
                     child: Text(
                       'Follow people to see their posts here.',
@@ -363,17 +378,12 @@ class _FeedPageState extends State<FeedPage> {
             borderRadius: BorderRadius.circular(16),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: const Color(0xFFFFEECC),
-                  child: Text(
-                    _initials,
-                    style: const TextStyle(
-                      color: wellGreen,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+                InitialsAvatar(
+                  name:
+                      '${_currentUser?.firstName ?? ''} ${_currentUser?.lastName ?? ''}'
+                          .trim(),
+                  size: 44,
+                  imageUrl: _currentUser?.displayProfilePhotoUrl,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -491,8 +501,9 @@ class _FeedPageState extends State<FeedPage> {
     final expanded = _commentsExpanded[post.id] ?? false;
     final comments = _postComments[post.id] ?? [];
     final likesCount = _postLikesCount[post.id] ?? 0;
-    final commentsCount =
-        expanded ? comments.length : (_postCommentsCount[post.id] ?? 0);
+    final commentsCount = expanded
+        ? comments.length
+        : (_postCommentsCount[post.id] ?? 0);
     _commentControllers[post.id] ??= TextEditingController();
 
     void goToDetail() {
@@ -654,7 +665,8 @@ class _FeedPageState extends State<FeedPage> {
                   const Spacer(),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, color: Colors.black54),
-                    onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
+                    onSelected: (v) =>
+                        v == 'report' ? _reportPost(post.id) : null,
                     itemBuilder: (context) => const [
                       PopupMenuItem(value: 'report', child: Text('Report')),
                     ],
@@ -722,19 +734,25 @@ class _FeedPageState extends State<FeedPage> {
       final liked = _postLiked[postId] ?? false;
       if (liked) {
         await VoteService.instance.unlikePost(postId);
-        if (mounted) setState(() {
-          _postLiked[postId] = false;
-          _postLikesCount[postId] = ((_postLikesCount[postId] ?? 1) - 1).clamp(0, 999999);
-        });
+        if (mounted)
+          setState(() {
+            _postLiked[postId] = false;
+            _postLikesCount[postId] = ((_postLikesCount[postId] ?? 1) - 1)
+                .clamp(0, 999999);
+          });
       } else {
         await VoteService.instance.likePost(postId);
-        if (mounted) setState(() {
-          _postLiked[postId] = true;
-          _postLikesCount[postId] = (_postLikesCount[postId] ?? 0) + 1;
-        });
+        if (mounted)
+          setState(() {
+            _postLiked[postId] = true;
+            _postLikesCount[postId] = (_postLikesCount[postId] ?? 0) + 1;
+          });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _liking[postId] = false);
     }
@@ -746,10 +764,11 @@ class _FeedPageState extends State<FeedPage> {
       setState(() => _commenting[postId] = true);
       try {
         final comments = await PostService.instance.fetchComments(postId);
-        if (mounted) setState(() {
-          _commentsExpanded[postId] = true;
-          _postComments[postId] = comments;
-        });
+        if (mounted)
+          setState(() {
+            _commentsExpanded[postId] = true;
+            _postComments[postId] = comments;
+          });
       } finally {
         if (mounted) setState(() => _commenting[postId] = false);
       }
@@ -794,7 +813,11 @@ class _FeedPageState extends State<FeedPage> {
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -808,7 +831,8 @@ class _FeedPageState extends State<FeedPage> {
               onTap: () async {
                 final picker = ImagePicker();
                 final x = await picker.pickImage(source: ImageSource.gallery);
-                if (x != null && mounted) setState(() => _commentImages[postId] = x);
+                if (x != null && mounted)
+                  setState(() => _commentImages[postId] = x);
               },
               child: Container(
                 width: 36,
@@ -817,7 +841,11 @@ class _FeedPageState extends State<FeedPage> {
                   color: nestOrange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.photo_library_outlined, color: nestOrange, size: 18),
+                child: const Icon(
+                  Icons.photo_library_outlined,
+                  color: nestOrange,
+                  size: 18,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -833,7 +861,10 @@ class _FeedPageState extends State<FeedPage> {
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
@@ -844,12 +875,19 @@ class _FeedPageState extends State<FeedPage> {
               child: isCommenting
                   ? const Padding(
                       padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: wellGreen),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: wellGreen,
+                      ),
                     )
                   : IconButton(
                       onPressed: () => _addComment(postId),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.send_rounded, color: wellGreen, size: 22),
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: wellGreen,
+                        size: 22,
+                      ),
                     ),
             ),
           ],
@@ -878,7 +916,10 @@ class _FeedPageState extends State<FeedPage> {
         });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _submitting[postId] = false);
     }

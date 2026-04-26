@@ -17,11 +17,17 @@ import 'package:my_app/theme/app_theme.dart';
 class WeeklyMealPlannerStrip extends StatefulWidget {
   final DateTime weekStart;
   final void Function(DateTime nextWeekStart) onWeekChanged;
+  final Map<DateTime, int?>? selections;
+  final List<Recipe>? recipes;
+  final void Function(DateTime day, int? recipeId)? onAssignRecipe;
 
   const WeeklyMealPlannerStrip({
     super.key,
     required this.weekStart,
     required this.onWeekChanged,
+    this.selections,
+    this.recipes,
+    this.onAssignRecipe,
   });
 
   @override
@@ -77,6 +83,7 @@ class _WeeklyMealPlannerStripState extends State<WeeklyMealPlannerStrip> {
         _plans.removeWhere((p) => _normalized(p.plannedDate) == _normalized(day));
         _plans.add(plan);
       });
+      widget.onAssignRecipe?.call(_normalized(day), picked.id);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
