@@ -6,12 +6,16 @@ class AdminUser {
   final String name;
   final String email;
   final String status; // 'active' | 'inactive'
+  final int totalPosts;
+  final String? lastLogin;
 
   AdminUser({
     required this.id,
     required this.name,
     required this.email,
     required this.status,
+    this.totalPosts = 0,
+    this.lastLogin,
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,8 @@ class AdminUser {
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       status: json['status'] ?? 'active',
+      totalPosts: json['total_posts'] as int? ?? 0,
+      lastLogin: json['last_login'] as String?,
     );
   }
 

@@ -21,6 +21,7 @@ dependencies:
   path_provider: ^2.1.4
   pdf: ^3.11.1
   shimmer: ^3.0.0
+  timeago: ^3.7.0
 
 dev_dependencies:
   flutter_test:
@@ -58,3 +59,4 @@ flutter:
           weight: 600
         - asset: fonts/GeorgiaPro-Bold.ttf
           weight: 700
+

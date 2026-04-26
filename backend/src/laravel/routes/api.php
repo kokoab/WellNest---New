@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\MealPlannerController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\RecipeRankingController;
 use App\Http\Controllers\Api\MealPlanController;
+use App\Http\Controllers\Api\AdminDashboardController;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -174,4 +175,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('admin/activity-logs/export', [LogController::class, 'exportCsv']);
 
     Route::get('admin/recipes/rankings', [RecipeRankingController::class, 'index']);
+    Route::get('admin/stats/overview', [AdminDashboardController::class, 'overview']);
+    Route::get('admin/stats/user-growth', [AdminDashboardController::class, 'userGrowth']);
+    Route::get('admin/stats/post-frequency', [AdminDashboardController::class, 'postFrequency']);
+    Route::get('admin/stats/chatbot-interactions', [AdminDashboardController::class, 'chatbotInteractions']);
 });

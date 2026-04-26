@@ -13,6 +13,7 @@ import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/services/user_service.dart';
+import 'package:my_app/widgets/edit_profile_overlay.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -156,6 +157,29 @@ class _ProfilePageState extends State<ProfilePage> {
               // Theme toggle
               _buildThemeToggle(context),
               const SizedBox(height: 20),
+              if (AuthService.instance.isLoggedIn && _user != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => showEditProfileOverlay(
+                      context,
+                      _user!,
+                      onSaved: _load,
+                    ),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit Profile'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: wellGreen,
+                      side: const BorderSide(color: wellGreen),
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -469,6 +493,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         alignment: Alignment.center,
                         width: double.infinity,
                         cacheWidth: 600,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                         errorBuilder: (_, __, ___) => _placeholderImage(),
                       )
                     : _placeholderImage(),

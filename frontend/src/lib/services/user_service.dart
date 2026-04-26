@@ -205,4 +205,36 @@ class UserService {
       return fallback;
     }
   }
+
+  /// PATCH /api/user — update current user profile (firstName, lastName, email).
+  Future<CurrentUser> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String email,
+    String? password,
+  }) async {
+    final payload = <String, dynamic>{
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+    };
+    final normalizedPassword = password?.trim() ?? '';
+    if (normalizedPassword.isNotEmpty) {
+      payload['password'] = normalizedPassword;
+    }
+
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/user'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final payload = (data['user'] is Map<String, dynamic>)
+          ? data['user'] as Map<String, dynamic>
+          : data;
+      return CurrentUser.fromJson(payload);
+    }
+    throw Exception(_messageFromResponse(response, fallback: 'Failed to update profile'));
+  }
 }
