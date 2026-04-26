@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,167 +45,168 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    const Color wellGreen = kPrimaryGreen;
+    const Color nestOrange = kAccentOrange;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: kBackgroundCream,
       appBar: AppBar(
-        title: Text(
-          "Login",
-          style: textTheme.titleMedium?.copyWith(
-            fontFamily: kFontAppFamily,
-            fontSize: 16,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        backgroundColor: theme.scaffoldBackgroundColor,
+        title: const Text("Login", style: TextStyle(fontSize: 16, color: kPrimaryGreen)),
+        backgroundColor: kBackgroundCream,
         elevation: 0,
-        foregroundColor: colorScheme.onSurface,
+        foregroundColor: kPrimaryGreen,
         leading: Semantics(
           button: true,
           label: 'Back',
           child: IconButton(
-            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+            icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
             onPressed: () => Navigator.pop(context),
           ),
         ),
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              // Logo placeholder, re-use existing
+              Container(
+                height: 100,
+                width: 100,
+                child: Image.asset(
+                  'lib/assets/images/logo1.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GeorgiaProDisplaySquish(
+                alignment: Alignment.center,
+                child: Text(
+                  'Log In',
+                  style: georgiaProTextStyle(
+                    fontSize: 32,
+                    color: kPrimaryGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Form fields (labels left-aligned)
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Email:",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    AppSpacing.gapV8,
+                    Semantics(
+                      textField: true,
+                      label: 'Email',
+                      hint: 'Enter your email',
+                      child: TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          hintText: 'Enter your email',
+                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                        ),
+                      ),
+                    ),
+                    AppSpacing.gapV16,
+                    const Text(
+                      "Password:",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    AppSpacing.gapV8,
+                    Semantics(
+                      textField: true,
+                      label: 'Password',
+                      hint: 'Enter your password',
+                      child: TextFormField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) _submitLogin();
+                        },
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          hintText: 'Enter your password',
+                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AppSpacing.gapV24,
+              // Enter Button
+              Semantics(
+                button: true,
+                label: 'Log in',
+                enabled: !_isLoading,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
+                      : ElevatedButton(
+                          onPressed: _submitLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: nestOrange,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                        child: const Text('Enter'),
+                      ),
+                ),
+              ),
+              AppSpacing.gapV24,
+              // Connect: Navigate to Register page
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  AppSpacing.gapV24,
-                  SizedBox(
-                    height: 100,
-                    width: 100,
-                    child: Image.asset(
-                      'lib/assets/images/logo1.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  AppSpacing.gapV12,
                   Text(
-                    'Log In',
-                    style: textTheme.displayMedium,
+                    "Don't have an account? ",
+                    style: TextStyle(color: wellGreen, fontFamily: 'HelveticaNow'),
                   ),
-                  AppSpacing.gapV8,
-                  Text(
-                    'Welcome back to Wellnest.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Email',
-                          style: textTheme.titleSmall?.copyWith(
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        AppSpacing.gapV8,
-                        Semantics(
-                          textField: true,
-                          label: 'Email',
-                          hint: 'Enter your email',
-                          child: TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              hintText: 'Enter your email',
-                            ),
-                            style: textTheme.bodyLarge,
-                          ),
-                        ),
-                        AppSpacing.gapV16,
-                        Text(
-                          'Password',
-                          style: textTheme.titleSmall?.copyWith(
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        AppSpacing.gapV8,
-                        Semantics(
-                          textField: true,
-                          label: 'Password',
-                          hint: 'Enter your password',
-                          child: TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) {
-                              if (!_isLoading) _submitLogin();
-                            },
-                            decoration: const InputDecoration(
-                              hintText: 'Enter your password',
-                            ),
-                            style: textTheme.bodyLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppSpacing.gapV24,
-                  Semantics(
-                    button: true,
-                    label: 'Log in',
-                    enabled: !_isLoading,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: _isLoading
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: kPrimaryGreen,
-                                ),
-                              ),
-                            )
-                          : FilledButton(
-                              onPressed: _submitLogin,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: colorScheme.secondary,
-                                foregroundColor: colorScheme.onSecondary,
-                              ),
-                              child: const Text('Enter'),
-                            ),
-                    ),
-                  ),
-                  AppSpacing.gapV16,
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        "Don't have an account? ",
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/register'),
+                    child: Text(
+                      "Signup",
+                      style: TextStyle(
+                        color: wellGreen,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'HelveticaNow',
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/register'),
-                        child: const Text('Signup'),
-                      ),
-                    ],
+                    ),
                   ),
-                  AppSpacing.gapV24,
                 ],
               ),
-            ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),

@@ -9,7 +9,11 @@ class AppConfig {
   /// Reverb WebSocket server (Laravel Reverb). Use a different port than API if both run locally.
   static String get reverbHost => Uri.parse(baseUrl).host;
   static const int reverbPort = int.fromEnvironment('REVERB_PORT', defaultValue: 8081);
-  static const String reverbAppKey = String.fromEnvironment('REVERB_APP_KEY', defaultValue: 'wellnest');
+  static const String reverbAppKey = String.fromEnvironment(
+    'REVERB_APP_KEY',
+    // Match backend .env default for local Docker setup.
+    defaultValue: 'efcct5mu8lg3nxzgpixd',
+  );
 
   /// Full URL for private channel auth (Laravel returns auth signature here).
   static String get broadcastingAuthUrl => '$baseUrl/api/broadcasting/auth';

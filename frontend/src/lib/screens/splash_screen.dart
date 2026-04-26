@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class WellnestSplashScreen extends StatelessWidget {
   const WellnestSplashScreen({super.key});
@@ -26,30 +26,24 @@ class WellnestSplashScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              RichText(
-                text: TextSpan(
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.55,
-                    height: 1.05,
+              GeorgiaProDisplaySquish(
+                alignment: Alignment.center,
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: georgiaProDisplayStyle(fontSize: 40),
+                    children: const [
+                      TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
+                      TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
+                    ],
                   ),
-                  children: const [
-                    TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
-                    TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
-                  ],
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 'A Free healthy Recipe Mobile App\nfor Everyday Wellness',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: kPrimaryGreen.withValues(alpha: 0.88),
-                  height: 1.5,
-                ),
+                style: TextStyle(fontSize: 14, color: kPrimaryGreen.withValues(alpha: 0.9), height: 1.4),
               ),
               const Spacer(flex: 2),
               Semantics(
@@ -64,10 +58,7 @@ class WellnestSplashScreen extends StatelessWidget {
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      textStyle: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     child: const Text('Sign Up'),
                   ),
@@ -86,10 +77,7 @@ class WellnestSplashScreen extends StatelessWidget {
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      textStyle: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     child: const Text('Log In'),
                   ),

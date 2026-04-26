@@ -53,6 +53,18 @@ class _ProfilePageState extends State<ProfilePage> {
           : null;
       if (!mounted) return;
 
+      if (AuthService.instance.isLoggedIn && user == null) {
+        setState(() {
+          _user = null;
+          _myRecipes = [];
+          _myPosts = [];
+          _loading = false;
+          _error =
+              'Could not load your profile from the server. Pull to refresh, or run backend migrations (php artisan migrate) if you recently updated the API.';
+        });
+        return;
+      }
+
       List<Recipe> recipes = [];
       List<Post> posts = [];
       if (user != null) {

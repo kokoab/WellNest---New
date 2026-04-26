@@ -3,6 +3,24 @@
 Two ways to run the Flutter app: **on your Mac (recommended)** or **inside Docker**.
 
 ---
+# Chrome (macOS)
+cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
+flutter run -d chrome \
+  --web-hostname 0.0.0.0 \
+  --web-port 3000 \
+  --dart-define=BASE_URL=http://localhost:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+
+  # Android emulator
+cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
+flutter run -d emulator-5554 \
+  --dart-define=BASE_URL=http://10.0.2.2:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+
+
+
 
 ## Option 1: Run Flutter on your Mac (recommended)
 
@@ -92,7 +110,9 @@ docker compose exec flutter_dev bash
 ```bash
 cd /app
 flutter pub get
-flutter run -d web-server --web-hostname 0.0.0.0 --web-port 3000 --dart-define=BASE_URL=http://backend_nginx:80
+cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
+flutter run -d chrome --web-hostname 0.0.0.0 --web-port 3000 \
+  --dart-define=BASE_URL=http://localhost:8080
 ```
 
 Then on your Mac open **http://localhost:3000** (port 3000 must be published; add `ports: - "3000:3000"` to `flutter_dev` in `docker-compose.yml` if needed).

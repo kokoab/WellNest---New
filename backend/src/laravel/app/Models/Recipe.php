@@ -21,6 +21,7 @@ class Recipe extends Model
         'user_id',
         'category_id',
         'title',
+        'description',
         'instructions',
         'prep_time',
     ];

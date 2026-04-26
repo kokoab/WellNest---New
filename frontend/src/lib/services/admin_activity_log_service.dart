@@ -44,12 +44,19 @@ class AdminAuditLogService {
     _throwFromResponse(response);
   }
 
-  /// GET /api/admin/audit-logs/export — returns CSV bytes. Optional category (default 'all').
+  /// GET /api/admin/audit-logs/export — returns CSV bytes. Optional category/range.
   /// Caller is responsible for saving/sharing the file (e.g. via path_provider + share_plus).
-  Future<List<int>> exportCsv({String category = 'all'}) async {
-    final uri = category == 'all'
-        ? Uri.parse('$_baseUrl/admin/audit-logs/export')
-        : Uri.parse('$_baseUrl/admin/audit-logs/export').replace(queryParameters: {'category': category});
+  Future<List<int>> exportCsv({String category = 'all', String? range}) async {
+    final params = <String, String>{};
+    if (category.isNotEmpty && category != 'all') {
+      params['category'] = category;
+    }
+    if (range != null && range.isNotEmpty) {
+      params['range'] = range;
+    }
+    final uri = Uri.parse('$_baseUrl/admin/audit-logs/export').replace(
+      queryParameters: params.isEmpty ? null : params,
+    );
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       return response.bodyBytes;

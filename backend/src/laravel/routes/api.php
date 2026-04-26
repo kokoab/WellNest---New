@@ -22,6 +22,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageAttachmentController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\MealPlannerController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\RecipeRankingController;
 use App\Http\Controllers\Api\MealPlanController;
@@ -129,6 +130,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('messages/{message}', [MessageController::class, 'delete']);
     Route::patch('messages/{message}/read', [MessageController::class, 'markAsRead']);
     Route::post('messages/{message}/attachments', [MessageAttachmentController::class, 'upload']);
+    Route::post('meal-planner/log', [MealPlannerController::class, 'logAction']);
 
     Route::get('message-attachments', [MessageAttachmentController::class, 'index']);
     Route::get('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'show']);

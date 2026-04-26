@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
@@ -30,26 +30,15 @@ class WellnestHeader extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: RichText(
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  text: TextSpan(
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.05,
+                child: GeorgiaProDisplaySquish(
+                  child: Text(
+                    'Wellnest',
+                    style: georgiaProDisplayStyle(
+                      fontSize: 26,
+                      color: AppColors.primaryGreen,
                     ),
-                    children: const [
-                      TextSpan(
-                        text: 'well',
-                        style: TextStyle(color: AppColors.primaryGreen),
-                      ),
-                      TextSpan(
-                        text: 'nest',
-                        style: TextStyle(color: AppColors.accentOrange),
-                      ),
-                    ],
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ),

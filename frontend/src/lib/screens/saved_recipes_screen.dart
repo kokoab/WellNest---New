@@ -5,7 +5,7 @@ import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
-import 'package:my_app/widgets/skeleton_loaders.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
@@ -66,13 +66,13 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
           AppSpacing.gapV16,
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-            child: Text(
-              'Saved Recipes',
-              style: TextStyle(
-                fontFamily: kFontAppFamily,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: wellGreen,
+            child: GeorgiaProDisplaySquish(
+              child: Text(
+                'Saved Recipes',
+                style: georgiaProTextStyle(
+                  fontSize: 28,
+                  color: wellGreen,
+                ),
               ),
             ),
           ),
@@ -84,16 +84,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
 
   Widget _buildContent() {
     if (_loading && _recipes.isEmpty) {
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-        itemCount: 6,
-        itemBuilder: (context, index) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: SavedRecipeCardSkeleton(),
-          );
-        },
-      );
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF097333)));
     }
     if (_error != null && _recipes.isEmpty) {
       return Center(
@@ -229,22 +220,22 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      recipe.title,
-                      style: TextStyle(
-                        fontFamily: kFontAppFamily,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFF097333),
+                    GeorgiaProDisplaySquish(
+                      child: Text(
+                        recipe.title,
+                        style: georgiaProTextStyle(
+                          fontSize: 18,
+                          color: const Color(0xFF097333),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'By ${recipe.userDisplayName}',
                       style: TextStyle(
-                        fontFamily: kFontAppFamily,
+                        fontFamily: 'HelveticaNow',
                         fontSize: 14,
                         color: Colors.grey.shade700,
                       ),
@@ -259,7 +250,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                         Text(
                           '${avg.toStringAsFixed(1)} ($count)',
                           style: TextStyle(
-                            fontFamily: kFontAppFamily,
+                            fontFamily: 'HelveticaNow',
                             fontSize: 13,
                             color: Colors.grey.shade700,
                           ),

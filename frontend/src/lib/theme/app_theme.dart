@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Brand color palette
 const Color kPrimaryGreen = Color(0xFF097333);
@@ -24,6 +23,44 @@ const Color kDarkOutline = Color(0xFF4E6159);
 /// Legacy aliases (for gradual migration)
 const Color kWellGreen = kPrimaryGreen;
 const Color kNestOrange = kAccentOrange;
+
+/// Display serif (must match `family` in [pubspec.yaml] under `flutter: fonts:`).
+const String kFontGeorgiaPro = 'GeorgiaPro';
+const String kFontHelveticaNow = 'HelveticaNow';
+
+/// Figma-style tracking in **thousandths of 1em** (e.g. `-30` → `-0.03em` letter-spacing).
+const double kGeorgiaProTrackingFigma = -30;
+
+/// Line-height multiplier for Georgia Pro display text (taller, news-masthead feel).
+const double kGeorgiaProLineHeightMultiplier = 1.12;
+
+/// Horizontal squeeze for [GeorgiaProDisplaySquish] (narrower = more condensed).
+const double kGeorgiaProDisplayScaleX = 0.93;
+
+/// Vertical stretch paired with [kGeorgiaProDisplayScaleX] (taller letterforms).
+const double kGeorgiaProDisplayScaleY = 1.07;
+
+/// Letter-spacing in logical pixels for a given [fontSize] (matches Figma tracking).
+double georgiaProLetterSpacing(double fontSize) =>
+    fontSize * kGeorgiaProTrackingFigma / 1000;
+
+/// Georgia Pro display style: uses **Bold** (weight 700) by default so `GeorgiaPro-Bold.ttf` loads.
+TextStyle georgiaProDisplayStyle({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.bold,
+  Color? color,
+}) =>
+    TextStyle(
+      fontFamily: kFontGeorgiaPro,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: georgiaProLetterSpacing(fontSize),
+      height: kGeorgiaProLineHeightMultiplier,
+    );
+
+/// Resolved font-family constant for the app UI font.
+String get kFontAppFamily => kFontHelveticaNow;
 
 ThemeData get lightTheme {
   final colorScheme = ColorScheme.fromSeed(
@@ -104,15 +141,6 @@ ThemeData get darkTheme {
   );
 }
 
-/// Typography inspired by **Meta-style** product UI (not a font clone): a clear neo-grotesque
-/// sans, strong headline hierarchy, slight negative tracking on titles, and relaxed line
-/// height for readable “feed” body copy. Face: [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans).
-String? _appFontFamilyCache;
-
-/// Resolved [TextStyle.fontFamily] for the app UI font (cached after first use).
-String get kFontAppFamily =>
-    _appFontFamilyCache ??= GoogleFonts.plusJakartaSans().fontFamily!;
-
 /// Brand colors and shared design tokens
 class AppColors {
   static const Color primaryGreen = kPrimaryGreen;
@@ -155,13 +183,41 @@ TextStyle appText({
   double? height,
   double? letterSpacing,
 }) =>
-    GoogleFonts.plusJakartaSans(
+    TextStyle(
+      fontFamily: kFontHelveticaNow,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
       height: height,
       letterSpacing: letterSpacing,
     );
+
+TextStyle georgiaProTextStyle({
+  double? fontSize,
+  FontWeight fontWeight = FontWeight.bold,
+  Color? color,
+}) {
+  final fs = fontSize;
+  return TextStyle(
+    fontFamily: kFontGeorgiaPro,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: fs == null ? null : georgiaProLetterSpacing(fs),
+    height: kGeorgiaProLineHeightMultiplier,
+  );
+}
+
+TextStyle helveticaNow({
+  double? fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+}) => TextStyle(
+  fontFamily: kFontHelveticaNow,
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color,
+);
 
 ThemeData _buildTheme({
   required Brightness brightness,
@@ -185,7 +241,7 @@ ThemeData _buildTheme({
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    fontFamily: kFontAppFamily,
+    fontFamily: kFontHelveticaNow,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: scaffoldBackgroundColor,
     canvasColor: scaffoldBackgroundColor,
@@ -248,7 +304,8 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: GoogleFonts.plusJakartaSans(
+        textStyle: const TextStyle(
+          fontFamily: kFontHelveticaNow,
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
@@ -264,7 +321,8 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: GoogleFonts.plusJakartaSans(
+        textStyle: const TextStyle(
+          fontFamily: kFontHelveticaNow,
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
@@ -279,7 +337,8 @@ ThemeData _buildTheme({
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
-        textStyle: GoogleFonts.plusJakartaSans(
+        textStyle: const TextStyle(
+          fontFamily: kFontHelveticaNow,
           fontWeight: FontWeight.w700,
           fontSize: 15,
         ),
@@ -289,7 +348,8 @@ ThemeData _buildTheme({
       style: TextButton.styleFrom(
         foregroundColor: colorScheme.primary,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        textStyle: GoogleFonts.plusJakartaSans(
+        textStyle: const TextStyle(
+          fontFamily: kFontHelveticaNow,
           fontWeight: FontWeight.w700,
           fontSize: 15,
         ),
@@ -383,40 +443,14 @@ TextTheme _buildTextTheme({
   required Color bodyColor,
   required Color mutedColor,
 }) {
-  const headlineTracking = -0.4;
   const titleTracking = -0.2;
 
   return TextTheme(
-    displayLarge: appText(
-      fontSize: 34,
-      fontWeight: FontWeight.bold,
-      color: titleColor,
-      letterSpacing: headlineTracking,
-    ),
-    displayMedium: appText(
-      fontSize: 30,
-      fontWeight: FontWeight.bold,
-      color: titleColor,
-      letterSpacing: headlineTracking,
-    ),
-    headlineSmall: appText(
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: titleColor,
-      letterSpacing: headlineTracking,
-    ),
-    headlineMedium: appText(
-      fontSize: 28,
-      fontWeight: FontWeight.bold,
-      color: titleColor,
-      letterSpacing: headlineTracking,
-    ),
-    titleLarge: appText(
-      fontSize: 20,
-      fontWeight: FontWeight.w700,
-      color: titleColor,
-      letterSpacing: titleTracking,
-    ),
+    displayLarge: georgiaProDisplayStyle(fontSize: 34, color: titleColor),
+    displayMedium: georgiaProDisplayStyle(fontSize: 30, color: titleColor),
+    headlineSmall: georgiaProDisplayStyle(fontSize: 24, color: titleColor),
+    headlineMedium: georgiaProDisplayStyle(fontSize: 28, color: titleColor),
+    titleLarge: georgiaProDisplayStyle(fontSize: 20, color: titleColor),
     titleMedium: appText(
       fontSize: 18,
       fontWeight: FontWeight.w600,

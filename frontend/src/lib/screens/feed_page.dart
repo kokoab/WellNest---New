@@ -14,6 +14,7 @@ import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
@@ -36,7 +37,11 @@ class _FeedPageState extends State<FeedPage> {
   List<Post> _posts = [];
   bool _loading = true;
   Object? _loadError;
+  final Map<int, bool> _postLiked = {};
+  final Map<int, int> _postLikesCount = {};
   final Map<int, int> _postCommentsCount = {};
+  // Loading indicators per post
+  final Map<int, bool> _liking = {};
   final Map<int, bool> _commenting = {};   // loading comments (expand)
   final Map<int, bool> _submitting = {};   // submitting a comment
   final Map<int, XFile?> _commentImages = {};
@@ -88,6 +93,23 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
+  /// Fetch like counts and liked state for all posts, same pattern as _loadAllCommentCounts.
+  Future<void> _loadAllLikes(List<Post> posts) async {
+    for (final p in posts) {
+      if (!mounted) return;
+      if (_liking[p.id] == true) continue; // skip if mid-interaction
+      try {
+        final result = await VoteService.instance.fetchPostLikes(p.id);
+        if (mounted) {
+          setState(() {
+            _postLikesCount[p.id] = result.count;
+            _postLiked[p.id] = result.isLiked;
+          });
+        }
+      } catch (_) {}
+    }
+  }
+
   Future<void> _loadUser() async {
     if (AuthService.instance.isLoggedIn) {
       final u = await UserService.instance.fetchCurrentUser();
@@ -109,8 +131,15 @@ class _FeedPageState extends State<FeedPage> {
       setState(() {
         _posts = posts;
         _loading = false;
+        // Initialize with defaults — real values loaded by _loadAllLikes()
+        for (final p in posts) {
+          _postLiked[p.id] ??= false;
+          _postLikesCount[p.id] ??= 0;
+        }
       });
+      // Load comment and like counts in background for all posts
       _loadAllCommentCounts(posts);
+      _loadAllLikes(posts);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -182,13 +211,13 @@ class _FeedPageState extends State<FeedPage> {
                       AppSpacing.gapV16,
                       Padding(
                         padding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.md),
-                        child: Text(
-                          'Feed',
-                          style: TextStyle(
-                            fontFamily: kFontAppFamily,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryGreen,
+                        child: GeorgiaProDisplaySquish(
+                          child: Text(
+                            'Feed',
+                            style: georgiaProTextStyle(
+                              fontSize: 28,
+                              color: AppColors.primaryGreen,
+                            ),
                           ),
                         ),
                       ),
@@ -314,16 +343,14 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildCreatePostBox() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.24 : 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -338,11 +365,11 @@ class _FeedPageState extends State<FeedPage> {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: colorScheme.secondary.withOpacity(0.18),
+                  backgroundColor: const Color(0xFFFFEECC),
                   child: Text(
                     _initials,
-                    style: TextStyle(
-                      color: colorScheme.primary,
+                    style: const TextStyle(
+                      color: wellGreen,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -356,14 +383,14 @@ class _FeedPageState extends State<FeedPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
+                      color: AppColors.imagePlaceholderGreen,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Text(
                       "What's on your mind?",
                       style: TextStyle(
                         fontSize: 17,
-                        color: colorScheme.onSurfaceVariant,
+                        color: kPrimaryGreen.withOpacity(0.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -404,7 +431,6 @@ class _FeedPageState extends State<FeedPage> {
     Color color,
     VoidCallback onTap,
   ) {
-    final textColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -420,7 +446,7 @@ class _FeedPageState extends State<FeedPage> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: textColor,
+                color: Colors.grey.shade700,
               ),
             ),
           ],
@@ -459,11 +485,12 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildFeedCard(Post post) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final liked = _postLiked[post.id] ?? false;
+    final isLiking = _liking[post.id] ?? false;
     final isCommenting = _commenting[post.id] ?? false;
     final expanded = _commentsExpanded[post.id] ?? false;
     final comments = _postComments[post.id] ?? [];
+    final likesCount = _postLikesCount[post.id] ?? 0;
     final commentsCount =
         expanded ? comments.length : (_postCommentsCount[post.id] ?? 0);
     _commentControllers[post.id] ??= TextEditingController();
@@ -491,11 +518,11 @@ class _FeedPageState extends State<FeedPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.24 : 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -536,7 +563,7 @@ class _FeedPageState extends State<FeedPage> {
                           formatPostTime(post.createdAt),
                           style: TextStyle(
                             fontSize: 13,
-                            color: colorScheme.onSurfaceVariant,
+                            color: Colors.grey[600],
                           ),
                         ),
                       ],
@@ -574,14 +601,15 @@ class _FeedPageState extends State<FeedPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(post.content),
                 ),
-                if (post.imageUrl.isNotEmpty) ...[
+                if (post.displayImageUrl != null &&
+                    post.displayImageUrl!.isNotEmpty) ...[
                   const SizedBox(height: 15),
                   ClipRRect(
                     borderRadius: post.content.isEmpty
                         ? const BorderRadius.vertical(top: Radius.circular(20))
                         : BorderRadius.zero,
                     child: Image.network(
-                      post.imageUrl,
+                      post.displayImageUrl!,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -608,7 +636,13 @@ class _FeedPageState extends State<FeedPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  _PostLikeButton(postId: post.id),
+                  _ActionButton(
+                    onTap: () => _toggleLike(post.id),
+                    loading: isLiking,
+                    icon: liked ? Icons.favorite : Icons.favorite_border,
+                    label: 'Like ($likesCount)',
+                    color: nestOrange,
+                  ),
                   const SizedBox(width: 8),
                   _ActionButton(
                     onTap: () => _toggleComments(post.id),
@@ -619,7 +653,7 @@ class _FeedPageState extends State<FeedPage> {
                   ),
                   const Spacer(),
                   PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                    icon: const Icon(Icons.more_vert, color: Colors.black54),
                     onSelected: (v) => v == 'report' ? _reportPost(post.id) : null,
                     itemBuilder: (context) => const [
                       PopupMenuItem(value: 'report', child: Text('Report')),
@@ -649,8 +683,8 @@ class _FeedPageState extends State<FeedPage> {
                             Expanded(
                               child: RichText(
                                 text: TextSpan(
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
                                     fontSize: 14,
                                   ),
                                   children: [
@@ -679,6 +713,31 @@ class _FeedPageState extends State<FeedPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _toggleLike(int postId) async {
+    if (_liking[postId] == true) return;
+    setState(() => _liking[postId] = true);
+    try {
+      final liked = _postLiked[postId] ?? false;
+      if (liked) {
+        await VoteService.instance.unlikePost(postId);
+        if (mounted) setState(() {
+          _postLiked[postId] = false;
+          _postLikesCount[postId] = ((_postLikesCount[postId] ?? 1) - 1).clamp(0, 999999);
+        });
+      } else {
+        await VoteService.instance.likePost(postId);
+        if (mounted) setState(() {
+          _postLiked[postId] = true;
+          _postLikesCount[postId] = (_postLikesCount[postId] ?? 0) + 1;
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _liking[postId] = false);
+    }
   }
 
   Future<void> _toggleComments(int postId) async {
@@ -731,15 +790,11 @@ class _FeedPageState extends State<FeedPage> {
                     onTap: () => setState(() => _commentImages[postId] = null),
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        Icons.close,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        size: 14,
-                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 14),
                     ),
                   ),
                 ),
@@ -860,87 +915,6 @@ class _FeedPageState extends State<FeedPage> {
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
-  }
-}
-
-// ── Self-contained like button: loads & toggles its own state ───────────────
-//   Prevents a like tap from rebuilding every other feed card.
-
-class _PostLikeButton extends StatefulWidget {
-  final int postId;
-
-  const _PostLikeButton({required this.postId});
-
-  @override
-  State<_PostLikeButton> createState() => _PostLikeButtonState();
-}
-
-class _PostLikeButtonState extends State<_PostLikeButton> {
-  static const Color nestOrange = Color(0xFFEF5026);
-
-  bool _liked = false;
-  int _count = 0;
-  bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLikeState();
-  }
-
-  Future<void> _loadLikeState() async {
-    try {
-      final result = await VoteService.instance.fetchPostLikes(widget.postId);
-      if (mounted) {
-        setState(() {
-          _liked = result.isLiked;
-          _count = result.count;
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _toggle() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      if (_liked) {
-        await VoteService.instance.unlikePost(widget.postId);
-        if (mounted) {
-          setState(() {
-            _liked = false;
-            _count = (_count - 1).clamp(0, 999999);
-          });
-        }
-      } else {
-        await VoteService.instance.likePost(widget.postId);
-        if (mounted) {
-          setState(() {
-            _liked = true;
-            _count = _count + 1;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _ActionButton(
-      onTap: _toggle,
-      loading: _loading,
-      icon: _liked ? Icons.favorite : Icons.favorite_border,
-      label: 'Like ($_count)',
-      color: nestOrange,
-    );
   }
 }
 
@@ -1114,9 +1088,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
       ),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1148,9 +1122,11 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               decoration: InputDecoration(
                 hintText: "What's on your mind?",
                 hintStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: wellGreen.withOpacity(0.5),
                   fontSize: 17,
                 ),
+                filled: true,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -1162,7 +1138,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.18),
+                  color: const Color(0xFFFFEECC),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: wellGreen.withOpacity(0.3)),
                 ),
@@ -1176,15 +1152,15 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                         children: [
                           Text(
                             _selectedRecipe!.title,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: Color(0xFF1a1a1a),
                             ),
                           ),
                           Text(
                             '${_selectedRecipe!.prepTime} min',
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Colors.grey.shade600,
                               fontSize: 13,
                             ),
                           ),
@@ -1217,10 +1193,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                       onPressed: _posting
                           ? null
                           : () => setState(() => _selectedImage = null),
-                      icon: Icon(
-                        Icons.close,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                      icon: const Icon(Icons.close, color: Colors.white),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.black54,
                         padding: const EdgeInsets.all(4),
@@ -1333,14 +1306,12 @@ class _PickRecipePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Attach recipe from saved'),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        foregroundColor: colorScheme.onSurface,
-        iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
+        backgroundColor: _wellGreen,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white, size: 26),
         elevation: 0,
       ),
       body: ListView.builder(
@@ -1360,7 +1331,7 @@ class _PickRecipePage extends StatelessWidget {
                       cacheWidth: 96,
                     ),
                   )
-                : Icon(Icons.restaurant, color: colorScheme.primary),
+                : Icon(Icons.restaurant, color: _wellGreen),
             title: Text(
               r.title,
               style: const TextStyle(fontWeight: FontWeight.w600),

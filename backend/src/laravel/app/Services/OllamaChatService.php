@@ -21,11 +21,18 @@ class OllamaChatService
             'connect_timeout' => 10,
         ]);
 
+        $options = config('assistant.ollama_options', []);
+        $options = is_array($options) ? array_filter($options, static fn ($v) => $v !== null) : [];
+
         $body = [
             'model' => $model,
             'messages' => $messages,
             'stream' => true,
         ];
+
+        if ($options !== []) {
+            $body['options'] = $options;
+        }
 
         $accumulated = '';
 
