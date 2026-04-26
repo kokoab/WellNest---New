@@ -58,6 +58,11 @@ class RecipeController extends Controller
                 $q->where('title', 'like', '%' . $term . '%')
                     ->orWhereHas('ingredients', function ($q2) use ($term) {
                         $q2->where('name', 'like', '%' . $term . '%');
+                    })
+                    ->orWhereHas('user', function ($q3) use ($term) {
+                        $q3->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%' . $term . '%'])
+                             ->orWhere('first_name', 'like', '%' . $term . '%')
+                              ->orWhere('last_name', 'like', '%' . $term . '%');
                     });
             });
         }
