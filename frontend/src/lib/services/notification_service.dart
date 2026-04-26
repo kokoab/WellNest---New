@@ -5,6 +5,41 @@ import '../models/notification.dart';
 import 'auth_service.dart';
 import 'admin_auth_service.dart';
 
+class NotificationCategory {
+  static const String message = 'MESSAGE_TYPE';
+  static const String activity = 'ACTIVITY_TYPE';
+}
+
+class NotificationCounts {
+  final int allUnread;
+  final int messageUnread;
+  final int activityUnread;
+
+  const NotificationCounts({
+    required this.allUnread,
+    required this.messageUnread,
+    required this.activityUnread,
+  });
+
+  factory NotificationCounts.fromResponse(Map<String, dynamic> body) {
+    final counts = body['counts'] is Map<String, dynamic>
+        ? body['counts'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    int toInt(dynamic v) => (v as num?)?.toInt() ?? 0;
+
+    final message = toInt(counts['message_unread'] ?? counts[NotificationCategory.message]);
+    final activity = toInt(counts['activity_unread'] ?? counts[NotificationCategory.activity]);
+    final all = toInt(counts['all_unread'] ?? body['count']);
+
+    return NotificationCounts(
+      allUnread: all == 0 ? (message + activity) : all,
+      messageUnread: message,
+      activityUnread: activity,
+    );
+  }
+}
+
 class NotificationService {
   NotificationService._();
   static final NotificationService _instance = NotificationService._();
@@ -33,12 +68,14 @@ class NotificationService {
     int page = 1,
     int perPage = 20,
     bool unreadOnly = false,
+    String? category,
   }) async {
     if (!_hasAuth) return [];
     final params = <String, String>{
       'page': '$page',
       'per_page': '$perPage',
       if (unreadOnly) 'unread_only': 'true',
+      if (category != null && category.isNotEmpty) 'category': category,
     };
     final uri = Uri.parse('$_baseUrl/notifications').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
@@ -48,15 +85,39 @@ class NotificationService {
     return list.map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<int> getUnreadCount() async {
-    if (!_hasAuth) return 0;
+  Future<NotificationCounts> getUnreadCounts({String? category}) async {
+    if (!_hasAuth) {
+      return const NotificationCounts(
+        allUnread: 0,
+        messageUnread: 0,
+        activityUnread: 0,
+      );
+    }
+    final params = <String, String>{
+      if (category != null && category.isNotEmpty) 'category': category,
+    };
+
+    final uri = Uri.parse('$_baseUrl/notifications/unread-count').replace(
+      queryParameters: params.isEmpty ? null : params,
+    );
+
     final response = await http.get(
-      Uri.parse('$_baseUrl/notifications/unread-count'),
+      uri,
       headers: _headers,
     );
-    if (response.statusCode != 200) return 0;
+    if (response.statusCode != 200) {
+      return const NotificationCounts(allUnread: 0, messageUnread: 0, activityUnread: 0);
+    }
+
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return (data['count'] as num?)?.toInt() ?? 0;
+    return NotificationCounts.fromResponse(data);
+  }
+
+  Future<int> getUnreadCount({String? category}) async {
+    final counts = await getUnreadCounts(category: category);
+    if (category == NotificationCategory.message) return counts.messageUnread;
+    if (category == NotificationCategory.activity) return counts.activityUnread;
+    return counts.allUnread;
   }
 
   Future<void> markAsRead(String id) async {
