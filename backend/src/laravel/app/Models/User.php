@@ -14,6 +14,8 @@ use App\Models\Message;
 use App\Models\MessageAttachment;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Post;
+use App\Models\PostComment;
 
 class User extends Authenticatable
 {
@@ -79,6 +81,10 @@ class User extends Authenticatable
     public function recipes()
     {
         return $this->hasMany(Recipe::class);
+    }
+    public function comments()
+    {
+        return $this->hasMany(PostComment::class);
     }
     public function reports()
     {

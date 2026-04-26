@@ -17,6 +17,7 @@ import 'package:my_app/theme/app_spacing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/providers/theme_provider.dart';
+import 'package:simple_rich_text/simple_rich_text.dart';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 enum _Section { overview, users, moderation, auditLogs }
@@ -376,8 +377,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmDeactivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Deactivate account?',
-      content:
-          'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
+      content: SimpleRichText(
+        'Deactivate *${user.name}*? They will not be able to sign in until reactivated.',
+      ),
       actionLabel: 'Deactivate',
       actionColor: kAccentOrange,
     );
@@ -388,8 +390,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmActivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Activate account?',
-      content:
-          'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
+      content: SimpleRichText(
+        'Reactivate *${user.name}*? They will be able to sign in again.',
+      ),
       actionLabel: 'Activate',
       actionColor: kPrimaryGreen,
     );
@@ -414,8 +417,10 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmDelete(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Delete account permanently?',
-      content:
-          'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
+      content: SimpleRichText(
+        'Permanently delete *${user.name}*? This cannot be undone.\n'
+        'If this account still has recipes, posts, or comments, deletion will be blocked.',
+      ),
       actionLabel: 'Delete',
       actionColor: Colors.red,
     );
@@ -427,6 +432,26 @@ class _AdminDashboardState extends State<AdminDashboard>
       _loadUsers();
     } catch (e) {
       if (!mounted) return;
+
+      if (e is AdminApiException &&
+          e.statusCode == 403 &&
+          e.message.contains('existing contributions')) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete blocked'),
+            content: Text(e.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
       _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
   }
@@ -452,7 +477,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<bool?> _showConfirmDialog({
     required String title,
-    required String content,
+    required dynamic content,
     required String actionLabel,
     required Color actionColor,
   }) {
@@ -461,7 +486,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(title),
-        content: Text(content),
+        content: content is Widget ? content : Text(content.toString()),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

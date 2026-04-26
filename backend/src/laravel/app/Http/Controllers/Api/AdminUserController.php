@@ -82,25 +82,23 @@ class AdminUserController extends Controller
     /**
      * Delete a user. Requires authenticated admin.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
-        $admin = $request->user();
-        if (! $admin || ! $admin->is_admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $hasRecipes = $user->recipes()->exists();
+        $hasPosts = $user->posts()->exists();
+        $hasComments = $user->comments()->exists();
+
+        if ($hasRecipes || $hasPosts || $hasComments) { 
+            return response()->json(['message' => 'Cannot delete a user with existing data.'], 403);
         }
 
-        $user = User::find($id);
-        if (! $user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
-        if ($user->id === $admin->id) {
-            return response()->json(['message' => 'You cannot delete your own account'], 400);
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'You cannot delete your own account'], 403);
         }
 
         $user->delete();
 
-        ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $admin->id, $user);
+        ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $request->user()->id, $user);
         return response()->json(null, 204);
     }
 

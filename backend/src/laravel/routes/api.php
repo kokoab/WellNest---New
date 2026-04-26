@@ -26,6 +26,8 @@ use App\Http\Controllers\Api\MealPlannerController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\RecipeRankingController;
 use App\Http\Controllers\Api\MealPlanController;
+use App\Models\PostComment;
+
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -150,8 +152,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('register-admin', [AdminAuthController::class, 'register']);
     Route::get('admin/users', [AdminUserController::class, 'index']);
-    Route::patch('admin/users/{id}/status', [AdminUserController::class, 'updateStatus']);
-    Route::delete('admin/users/{id}', [AdminUserController::class, 'destroy']);
+    Route::patch('admin/users/{user}/status', [AdminUserController::class, 'updateStatus']);
+    Route::delete('admin/users/{user}', [AdminUserController::class, 'destroy']);
 
     Route::post('categories', [CategoryController::class, 'create']);
     Route::put('categories/{category}', [CategoryController::class, 'update']);
@@ -159,7 +161,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
     Route::get('admin/reports', [AdminModerationController::class, 'index']);
     Route::patch('admin/reports/{report}/approve', [AdminModerationController::class, 'approve']);
-    Route::patch('admin/reports/{report}/remove-content', [AdminModerationController::class, 'removeContent']);
+Route::patch('admin/reports/{report}/remove-content', [AdminModerationController::class, 'removeContent']);
     Route::patch('admin/reports/{report}/suspend-user', [AdminModerationController::class, 'suspendUser']);
     Route::patch('admin/reports/{report}/unban-user', [AdminModerationController::class, 'unbanUser']);
     Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);
