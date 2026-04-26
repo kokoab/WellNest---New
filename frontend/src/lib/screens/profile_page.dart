@@ -33,6 +33,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _uploadingPhoto = false;
   bool _addingRecipe = false;
   bool _loggingOut = false;
+  bool _deactivatingAccount = false;
   String? _error;
 
   @override
@@ -101,191 +102,314 @@ class _ProfilePageState extends State<ProfilePage> {
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            const WellnestHeader(),
-            const SizedBox(height: 30),
-
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 60),
-                child: Center(child: CircularProgressIndicator(color: wellGreen)),
-              )
-            else ...[
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: nestOrange.withOpacity(0.1),
-                      border: Border.all(color: nestOrange),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: nestOrange, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(color: nestOrange, fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              
-              _buildProfileAvatar(),
+          child: Column(
+            children: [
               const SizedBox(height: 10),
-              Text(
-                _user?.displayName ?? 'Guest',
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: wellGreen),
-              ),
-              if (_user != null)
-                Text(
-                  _user!.email,
-                  style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ),
-              const SizedBox(height: 20),
-
-              // Theme toggle
-              _buildThemeToggle(context),
-              const SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStatColumn('${_myRecipes.length}', 'Recipes'),
-                  const SizedBox(width: 40),
-                  _buildStatColumn('${_myPosts.length}', 'Posts'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStatColumn('${_user?.followersCount ?? 0}', 'Followers'),
-                  const SizedBox(width: 40),
-                  _buildStatColumn('${_user?.followingCount ?? 0}', 'Following'),
-                ],
-              ),
+              const WellnestHeader(),
               const SizedBox(height: 30),
 
-              if (AuthService.instance.isLoggedIn) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    key: ValueKey('add_recipe_${Theme.of(context).brightness}'),
-                    onPressed: _addingRecipe ? null : () async {
-                      setState(() => _addingRecipe = true);
-                      try {
-                        final result = await RecipeFormScreen.showAsModal(context);
-                        if (result == true && mounted) _load();
-                      } finally {
-                        if (mounted) setState(() => _addingRecipe = false);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _addingRecipe
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text('Add new Recipe', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pushNamed('/conversations'),
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Messages'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: wellGreen,
-                      side: const BorderSide(color: wellGreen),
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 40),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'My Recipes',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: wellGreen),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              if (_myRecipes.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text(
-                    AuthService.instance.isLoggedIn
-                        ? 'No recipes yet. Add one to get started!'
-                        : 'Sign in to see your recipes.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 60),
+                  child: Center(
+                    child: CircularProgressIndicator(color: wellGreen),
                   ),
                 )
-              else
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _myRecipes.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: EdgeInsets.only(right: index < _myRecipes.length - 1 ? 15 : 0),
-                      child: RepaintBoundary(child: _buildRecipeMiniCard(_myRecipes[index])),
+              else ...[
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: nestOrange.withOpacity(0.1),
+                        border: Border.all(color: nestOrange),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: nestOrange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: nestOrange,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+
+                _buildProfileAvatar(),
+                const SizedBox(height: 10),
+                Text(
+                  _user?.displayName ?? 'Guest',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: wellGreen,
+                  ),
                 ),
-              const SizedBox(height: 32),
-              if (AuthService.instance.isLoggedIn)
-                TextButton.icon(
-                  key: ValueKey('logout_${Theme.of(context).brightness}'),
-                  onPressed: _loggingOut ? null : () async {
-                    setState(() => _loggingOut = true);
-                    try {
-                      await AuthService.instance.logout();
-                      if (context.mounted) {
-                        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                      }
-                    } finally {
-                      if (mounted) setState(() => _loggingOut = false);
-                    }
-                  },
-                  icon: _loggingOut
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: nestOrange, strokeWidth: 2))
-                      : Icon(Icons.logout, size: 18, color: nestOrange),
-                  label: Text(
-                    'Logout',
+                if (_user != null)
+                  Text(
+                    _user!.email,
                     style: TextStyle(
-                      fontFamily: kFontAppFamily,
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                if ((_user?.accountStatus ?? 'active') != 'active') ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: nestOrange.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: nestOrange.withOpacity(0.35)),
+                    ),
+                    child: Text(
+                      'Your account is ${_statusLabel(_user!.accountStatus)}.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: nestOrange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
+                // Theme toggle
+                _buildThemeToggle(context),
+                const SizedBox(height: 20),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildStatColumn('${_myRecipes.length}', 'Recipes'),
+                    const SizedBox(width: 40),
+                    _buildStatColumn('${_myPosts.length}', 'Posts'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildStatColumn(
+                      '${_user?.followersCount ?? 0}',
+                      'Followers',
+                    ),
+                    const SizedBox(width: 40),
+                    _buildStatColumn(
+                      '${_user?.followingCount ?? 0}',
+                      'Following',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+
+                if (AuthService.instance.isLoggedIn) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      key: ValueKey(
+                        'add_recipe_${Theme.of(context).brightness}',
+                      ),
+                      onPressed: _addingRecipe
+                          ? null
+                          : () async {
+                              setState(() => _addingRecipe = true);
+                              try {
+                                final result =
+                                    await RecipeFormScreen.showAsModal(context);
+                                if (result == true && mounted) _load();
+                              } finally {
+                                if (mounted)
+                                  setState(() => _addingRecipe = false);
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _addingRecipe
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Add new Recipe',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _deactivatingAccount
+                          ? null
+                          : _confirmDeactivateAccount,
+                      icon: _deactivatingAccount
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                color: nestOrange,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.pause_circle_outline),
+                      label: Text(
+                        _deactivatingAccount
+                            ? 'Deactivating...'
+                            : 'Deactivate account',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: nestOrange,
+                        side: const BorderSide(color: nestOrange),
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/conversations'),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: const Text('Messages'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: wellGreen,
+                        side: const BorderSide(color: wellGreen),
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 40),
+
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'My Recipes',
+                    style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: nestOrange,
-                      fontSize: 16,
+                      color: wellGreen,
                     ),
                   ),
                 ),
-              const SizedBox(height: 100),
+                const SizedBox(height: 20),
+
+                if (_myRecipes.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      AuthService.instance.isLoggedIn
+                          ? 'No recipes yet. Add one to get started!'
+                          : 'Sign in to see your recipes.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _myRecipes.length,
+                      itemBuilder: (context, index) => Padding(
+                        padding: EdgeInsets.only(
+                          right: index < _myRecipes.length - 1 ? 15 : 0,
+                        ),
+                        child: RepaintBoundary(
+                          child: _buildRecipeMiniCard(_myRecipes[index]),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 32),
+                if (AuthService.instance.isLoggedIn)
+                  TextButton.icon(
+                    key: ValueKey('logout_${Theme.of(context).brightness}'),
+                    onPressed: _loggingOut
+                        ? null
+                        : () async {
+                            setState(() => _loggingOut = true);
+                            try {
+                              await AuthService.instance.logout();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (route) => false,
+                                );
+                              }
+                            } finally {
+                              if (mounted) setState(() => _loggingOut = false);
+                            }
+                          },
+                    icon: _loggingOut
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              color: nestOrange,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Icon(Icons.logout, size: 18, color: nestOrange),
+                    label: Text(
+                      'Logout',
+                      style: TextStyle(
+                        fontFamily: kFontAppFamily,
+                        fontWeight: FontWeight.bold,
+                        color: nestOrange,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 100),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
@@ -321,7 +445,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileAvatar() {
     final photoUrl = _user?.displayProfilePhotoUrl;
     return GestureDetector(
-      onTap: AuthService.instance.isLoggedIn && !_uploadingPhoto ? _pickAndUploadProfilePhoto : null,
+      onTap: AuthService.instance.isLoggedIn && !_uploadingPhoto
+          ? _pickAndUploadProfilePhoto
+          : null,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -341,7 +467,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return const Center(
-                          child: CircularProgressIndicator(color: wellGreen, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: wellGreen,
+                            strokeWidth: 2,
+                          ),
                         );
                       },
                     ),
@@ -359,7 +488,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   shape: BoxShape.circle,
                   boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           if (_uploadingPhoto)
@@ -373,7 +506,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: SizedBox(
                     width: 32,
                     height: 32,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   ),
                 ),
               ),
@@ -386,8 +522,23 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _initialsContent() {
     return Text(
       _displayInitials(),
-      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: wellGreen),
+      style: const TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.bold,
+        color: wellGreen,
+      ),
     );
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'suspended':
+        return 'Suspended';
+      case 'deactivated':
+        return 'Deactivated';
+      default:
+        return 'Active';
+    }
   }
 
   Future<void> _pickAndUploadProfilePhoto() async {
@@ -425,16 +576,73 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _confirmDeactivateAccount() async {
+    final shouldDeactivate = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Deactivate account?'),
+        content: const Text(
+          'This will hide your account until you sign in again. You can reactivate it later by logging in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: nestOrange),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDeactivate != true || !mounted) return;
+
+    setState(() {
+      _deactivatingAccount = true;
+    });
+
+    try {
+      await AuthService.instance.deactivateAccount();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: nestOrange,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deactivatingAccount = false;
+        });
+      }
+    }
+  }
+
   Widget _buildStatColumn(String value, String label) {
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: wellGreen),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: wellGreen,
+          ),
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -446,7 +654,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(fullscreenDialog: true, builder: (context) => RecipeDetailScreen(recipeId: recipe.id)),
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
+        ),
       ),
       child: Container(
         width: 160,
@@ -454,7 +665,13 @@ class _ProfilePageState extends State<ProfilePage> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(0, 3))],
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 5,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -462,7 +679,9 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+                child:
+                    recipe.displayImageUrl != null &&
+                        recipe.displayImageUrl!.isNotEmpty
                     ? Image.network(
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,

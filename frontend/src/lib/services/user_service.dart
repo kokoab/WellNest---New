@@ -11,6 +11,7 @@ class CurrentUser {
   final String firstName;
   final String lastName;
   final String email;
+  final String accountStatus;
   final String? profilePhotoUrl;
   final int followersCount;
   final int followingCount;
@@ -20,6 +21,7 @@ class CurrentUser {
     required this.firstName,
     required this.lastName,
     required this.email,
+    this.accountStatus = 'active',
     this.profilePhotoUrl,
     this.followersCount = 0,
     this.followingCount = 0,
@@ -27,8 +29,11 @@ class CurrentUser {
 
   String get displayName => '${firstName} ${lastName}'.trim();
 
+  bool get isActiveAccount => accountStatus == 'active';
+
   /// Profile image URL for display. Uses frontend base URL to fix Docker internal host issues.
-  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
+  String? get displayProfilePhotoUrl =>
+      resolveStorageDisplayUrl(profilePhotoUrl);
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
     int count(dynamic v) {
@@ -42,8 +47,8 @@ class CurrentUser {
     final id = idRaw is int
         ? idRaw
         : idRaw is num
-            ? idRaw.toInt()
-            : int.tryParse(idRaw?.toString() ?? '');
+        ? idRaw.toInt()
+        : int.tryParse(idRaw?.toString() ?? '');
     if (id == null) {
       throw FormatException('CurrentUser JSON missing or invalid id');
     }
@@ -53,6 +58,7 @@ class CurrentUser {
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       email: json['email'] as String? ?? '',
+      accountStatus: json['account_status'] as String? ?? 'active',
       profilePhotoUrl: json['profile_photo_url'] as String?,
       followersCount: count(json['followers_count']),
       followingCount: count(json['following_count']),
@@ -65,25 +71,35 @@ class PublicUserProfile {
   final String firstName;
   final String lastName;
   final String name;
+  final String accountStatus;
   final String? profilePhotoUrl;
   final int followersCount;
   final int followingCount;
   final bool? isFollowing;
+  final bool isAvailable;
+  final String? availabilityMessage;
 
   const PublicUserProfile({
     required this.id,
     required this.firstName,
     required this.lastName,
     required this.name,
+    this.accountStatus = 'active',
     this.profilePhotoUrl,
     this.followersCount = 0,
     this.followingCount = 0,
     this.isFollowing,
+    this.isAvailable = true,
+    this.availabilityMessage,
   });
 
-  String get displayName => name.trim().isNotEmpty ? name.trim() : '$firstName $lastName'.trim();
+  String get displayName =>
+      name.trim().isNotEmpty ? name.trim() : '$firstName $lastName'.trim();
 
-  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
+  bool get isActiveAccount => accountStatus == 'active';
+
+  String? get displayProfilePhotoUrl =>
+      resolveStorageDisplayUrl(profilePhotoUrl);
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
@@ -91,10 +107,13 @@ class PublicUserProfile {
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      accountStatus: json['account_status'] as String? ?? 'active',
       profilePhotoUrl: json['profile_photo_url'] as String?,
       followersCount: json['followers_count'] as int? ?? 0,
       followingCount: json['following_count'] as int? ?? 0,
       isFollowing: json['is_following'] as bool?,
+      isAvailable: json['is_available'] as bool? ?? true,
+      availabilityMessage: json['availability_message'] as String?,
     );
   }
 }
@@ -107,10 +126,10 @@ class UserService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AuthService.instance.authHeaders,
+  };
 
   /// GET /api/user — returns current authenticated user.
   Future<CurrentUser?> fetchCurrentUser() async {
@@ -155,7 +174,9 @@ class UserService {
       return PublicUserProfile.fromJson(data['user'] as Map<String, dynamic>);
     }
 
-    throw Exception(_messageFromResponse(response, fallback: 'Failed to follow user'));
+    throw Exception(
+      _messageFromResponse(response, fallback: 'Failed to follow user'),
+    );
   }
 
   Future<PublicUserProfile> unfollowUser(int userId) async {
@@ -169,7 +190,9 @@ class UserService {
       return PublicUserProfile.fromJson(data['user'] as Map<String, dynamic>);
     }
 
-    throw Exception(_messageFromResponse(response, fallback: 'Failed to unfollow user'));
+    throw Exception(
+      _messageFromResponse(response, fallback: 'Failed to unfollow user'),
+    );
   }
 
   /// POST /api/user/profile-photo — upload profile photo (auth required).
@@ -184,20 +207,39 @@ class UserService {
       'Accept': 'application/json',
       ...AuthService.instance.authHeaders,
     });
-    request.files.add(http.MultipartFile.fromBytes(
-      'image',
-      bytes,
-      filename: name,
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes('image', bytes, filename: name),
+    );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
       final err = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(err?['message'] as String? ?? 'Failed to upload profile photo');
+      throw Exception(
+        err?['message'] as String? ?? 'Failed to upload profile photo',
+      );
     }
   }
 
-  String _messageFromResponse(http.Response response, {required String fallback}) {
+  /// PATCH /api/me/deactivate — user deactivates their own account.
+  Future<void> deactivateAccount() async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/me/deactivate'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    throw Exception(
+      _messageFromResponse(response, fallback: 'Failed to deactivate account'),
+    );
+  }
+
+  String _messageFromResponse(
+    http.Response response, {
+    required String fallback,
+  }) {
     try {
       final err = jsonDecode(response.body) as Map<String, dynamic>?;
       return err?['message'] as String? ?? fallback;

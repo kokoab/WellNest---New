@@ -140,10 +140,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'update']);
     Route::delete('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'delete']);
 
-    // In your auth:sanctum group in routes/api.php
+
     Route::post('/broadcasting/auth', function (Request $request) {
         return Broadcast::auth($request);
     });
+
+    Route::patch('me/deactivate', [UserController::class, 'deactivateSelf']);
 
 
 });
@@ -161,7 +163,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
     Route::get('admin/reports', [AdminModerationController::class, 'index']);
     Route::patch('admin/reports/{report}/approve', [AdminModerationController::class, 'approve']);
-Route::patch('admin/reports/{report}/remove-content', [AdminModerationController::class, 'removeContent']);
+    Route::patch('admin/reports/{report}/remove-content', [AdminModerationController::class, 'removeContent']);
     Route::patch('admin/reports/{report}/suspend-user', [AdminModerationController::class, 'suspendUser']);
     Route::patch('admin/reports/{report}/unban-user', [AdminModerationController::class, 'unbanUser']);
     Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);

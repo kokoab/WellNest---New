@@ -149,4 +149,32 @@ class AuthService {
       await SessionPersistence.clear();
     }
   }
+
+  /// User-initiated deactivation. This calls the backend, then clears local auth.
+  Future<void> deactivateAccount() async {
+    if (_token == null) {
+      clearToken();
+      AdminAuthService.instance.clearAuth();
+      await SessionPersistence.clear();
+      return;
+    }
+
+    try {
+      final response = await http.patch(
+        Uri.parse('$_baseUrl/me/deactivate'),
+        headers: {...authHeaders, 'Accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>?;
+        throw Exception(
+          data?['message'] as String? ?? 'Failed to deactivate account',
+        );
+      }
+    } finally {
+      clearToken();
+      AdminAuthService.instance.clearAuth();
+      await SessionPersistence.clear();
+    }
+  }
 }

@@ -54,7 +54,7 @@ class AdminUserService {
     final response = await http.patch(
       Uri.parse('$_baseUrl/admin/users/$userId/status'),
       headers: _headers,
-      body: jsonEncode({'status': status}),
+      body: jsonEncode({'account_status': status}),
     );
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

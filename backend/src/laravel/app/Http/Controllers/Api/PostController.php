@@ -7,6 +7,7 @@ use App\Models\Post;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+
 class PostController extends Controller
 {
     public function uploadImage(Request $request, Post $post): JsonResponse
@@ -56,6 +57,7 @@ class PostController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Post::with('user:id,first_name,last_name,profile_photo_url')
+            ->whereHas('user', fn ($q) => $q->where('account_status', 'active'))
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('user_id')) {

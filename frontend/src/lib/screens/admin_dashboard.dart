@@ -376,24 +376,24 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _confirmDeactivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
-      title: 'Deactivate account?',
+      title: 'Suspend account?',
       content: SimpleRichText(
-        'Deactivate *${user.name}*? They will not be able to sign in until reactivated.',
+        'Suspend *${user.name}*? They will not be able to sign in until an admin reactivates the account.',
       ),
-      actionLabel: 'Deactivate',
+      actionLabel: 'Suspend',
       actionColor: kAccentOrange,
     );
     if (ok != true || !mounted) return;
-    await _updateStatus(user.id, 'inactive');
+    await _updateStatus(user.id, 'suspended');
   }
 
   Future<void> _confirmActivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
-      title: 'Activate account?',
+      title: 'Unsuspend account?',
       content: SimpleRichText(
-        'Reactivate *${user.name}*? They will be able to sign in again.',
+        'Unsuspend *${user.name}*? They will be able to sign in again.',
       ),
-      actionLabel: 'Activate',
+      actionLabel: 'Unsuspend',
       actionColor: kPrimaryGreen,
     );
     if (ok != true || !mounted) return;
@@ -405,7 +405,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       await AdminUserService.instance.updateUserStatus(userId, status);
       if (!mounted) return;
       _showSnack(
-        status == 'active' ? 'Account activated' : 'Account deactivated',
+        status == 'active' ? 'Account unsuspended' : 'Account suspended',
       );
       _loadUsers();
     } catch (e) {
@@ -2236,24 +2236,37 @@ class _UsersTable extends StatelessWidget {
                 color: theme.colorScheme.onSurface,
               ),
             ),
-            _StatusChip(isActive: user.isActive),
+            _StatusChip(status: user.status),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (user.isActive)
+                if (user.isActive) ...[
                   _ActionIconBtn(
-                    icon: Icons.person_off_rounded,
+                    icon: Icons.block_rounded,
                     color: kAccentOrange,
-                    tooltip: 'Deactivate',
+                    tooltip: 'Suspend',
                     onPressed: () => onDeactivate(user),
-                  )
-                else
+                  ),
+                ] else if (user.isSuspended) ...[
                   _ActionIconBtn(
-                    icon: Icons.person_add_rounded,
+                    icon: Icons.lock_open_rounded,
                     color: kPrimaryGreen,
-                    tooltip: 'Activate',
+                    tooltip: 'Unsuspend',
                     onPressed: () => onActivate(user),
                   ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'Deactivated',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
                 AppSpacing.gapH4,
                 _ActionIconBtn(
                   icon: Icons.delete_outline,
@@ -2834,25 +2847,39 @@ class _TypeChip extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  final bool isActive;
-  const _StatusChip({required this.isActive});
+  final String status;
+  const _StatusChip({required this.status});
 
   @override
   Widget build(BuildContext context) {
+    final isActive = status == 'active';
+    final isSuspended = status == 'suspended';
+    final isDeactivated = status == 'deactivated';
+    final color = isActive
+        ? kPrimaryGreen
+        : isSuspended
+        ? Colors.red
+        : kAccentOrange;
+    final label = isActive
+        ? 'Active'
+        : isSuspended
+        ? 'Suspended'
+        : isDeactivated
+        ? 'Deactivated'
+        : status;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive
-            ? kPrimaryGreen.withValues(alpha: 0.1)
-            : kAccentOrange.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isActive ? 'Active' : 'Inactive',
+        label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: isActive ? kPrimaryGreen : kAccentOrange,
+          color: color,
         ),
       ),
     );

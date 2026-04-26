@@ -30,6 +30,7 @@ class UserController extends Controller
         $users = User::query()
             ->where('id', '!=', $userId)
             ->when($botId, fn ($q) => $q->where('id', '!=', $botId))
+            ->where('account_status', 'active')
             ->where(function ($query) use ($q) {
                 $query->where('first_name', 'like', "%{$q}%")
                     ->orWhere('last_name', 'like', "%{$q}%")
@@ -177,6 +178,7 @@ class UserController extends Controller
             'first_name' => $user->first_name,
             'last_name' => $user->last_name,
             'email' => $user->email,
+            'account_status' => $user->account_status ?? 'active',
             'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
             'followers_count' => (int) ($user->followers_count ?? 0),
             'following_count' => (int) ($user->following_count ?? 0),
@@ -185,6 +187,9 @@ class UserController extends Controller
 
     private function publicProfilePayload(User $user, ?User $viewer = null): array
     {
+        $status = $user->account_status ?? 'active';
+        $isAvailable = $status === 'active';
+
         $payload = [
             'id' => $user->id,
             'name' => $user->name,
@@ -193,6 +198,9 @@ class UserController extends Controller
             'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
             'followers_count' => $user->followers_count ?? $user->followers()->count(),
             'following_count' => $user->following_count ?? $user->following()->count(),
+            'account_status' => $status,
+            'is_available' => $isAvailable,
+            'availability_message' => $isAvailable ? null : 'User is not available right now.',
         ];
 
         if ($viewer !== null) {
