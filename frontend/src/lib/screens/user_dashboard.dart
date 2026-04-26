@@ -473,20 +473,35 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         ],
                         const SizedBox(height: 8),
                       ],
-                      if (_categories.isNotEmpty) const SizedBox(height: 10),
-                      _buildTopRankedSection(),
-                      const SizedBox(height: 16),
-                      _buildMealPlannerSection(),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Discover',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF097333),
+                      // Only show these sections if the search box is empty
+                      if (_searchController.text.isEmpty) ...[
+                        if (_categories.isNotEmpty) const SizedBox(height: 10),
+                        _buildTopRankedSection(),
+                        const SizedBox(height: 16),
+                        _buildMealPlannerSection(),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Discover',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF097333),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 8),
+                      ] else ...[
+                        // When searching, hide the above and show a "Search Results" title instead
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Search Results',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF097333),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ],
                   ),
                 ),
@@ -1108,7 +1123,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+              recipe.displayImageUrl != null &&
+                      recipe.displayImageUrl!.isNotEmpty
                   ? Image.network(
                       recipe.displayImageUrl!,
                       fit: BoxFit.cover,
