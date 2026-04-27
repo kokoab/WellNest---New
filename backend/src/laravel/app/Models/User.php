@@ -14,6 +14,8 @@ use App\Models\Message;
 use App\Models\MessageAttachment;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Post;
+use App\Models\PostComment;
 
 class User extends Authenticatable
 {
@@ -33,6 +35,7 @@ class User extends Authenticatable
         'role',
         'profile_photo_url',
         'status',
+        'account_status',
         'is_admin',
     ];
 
@@ -63,6 +66,21 @@ class User extends Authenticatable
     /**
      * Virtual attribute for display name (first_name + last_name).
      */
+    public function isActiveAccount(): bool
+    {
+        return ($this->account_status ?? 'active') === 'active';
+    }
+
+    public function isDeactivatedAccount(): bool
+    {
+        return $this->account_status === 'deactivated';
+    }
+
+    public function isSuspendedAccount(): bool
+    {
+        return $this->account_status === 'suspended';
+    }
+
     public function getNameAttribute(): string
     {
         return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
@@ -79,6 +97,10 @@ class User extends Authenticatable
     public function recipes()
     {
         return $this->hasMany(Recipe::class);
+    }
+    public function comments()
+    {
+        return $this->hasMany(PostComment::class);
     }
     public function reports()
     {

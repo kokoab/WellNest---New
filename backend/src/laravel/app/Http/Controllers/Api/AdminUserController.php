@@ -37,7 +37,8 @@ class AdminUserController extends Controller
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
-                'status' => $u->status ?? 'active',
+                'status' => $u->account_status ?? 'active',
+                'account_status' => $u->account_status ?? 'active',
                 'created_at' => $u->created_at,
             ]);
 
@@ -47,60 +48,62 @@ class AdminUserController extends Controller
     /**
      * Update user status (active/inactive). Requires authenticated admin.
      */
-    public function updateStatus(Request $request, int $id): JsonResponse
+    public function updateStatus(Request $request, User $user): JsonResponse
     {
         $admin = $request->user();
         if (! $admin || ! $admin->is_admin) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
-        $request->validate([
-            'status' => 'required|in:active,inactive,suspended',
-        ]);
-
-        $user = User::find($id);
-        if (! $user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
         if ($user->id === $admin->id) {
             return response()->json(['message' => 'You cannot deactivate your own account'], 400);
         }
 
-        $user->status = $request->status;
+        $validated = $request->validate([
+            'account_status' => 'required_without:status|in:active,suspended',
+            'status' => 'required_without:account_status|in:active,suspended',
+        ]);
+
+        $newStatus = $validated['account_status'] ?? $validated['status'];
+
+        $user->account_status = $newStatus;
         $user->save();
+
+        if ($user->account_status === 'suspended') {
+            $user->tokens()->delete();
+        }
 
         ActivityLogService::log('admin_user', 'update_status', 'User status updated.', $admin->id, $user);
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'status' => $user->status,
+            'status' => $user->account_status,
+            'account_status' => $user->account_status,
         ]);
     }
 
     /**
      * Delete a user. Requires authenticated admin.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
-        $admin = $request->user();
-        if (! $admin || ! $admin->is_admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $hasRecipes = $user->recipes()->exists();
+        $hasPosts = $user->posts()->exists();
+        $hasComments = $user->comments()->exists();
+
+        if ($hasRecipes || $hasPosts || $hasComments) {
+            return response()->json([
+                'message' => 'Cannot delete user with existing contributions. Please migrate or delete their data first.',
+            ], 403);
         }
 
-        $user = User::find($id);
-        if (! $user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
-        if ($user->id === $admin->id) {
-            return response()->json(['message' => 'You cannot delete your own account'], 400);
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'You cannot delete your own account'], 403);
         }
 
         $user->delete();
 
-        ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $admin->id, $user);
+        ActivityLogService::log('admin_user', 'delete_user', 'User deleted.', $request->user()->id, $user);
         return response()->json(null, 204);
     }
 

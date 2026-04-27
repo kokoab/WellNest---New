@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use App\Services\ActivityLogService;
 
 class AuthController extends Controller
@@ -18,7 +19,7 @@ class AuthController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => 'required|string|min:8',
         ]);
         $user = User::create([
@@ -49,10 +50,24 @@ class AuthController extends Controller
             ActivityLogService::log('auth', 'login_failed', 'Invalid credentials', $user?->id, null, ['email' => $request->email]);
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
-        if (($user->status ?? 'active') === 'suspended') {
+
+        if ($user->isDeactivatedAccount()) {
+            $user->account_status = 'active';
+            $user->save();
+
+            ActivityLogService::log(
+                'auth',
+                'reactivate on login',
+                'Account reactivated on login',
+                $user->id
+            );
+        }
+
+        if ($user->isSuspendedAccount()) {
             ActivityLogService::log('auth', 'login_failed', 'Account is suspended', $user?->id, null, ['email' => $request->email]);
             return response()->json(['message' => 'Account is suspended'], 403);
         }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         ActivityLogService::log('auth', 'login_successful', 'Login successful', $user?->id, null, ['email' => $request->email]);
@@ -78,6 +93,13 @@ class AuthController extends Controller
 
     public function updateProfile(Request $request): JsonResponse
     {
+        $request->validate([
+            'first_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($request->user()->id)],
+            'password' => 'sometimes|string|min:8',
+        ]);
+
         $user = $request->user();
         $changes = [];
 
@@ -146,5 +168,26 @@ class AuthController extends Controller
             'profile_photo_url' => $imageUrl,
             'user' => $user->fresh(),
         ], 201);
+    }
+
+    public function deactivateSelf(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $user->account_status = 'deactivated';
+        $user->save();
+
+        $user->tokens()->delete();
+
+        ActivityLogService::log(
+            'auth',
+            'self_deactivate',
+            'User deactivated own account',
+            $user->id,
+        );
+
+        return response()->json([
+            'message' => 'Account deactivated successfully',
+        ], 200);
     }
 }

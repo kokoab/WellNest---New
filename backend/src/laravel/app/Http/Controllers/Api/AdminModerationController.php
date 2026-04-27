@@ -123,8 +123,11 @@ class AdminModerationController extends Controller
         if (! $reportable instanceof User) {
             return response()->json(['message' => 'Report is not for a user account'], 400);
         }
-        $reportable->status = 'suspended';
+        $reportable->account_status = 'suspended';
         $reportable->save();
+
+        $reportable->tokens()->delete();
+
         $report->status = 'suspended';
         $report->save();
         ActivityLogService::log('admin_moderation', 'suspend_user', 'Account suspended.', $request->user()->id, $report);
@@ -139,11 +142,11 @@ class AdminModerationController extends Controller
             return response()->json(['message' => 'Report is not for a user account'], 400);
         }
 
-        if ($reportable->status !== 'suspended') {
+        if ($reportable->account_status !== 'suspended') {
             return response()->json(['message' => 'User is not suspended'], 400);
         }
 
-        $reportable->status = 'active';
+        $reportable->account_status = 'active';
         $reportable->save();
 
         $report->status = 'unbanned';

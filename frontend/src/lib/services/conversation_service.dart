@@ -104,6 +104,12 @@ class ConversationService {
     return list.map((e) => ConversationListItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// Sum unread message count across all conversations.
+  Future<int> getUnreadMessageCount() async {
+    final conversations = await fetchConversations();
+    return conversations.fold<int>(0, (sum, c) => sum + c.unreadCount);
+  }
+
   /// GET /api/conversations/{id}/messages — messages for one conversation (paginated).
   Future<Map<String, dynamic>> fetchMessages(int conversationId, {int page = 1, int perPage = 20}) async {
     final uri = Uri.parse('$_baseUrl/conversations/$conversationId/messages').replace(

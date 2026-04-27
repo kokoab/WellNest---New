@@ -15,7 +15,7 @@ class AdminAuthController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => ['required', 'string', 'email:rfc,dns', 'max:255', 'unique:users,email'],
             'password' => 'required|string|min:8',
         ]);
 
@@ -49,6 +49,18 @@ class AdminAuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             ActivityLogService::log('admin', 'login_failed', 'Invalid credentials', $user?->id, null, ['email' => $request->email]);
             return response()->json(['message' => 'Invalid credentials'], 401);
+        }
+
+        if ($user->isDeactivatedAccount()) {
+            $user->account_status = 'active';
+            $user->save();
+
+            ActivityLogService::log('admin', 'reactivate_on_login', 'Admin account reactivated on login', $user->id, null, ['email' => $request->email]);
+        }
+
+        if ($user->isSuspendedAccount()) {
+            ActivityLogService::log('admin', 'login_failed', 'Account is suspended', $user->id, null, ['email' => $request->email]);
+            return response()->json(['message' => 'Account is suspended'], 403);
         }
 
         if ($user->role !== 'admin') {
