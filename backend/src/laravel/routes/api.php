@@ -68,7 +68,7 @@ Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
 Route::get('recipes/{recipe}/ratings', [RecipeRatingController::class, 'index']);
 
 // Protected routes (auth:sanctum)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::get('/user', [UserController::class, 'currentUser']);
     Route::patch('/user', [AuthController::class, 'updateProfile']);
     Route::post('/user/profile-photo', [AuthController::class, 'uploadProfilePhoto']);

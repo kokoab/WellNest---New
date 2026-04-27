@@ -211,4 +211,19 @@ class UserController extends Controller
 
         return $payload;
     }
+
+    public function deactivateSelf(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $user->account_status = 'deactivated';
+        $user->save();
+
+        // Logout the user by deleting their current token
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Account deactivated successfully.',
+        ]);
+    }
 }

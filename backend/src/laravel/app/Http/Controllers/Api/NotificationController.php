@@ -28,7 +28,8 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Invalid category'], 422);
         }
 
-        $query = $user->notifications();
+        /** @var \Illuminate\Database\Eloquent\Builder $query */
+        $query = $user->notifications()->getQuery();
 
         if ($unreadOnly) {
             $query->whereNull('read_at');
