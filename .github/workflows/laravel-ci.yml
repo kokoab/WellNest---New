@@ -36,6 +36,8 @@ jobs:
 
     - name: Prepare Environment
       working-directory: backend/src/laravel
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       run: |
         cp .env.ci .env
         php artisan key:generate
