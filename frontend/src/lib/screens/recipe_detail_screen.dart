@@ -344,13 +344,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                           if (_liked) {
                                             await VoteService.instance
                                                 .unlikeRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _liked = false);
+                                            }
                                           } else {
                                             await VoteService.instance
                                                 .likeRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _liked = true);
+                                            }
                                           }
                                         } catch (e) {
                                           if (mounted) {
@@ -368,8 +370,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             );
                                           }
                                         } finally {
-                                          if (mounted)
+                                          if (mounted) {
                                             setState(() => _liking = false);
+                                          }
                                         }
                                       }
                                     : null,
@@ -423,13 +426,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                           if (_saved) {
                                             await SavedRecipeService.instance
                                                 .unsaveRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _saved = false);
+                                            }
                                           } else {
                                             await SavedRecipeService.instance
                                                 .saveRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _saved = true);
+                                            }
                                           }
                                           if (mounted) {
                                             ScaffoldMessenger.of(
@@ -461,8 +466,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             );
                                           }
                                         } finally {
-                                          if (mounted)
+                                          if (mounted) {
                                             setState(() => _saving = false);
+                                          }
                                         }
                                       }
                                     : null,
@@ -812,42 +818,96 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         ),
       );
     }
+
+    final totals = <String, double>{};
+    final labels = <String, String>{};
+    for (final ing in ingredients) {
+      final key = '${ing.name.trim().toLowerCase()}|${ing.unit.trim().toLowerCase()}';
+      totals[key] = (totals[key] ?? 0) + ing.quantity;
+      labels[key] = ing.unit.trim().isEmpty ? ing.name.trim() : '${ing.name.trim()}|${ing.unit.trim()}';
+    }
+
+    final totalSummary = totals.entries.map((entry) {
+      final label = labels[entry.key]!;
+      final parts = label.split('|');
+      final name = parts[0];
+      final unit = parts.length > 1 ? parts[1] : '';
+      final qty = entry.value;
+      final qtyLabel = qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(1);
+      return unit.isEmpty ? '$qtyLabel $name' : '$qtyLabel $unit $name';
+    }).join(' · ');
+
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: ingredients.map((ing) {
-          final qty = ing.quantity.toInt() == ing.quantity
-              ? ing.quantity.toInt().toString()
-              : ing.quantity.toString();
-          final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 7),
-                  child: Icon(
-                    Icons.circle,
-                    size: 8,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
+        children: [
+          if (totals.length > 1)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ingredient totals',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      height: 1.5,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    totalSummary,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        }).toList(),
+          if (totals.length > 1) const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: ingredients.map((ing) {
+              final qty = ing.quantity.toInt() == ing.quantity
+                  ? ing.quantity.toInt().toString()
+                  : ing.quantity.toString();
+              final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 7),
+                      child: Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

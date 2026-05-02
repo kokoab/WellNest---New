@@ -13,8 +13,13 @@ import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
 import 'package:my_app/services/admin_dashboard_service.dart';
+import 'package:my_app/services/api_service.dart';
+import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/models/post.dart';
+import 'package:my_app/widgets/master_user_table.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/theme/app_spacing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/providers/theme_provider.dart';
@@ -380,6 +385,54 @@ class _AdminDashboardState extends State<AdminDashboard>
     } finally {
       if (mounted) setState(() => _exportingUsersCsv = false);
     }
+  }
+
+  Future<void> _showUserActivitySheet(AdminUser user, {bool commentsOnly = false}) async {
+    final postsFuture = ApiService().fetchPosts(userId: user.id);
+    final comments = _mockUserComments(user);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.82,
+        minChildSize: 0.6,
+        maxChildSize: 0.92,
+        builder: (context, scrollController) => _UserActivitySheet(
+          user: user,
+          postsFuture: postsFuture,
+          comments: comments,
+          commentsOnly: commentsOnly,
+          scrollController: scrollController,
+        ),
+      ),
+    );
+  }
+
+  List<PostComment> _mockUserComments(AdminUser user) {
+    final now = DateTime.now();
+    return [
+      PostComment(
+        id: 1,
+        comment: 'Shared a note about balancing meal prep with busy schedules.',
+        userName: user.name,
+        createdAt: now.subtract(const Duration(days: 3)).toIso8601String(),
+      ),
+      PostComment(
+        id: 2,
+        comment: 'Answered a question about seasonal recipes in the community feed.',
+        userName: user.name,
+        createdAt: now.subtract(const Duration(days: 11)).toIso8601String(),
+      ),
+      PostComment(
+        id: 3,
+        comment: 'Reviewed a wellness post with a thoughtful suggestion.',
+        userName: user.name,
+        createdAt: now.subtract(const Duration(days: 18)).toIso8601String(),
+      ),
+    ];
   }
 
   Future<void> _exportAuditLogsCsv() async {
@@ -772,6 +825,9 @@ class _AdminDashboardState extends State<AdminDashboard>
           onDeactivate: _confirmDeactivate,
           onActivate: _confirmActivate,
           onDelete: _confirmDelete,
+          onUserTap: _showUserActivitySheet,
+          onViewPosts: (user) => _showUserActivitySheet(user, commentsOnly: false),
+          onViewComments: (user) => _showUserActivitySheet(user, commentsOnly: true),
         );
       case _Section.moderation:
         return _ModerationSection(
@@ -1554,6 +1610,8 @@ class _ChartsSection extends StatelessWidget {
                 ),
               ]),
         const SizedBox(height: 12),
+        _HistoricalTrendsCard(theme: theme, isDark: isDark),
+        const SizedBox(height: 12),
         isWide
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1627,73 +1685,104 @@ class _ChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1F2329) : Colors.white;
+    // Use admin theme colors for better visual hierarchy
+    final cardColor = isDark ? const Color(0xFF2D3748) : Colors.white;
     final borderColor = isDark
-        ? kPrimaryGreen.withValues(alpha: 0.22)
-        : kPrimaryGreen.withValues(alpha: 0.14);
+        ? const Color(0xFF4FD1C5).withValues(alpha: 0.12)
+        : const Color(0xFF097333).withValues(alpha: 0.08);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(_kCardRadius),
         border: Border.all(
           color: borderColor,
-          width: 1,
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.26)
-                : kPrimaryGreen.withValues(alpha: 0.06),
-            blurRadius: isDark ? 16 : 12,
-            offset: const Offset(0, 6),
+                ? Colors.black.withValues(alpha: 0.32)
+                : const Color(0xFF097333).withValues(alpha: 0.08),
+            blurRadius: isDark ? 20 : 14,
+            offset: const Offset(0, 8),
           ),
           BoxShadow(
             color: isDark
-                ? kPrimaryGreen.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.03),
-            blurRadius: 1,
-            offset: const Offset(0, 0),
+                ? const Color(0xFF4FD1C5).withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.02),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: badgeGreen ? kPrimaryGreen.withValues(alpha: 0.08) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700,
-                    color: badgeGreen ? kPrimaryGreen : theme.colorScheme.onSurfaceVariant,
+      child: Semantics(
+        container: true,
+        label: '$title - $subtitle',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(spacing: 12, runSpacing: 6, children: legend),
-          const SizedBox(height: 16),
-          child,
-        ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeGreen
+                        ? const Color(0xFF48BB78).withValues(alpha: 0.12)
+                        : const Color(0xFFECC94B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: badgeGreen
+                          ? const Color(0xFF48BB78).withValues(alpha: 0.3)
+                          : const Color(0xFFECC94B).withValues(alpha: 0.3),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: badgeGreen ? const Color(0xFF48BB78) : const Color(0xFFECC94B),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(spacing: 14, runSpacing: 8, children: legend),
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -1708,15 +1797,77 @@ class _LegendDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(width: 9, height: 9, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 5),
-        Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-      ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Semantics(
+      label: label,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (dashed)
+            CustomPaint(
+              size: const Size(10, 9),
+              painter: _DashedIndicatorPainter(color: color),
+            )
+          else
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2.5),
+                border: Border.all(
+                  color: isDark
+                      ? color.withValues(alpha: 0.6)
+                      : color.withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+              ),
+            ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+// ─── Dashed indicator painter for legend ──────────────────────────────────────
+class _DashedIndicatorPainter extends CustomPainter {
+  final Color color;
+
+  const _DashedIndicatorPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    const dashLen = 3.0;
+    const gapLen = 2.0;
+    double x = 0;
+
+    while (x < size.width) {
+      canvas.drawLine(
+        Offset(x, size.height / 2),
+        Offset(math.min(x + dashLen, size.width), size.height / 2),
+        paint,
+      );
+      x += dashLen + gapLen;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedIndicatorPainter old) => old.color != color;
 }
 
 // ─── User Growth Chart ────────────────────────────────────────────────────────
@@ -1811,6 +1962,80 @@ class _RecipeRatingsCard extends StatelessWidget {
               Color(0xFF378ADD),
             ],
             isDark: isDark,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoricalTrendsCard extends StatelessWidget {
+  final ThemeData theme;
+  final bool isDark;
+
+  const _HistoricalTrendsCard({required this.theme, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChartCard(
+      theme: theme,
+      title: 'Historical trends',
+      subtitle: 'Platform engagement over time',
+      badge: 'Coming soon',
+      badgeGreen: false,
+      legend: const [
+        _LegendDot(color: Color(0xFF4FD1C5), label: 'Platform engagement'),
+      ],
+      child: Container(
+        height: 160,
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1A2332).withValues(alpha: 0.5)
+              : const Color(0xFFF9F8F5).withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFF4FD1C5).withValues(alpha: 0.08)
+                : const Color(0xFF097333).withValues(alpha: 0.06),
+            width: 1,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.trending_up_rounded,
+                size: 32,
+                color: isDark
+                    ? const Color(0xFF4FD1C5).withValues(alpha: 0.5)
+                    : const Color(0xFF097333).withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Historical data will be available',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? const Color(0xFF888780).withValues(alpha: 0.7)
+                      : const Color(0xFF888780),
+                  letterSpacing: 0.1,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Connect a historical data source',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: isDark
+                      ? const Color(0xFF888780).withValues(alpha: 0.5)
+                      : const Color(0xFF999999),
+                  letterSpacing: 0.05,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2038,10 +2263,10 @@ class _LinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
+    const double padLeft = 42;
     const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padTop = 12;
+    const double padBottom = 28;
 
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
@@ -2052,24 +2277,48 @@ class _LinePainter extends CustomPainter {
     final range = (maxV - minV) == 0 ? 1.0 : maxV - minV;
 
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
+      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.05)
       ..strokeWidth = 0.5;
-    final labelStyle = TextStyle(fontSize: 9, color: isDark ? const Color(0xFF888780) : const Color(0xFF888780));
 
-    // Grid lines + Y labels
+    // Improved label styling
+    final labelStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: isDark ? const Color(0xFFA0A09A) : const Color(0xFF888780),
+      letterSpacing: 0.1,
+      height: 1.2,
+    );
+
+    // Grid lines + Y labels with dynamic width calculation
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
       canvas.drawLine(Offset(padLeft, y), Offset(padLeft + chartW, y), gridPaint);
+
       final val = minV + (i / gridCount) * range;
-      final label = val >= 1000 ? '${(val / 1000).toStringAsFixed(1)}k' : val.toInt().toString();
-      _drawText(canvas, label, Offset(0, y - 5), labelStyle, maxWidth: padLeft - 4, align: TextAlign.right);
+      late final String label;
+      if (val >= 1000000) {
+        label = '${(val / 1000000).toStringAsFixed(val >= 10000000 ? 0 : 1)}M';
+      } else if (val >= 1000) {
+        label = '${(val / 1000).toStringAsFixed(val >= 10000 ? 0 : 1)}k';
+      } else {
+        label = val.toInt().toString();
+      }
+
+      _drawText(canvas, label, Offset(2, y - 6), labelStyle, maxWidth: padLeft - 6, align: TextAlign.right);
     }
 
     // X labels
     for (int i = 0; i < labels.length; i++) {
       final x = padLeft + (i / (labels.length - 1)) * chartW;
-      _drawText(canvas, labels[i], Offset(x - 14, size.height - padBottom + 6), labelStyle, maxWidth: 28);
+      _drawText(
+        canvas,
+        labels[i],
+        Offset(x - 16, size.height - padBottom + 8),
+        labelStyle,
+        maxWidth: 32,
+        align: TextAlign.center,
+      );
     }
 
     // Helper to build path
@@ -2090,18 +2339,18 @@ class _LinePainter extends CustomPainter {
         ..lineTo(padLeft + chartW, padTop + chartH)
         ..lineTo(padLeft, padTop + chartH)
         ..close();
-      canvas.drawPath(fillPath, Paint()..color = color.withOpacity(0.08)..style = PaintingStyle.fill);
+      canvas.drawPath(fillPath, Paint()..color = color.withOpacity(0.1)..style = PaintingStyle.fill);
     }
 
     drawFill(seriesA, colorA);
     drawFill(seriesB, colorB);
 
-    // Lines
+    // Lines with better styling
     void drawLine(List<double> data, Color color, {bool dashed = false}) {
       final path = buildPath(data);
       final paint = Paint()
         ..color = color
-        ..strokeWidth = 2
+        ..strokeWidth = 2.2
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
@@ -2115,13 +2364,17 @@ class _LinePainter extends CustomPainter {
     drawLine(seriesA, colorA);
     drawLine(seriesB, colorB, dashed: true);
 
-    // Dots
+    // Dots with better styling
     void drawDots(List<double> data, Color color) {
       for (int i = 0; i < data.length; i++) {
         final x = padLeft + (i / (data.length - 1)) * chartW;
         final y = padTop + chartH - ((data[i] - minV) / range) * chartH;
+        // Outer circle with subtle shadow effect
+        canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = color.withOpacity(0.2));
+        // Main dot
         canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = color);
-        canvas.drawCircle(Offset(x, y), 2, Paint()..color = isDark ? const Color(0xFF1C1C1C) : Colors.white);
+        // Inner highlight
+        canvas.drawCircle(Offset(x, y), 2, Paint()..color = isDark ? const Color(0xFF2D3748) : Colors.white);
       }
     }
 
@@ -2169,32 +2422,50 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
+    const double padLeft = 42;
     const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padTop = 12;
+    const double padBottom = 28;
 
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final maxV = values.reduce(math.max);
     final n = values.length;
-    final barW = (chartW / n) * 0.55;
-    final gap = (chartW / n) * 0.45;
+    final barW = (chartW / n) * 0.6;
+    final gap = (chartW / n) * 0.4;
 
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
+      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.05)
       ..strokeWidth = 0.5;
-    final labelStyle = TextStyle(fontSize: 9, color: isDark ? const Color(0xFF888780) : const Color(0xFF888780));
+
+    // Improved label styling
+    final labelStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: isDark ? const Color(0xFFA0A09A) : const Color(0xFF888780),
+      letterSpacing: 0.1,
+      height: 1.2,
+    );
 
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
       canvas.drawLine(Offset(padLeft, y), Offset(padLeft + chartW, y), gridPaint);
+
       final val = (i / gridCount) * maxV;
-      final label = val >= 1000 ? '${(val / 1000).toStringAsFixed(1)}k' : val.toInt().toString();
-      _drawText(canvas, label, Offset(0, y - 5), labelStyle, maxWidth: padLeft - 4, align: TextAlign.right);
+      late final String label;
+      if (val >= 1000000) {
+        label = '${(val / 1000000).toStringAsFixed(val >= 10000000 ? 0 : 1)}M';
+      } else if (val >= 1000) {
+        label = '${(val / 1000).toStringAsFixed(val >= 10000 ? 0 : 1)}k';
+      } else {
+        label = val.toInt().toString();
+      }
+
+      _drawText(canvas, label, Offset(2, y - 6), labelStyle, maxWidth: padLeft - 6, align: TextAlign.right);
     }
 
+    // Bars with improved styling
     for (int i = 0; i < n; i++) {
       final x = padLeft + i * (chartW / n) + gap / 2;
       final barH = (values[i] / maxV) * chartH;
@@ -2202,12 +2473,32 @@ class _BarPainter extends CustomPainter {
 
       final rRect = RRect.fromRectAndCorners(
         Rect.fromLTWH(x, y, barW, barH),
-        topLeft: const Radius.circular(4),
-        topRight: const Radius.circular(4),
+        topLeft: const Radius.circular(5),
+        topRight: const Radius.circular(5),
       );
+
+      // Subtle shadow effect
+      canvas.drawRRect(
+        rRect,
+        Paint()
+          ..color = colors[i].withOpacity(0.15)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+      );
+
+      // Main bar
       canvas.drawRRect(rRect, Paint()..color = colors[i]);
 
-      _drawText(canvas, labels[i], Offset(x - 2, size.height - padBottom + 6), labelStyle, maxWidth: barW + 8);
+      // Subtle highlight on top
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(x + 0.5, y + 0.5, barW - 1, 2),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        Paint()..color = Colors.white.withOpacity(isDark ? 0.1 : 0.25),
+      );
+
+      _drawText(canvas, labels[i], Offset(x + barW / 2 - 16, size.height - padBottom + 8), labelStyle, maxWidth: 32, align: TextAlign.center);
     }
   }
 
@@ -2236,9 +2527,10 @@ class _DonutPainter extends CustomPainter {
     final safeTotal = total <= 0 ? 1.0 : total;
     final cx = size.width * 0.38;
     final cy = size.height / 2;
-    final radius = math.min(cx, cy) - 8;
+    final radius = math.min(cx, cy) - 10;
     const strokeW = 26.0;
 
+    // Draw donut segments with improved styling
     double startAngle = -math.pi / 2;
     for (int i = 0; i < values.length; i++) {
       final sweep = (values[i] / safeTotal) * 2 * math.pi;
@@ -2246,40 +2538,102 @@ class _DonutPainter extends CustomPainter {
         ..color = colors[i]
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeW
-        ..strokeCap = StrokeCap.butt;
+        ..strokeCap = StrokeCap.round;
+
+      // Subtle shadow effect
       canvas.drawArc(
         Rect.fromCircle(center: Offset(cx, cy), radius: radius),
-        startAngle + 0.03,
-        sweep - 0.06,
+        startAngle + 0.05,
+        sweep - 0.1,
+        false,
+        Paint()
+          ..color = colors[i].withOpacity(0.2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeW + 2
+          ..strokeCap = StrokeCap.round,
+      );
+
+      // Main arc
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+        startAngle + 0.05,
+        sweep - 0.1,
         false,
         paint,
       );
       startAngle += sweep;
     }
 
-    // Center text
+    // Center text with improved typography
     final totalInt = total.toInt().toString();
-    final centerLabelStyle = TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF2C2C2A));
-    final subLabelStyle = TextStyle(fontSize: 9, color: isDark ? const Color(0xFF888780) : const Color(0xFF888780));
-    _drawCenteredText(canvas, totalInt, Offset(cx, cy - 8), centerLabelStyle);
-    _drawCenteredText(canvas, 'reports', Offset(cx, cy + 10), subLabelStyle);
+    final centerLabelStyle = TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      color: isDark ? Colors.white : const Color(0xFF1A2332),
+      letterSpacing: 0.3,
+      height: 1.2,
+    );
+    final subLabelStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: isDark ? const Color(0xFFA0A09A) : const Color(0xFF888780),
+      letterSpacing: 0.1,
+      height: 1.2,
+    );
 
-    // Legend (right side)
+    _drawCenteredText(canvas, totalInt, Offset(cx, cy - 10), centerLabelStyle);
+    _drawCenteredText(canvas, 'reports', Offset(cx, cy + 12), subLabelStyle);
+
+    // Legend on the right side with improved styling
     final legendX = size.width * 0.62;
-    const legendStartY = 20.0;
-    const itemH = 26.0;
-    final labelStyle = TextStyle(fontSize: 11, color: isDark ? const Color(0xFFD3D1C7) : const Color(0xFF444441));
-    final subStyle = TextStyle(fontSize: 10, color: isDark ? const Color(0xFF888780) : const Color(0xFF888780));
+    const legendStartY = 18.0;
+    const itemH = 28.0;
+
+    final labelStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: isDark ? const Color(0xFFE0DED7) : const Color(0xFF2C2C2A),
+      letterSpacing: 0.1,
+      height: 1.2,
+    );
+    final subStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: isDark ? const Color(0xFFA0A09A) : const Color(0xFF888780),
+      letterSpacing: 0.05,
+      height: 1.2,
+    );
 
     for (int i = 0; i < values.length; i++) {
       final y = legendStartY + i * itemH;
+
+      // Color indicator with subtle border
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(legendX, y + 3, 9, 9), const Radius.circular(2)),
-        Paint()..color = colors[i],
+        RRect.fromRectAndRadius(Rect.fromLTWH(legendX, y + 4, 11, 11), const Radius.circular(3)),
+        Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.fill,
       );
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(legendX, y + 4, 11, 11), const Radius.circular(3)),
+        Paint()
+          ..color = isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5,
+      );
+
       final pct = ((values[i] / safeTotal) * 100).toStringAsFixed(0);
-      _drawText(canvas, labels[i], Offset(legendX + 14, y), labelStyle, maxWidth: size.width - legendX - 14);
-      _drawText(canvas, '$pct%  ·  ${values[i].toInt()}', Offset(legendX + 14, y + 13), subStyle, maxWidth: size.width - legendX - 14);
+      final count = values[i].toInt().toString();
+
+      _drawText(canvas, labels[i], Offset(legendX + 16, y), labelStyle, maxWidth: size.width - legendX - 20);
+      _drawText(
+        canvas,
+        '$pct%  •  $count',
+        Offset(legendX + 16, y + 14),
+        subStyle,
+        maxWidth: size.width - legendX - 20,
+      );
     }
   }
 
@@ -2322,10 +2676,10 @@ class _StackedBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
+    const double padLeft = 42;
     const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padTop = 12;
+    const double padBottom = 28;
 
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
@@ -2337,46 +2691,102 @@ class _StackedBarPainter extends CustomPainter {
     }
     maxV = (maxV * 1.1).ceilToDouble();
 
-    final barW = (chartW / n) * 0.55;
-    final gap = (chartW / n) * 0.45;
+    final barW = (chartW / n) * 0.6;
+    final gap = (chartW / n) * 0.4;
 
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
+      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.05)
       ..strokeWidth = 0.5;
-    final labelStyle = TextStyle(fontSize: 9, color: isDark ? const Color(0xFF888780) : const Color(0xFF888780));
+
+    // Improved label styling
+    final labelStyle = TextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: isDark ? const Color(0xFFA0A09A) : const Color(0xFF888780),
+      letterSpacing: 0.1,
+      height: 1.2,
+    );
 
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
       canvas.drawLine(Offset(padLeft, y), Offset(padLeft + chartW, y), gridPaint);
+
       final val = (i / gridCount) * maxV;
-      _drawText(canvas, val.toInt().toString(), Offset(0, y - 5), labelStyle, maxWidth: padLeft - 4, align: TextAlign.right);
+      late final String label;
+      if (val >= 1000000) {
+        label = '${(val / 1000000).toStringAsFixed(val >= 10000000 ? 0 : 1)}M';
+      } else if (val >= 1000) {
+        label = '${(val / 1000).toStringAsFixed(val >= 10000 ? 0 : 1)}k';
+      } else {
+        label = val.toInt().toString();
+      }
+
+      _drawText(canvas, label, Offset(2, y - 6), labelStyle, maxWidth: padLeft - 6, align: TextAlign.right);
     }
 
+    // Draw stacked bars with improved styling
     for (int i = 0; i < n; i++) {
       final x = padLeft + i * (chartW / n) + gap / 2;
       double currentY = padTop + chartH;
 
-      void drawSegment(double val, Color color, {bool isTop = false}) {
+      void drawSegment(double val, Color color, {bool isTop = false, bool isBottom = false}) {
         if (val <= 0) return;
         final segH = (val / maxV) * chartH;
         final top = currentY - segH;
+
         final rRect = isTop
             ? RRect.fromRectAndCorners(
                 Rect.fromLTWH(x, top, barW, segH),
-                topLeft: const Radius.circular(3),
-                topRight: const Radius.circular(3),
+                topLeft: const Radius.circular(5),
+                topRight: const Radius.circular(5),
               )
-            : RRect.fromRectAndCorners(Rect.fromLTWH(x, top, barW, segH));
+            : isBottom
+                ? RRect.fromRectAndCorners(
+                    Rect.fromLTWH(x, top, barW, segH),
+                    bottomLeft: const Radius.circular(5),
+                    bottomRight: const Radius.circular(5),
+                  )
+                : RRect.fromRectAndRadius(Rect.fromLTWH(x, top, barW, segH), const Radius.circular(0));
+
+        // Subtle shadow
+        canvas.drawRRect(
+          rRect,
+          Paint()
+            ..color = color.withOpacity(0.15)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+        );
+
+        // Main segment
         canvas.drawRRect(rRect, Paint()..color = color);
+
+        // Subtle highlight
+        if (isTop) {
+          canvas.drawRRect(
+            RRect.fromRectAndCorners(
+              Rect.fromLTWH(x + 0.5, top + 0.5, barW - 1, 2),
+              topLeft: const Radius.circular(3),
+              topRight: const Radius.circular(3),
+            ),
+            Paint()..color = Colors.white.withOpacity(isDark ? 0.1 : 0.2),
+          );
+        }
+
         currentY = top;
       }
 
-      drawSegment(seriesC[i], colorC);
+      drawSegment(seriesC[i], colorC, isBottom: true);
       drawSegment(seriesB[i], colorB);
       drawSegment(seriesA[i], colorA, isTop: true);
 
-      _drawText(canvas, labels[i], Offset(x - 2, size.height - padBottom + 6), labelStyle, maxWidth: barW + 12);
+      _drawText(
+        canvas,
+        labels[i],
+        Offset(x + barW / 2 - 16, size.height - padBottom + 8),
+        labelStyle,
+        maxWidth: 32,
+        align: TextAlign.center,
+      );
     }
   }
 
@@ -2635,6 +3045,9 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onDeactivate;
   final void Function(AdminUser) onActivate;
   final void Function(AdminUser) onDelete;
+  final void Function(AdminUser) onUserTap;
+  final void Function(AdminUser) onViewPosts;
+  final void Function(AdminUser) onViewComments;
 
   const _UsersSection({
     required this.theme,
@@ -2651,6 +3064,9 @@ class _UsersSection extends StatelessWidget {
     required this.onDeactivate,
     required this.onActivate,
     required this.onDelete,
+    required this.onUserTap,
+    required this.onViewPosts,
+    required this.onViewComments,
   });
 
   @override
@@ -2678,9 +3094,207 @@ class _UsersSection extends StatelessWidget {
         else if (users.isEmpty)
           _EmptyState(theme: theme, message: searchQuery.isEmpty ? 'No users yet' : 'No users match your search')
         else
-          _UsersTable(theme: theme, users: users, onDeactivate: onDeactivate, onActivate: onActivate, onDelete: onDelete),
+          MasterUserTable(
+            users: users,
+            loading: false,
+            error: null,
+            onUserTap: onUserTap,
+            onViewPosts: onViewPosts,
+            onViewComments: onViewComments,
+            onDeactivate: onDeactivate,
+            onActivate: onActivate,
+            onDelete: onDelete,
+          ),
         const SizedBox(height: 32),
       ],
+    );
+  }
+}
+
+class _UserActivitySheet extends StatelessWidget {
+  final AdminUser user;
+  final Future<List<Post>> postsFuture;
+  final List<PostComment> comments;
+  final bool commentsOnly;
+  final ScrollController scrollController;
+
+  const _UserActivitySheet({
+    required this.user,
+    required this.postsFuture,
+    required this.comments,
+    required this.commentsOnly,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(user.email, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                Chip(
+                  label: Text(user.statusLabel),
+                  backgroundColor: user.isActive ? kPrimaryGreen.withOpacity(0.12) : kAccentOrange.withOpacity(0.12),
+                  labelStyle: TextStyle(color: user.isActive ? kPrimaryGreen : kAccentOrange, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _ActivitySummaryTile(label: 'Total posts', value: user.totalPosts.toString()),
+                      const SizedBox(width: 12),
+                      _ActivitySummaryTile(label: 'Last login', value: user.lastLogin == null ? 'Never' : user.lastLogin!),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  if (!commentsOnly) ...[
+                    Text('User posts', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    FutureBuilder<List<Post>>(
+                      future: postsFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                        }
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Text('Unable to load posts.', style: theme.textTheme.bodyMedium?.copyWith(color: kAccentOrange)),
+                          );
+                        }
+                        final posts = snapshot.data ?? [];
+                        if (posts.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Text('No posts found for this user.', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          );
+                        }
+                        return Column(
+                          children: posts.map((post) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(post.content.isEmpty ? 'Post' : post.content, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 8),
+                                    Text(post.content, maxLines: 3, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  Text('Comments', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  if (comments.isEmpty)
+                    Text('No comments recorded for this user.', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant))
+                  else
+                    Column(
+                      children: comments.map((comment) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(comment.comment, style: theme.textTheme.bodyMedium),
+                              const SizedBox(height: 10),
+                              Text('Posted by ${comment.userName}', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                              const SizedBox(height: 4),
+                              Text(comment.createdAt, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivitySummaryTile extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ActivitySummaryTile({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 6),
+            Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3353,67 +3967,73 @@ class _UserAvatar extends StatelessWidget {
 }
 
 // ─── Pills ────────────────────────────────────────────────────────────────────
-class _StatusPill extends StatelessWidget {
-  final bool isActive;
-  const _StatusPill({required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: isActive ? kPrimaryGreen.withValues(alpha: 0.08) : kAccentOrange.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 5, height: 5, decoration: BoxDecoration(color: isActive ? kPrimaryGreen : kAccentOrange, shape: BoxShape.circle)),
-        const SizedBox(width: 5),
-        Text(isActive ? 'Active' : 'Inactive', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? kPrimaryGreen : kAccentOrange)),
-      ]),
-    );
-  }
-}
-
 class _StatusChip extends StatelessWidget {
   final bool isActive;
   const _StatusChip({required this.isActive});
 
   @override
   Widget build(BuildContext context) {
-    final isActive = status == 'active';
-    final isSuspended = status == 'suspended';
-    final isDeactivated = status == 'deactivated';
-    final color = isActive
-        ? kPrimaryGreen
-        : isSuspended
-        ? Colors.red
-        : kAccentOrange;
-    final label = isActive
-        ? 'Active'
-        : isSuspended
-        ? 'Suspended'
-        : isDeactivated
-        ? 'Deactivated'
-        : status;
+    final color = isActive ? kPrimaryGreen : kAccentOrange;
+    final label = isActive ? 'Active' : 'Inactive';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isActive
-            ? kPrimaryGreen.withValues(alpha: 0.1)
-            : kAccentOrange.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.15), width: 0.5),
+        border: Border.all(color: color.withOpacity(0.15), width: 0.5),
       ),
       child: Text(
-        isActive ? 'Active' : 'Inactive',
+        label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: isActive ? kPrimaryGreen : kAccentOrange,
+          color: color,
         ),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurfaceVariant)),
+    );
+  }
+}
+
+class _TypePill extends StatelessWidget {
+  final String type;
+  const _TypePill({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        type.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _CategoryPill extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+  const _CategoryPill({required this.theme, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.secondary, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

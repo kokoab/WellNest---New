@@ -6,6 +6,8 @@ class AdminUser {
   final String name;
   final String email;
   final String status; // 'active' | 'inactive'
+  final int totalPosts;
+  final String? lastLogin;
 
   AdminUser({
     required this.id,
@@ -21,7 +23,9 @@ class AdminUser {
       id: jsonDecodeInt(json['id']),
       name: json['name'] ?? '',
       email: json['email'] ?? '',
-      status: json['status'] ?? 'active',
+      status: json['status'] ?? json['account_status'] ?? 'active',
+      totalPosts: jsonDecodeInt(json['totalPosts'] ?? json['total_posts']),
+      lastLogin: (json['lastLogin'] ?? json['last_login'])?.toString(),
     );
   }
 

@@ -14,6 +14,9 @@ class MasterUserTable extends StatefulWidget {
   final Function(AdminUser)? onUserTap;
   final Function(AdminUser)? onViewPosts;
   final Function(AdminUser)? onViewComments;
+  final void Function(AdminUser)? onDeactivate;
+  final void Function(AdminUser)? onActivate;
+  final void Function(AdminUser)? onDelete;
 
   const MasterUserTable({
     super.key,
@@ -23,6 +26,9 @@ class MasterUserTable extends StatefulWidget {
     this.onUserTap,
     this.onViewPosts,
     this.onViewComments,
+    this.onDeactivate,
+    this.onActivate,
+    this.onDelete,
   });
 
   @override
@@ -150,6 +156,7 @@ class _MasterUserTableState extends State<MasterUserTable> {
               }
               return null;
             }),
+            onSelectChanged: (_) => widget.onUserTap?.call(user),
             cells: [
               DataCell(
                 Row(
@@ -206,6 +213,27 @@ class _MasterUserTableState extends State<MasterUserTable> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                     ),
+                    if (widget.onDeactivate != null || widget.onActivate != null || widget.onDelete != null)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 18),
+                        itemBuilder: (context) => [
+                          if (user.isActive && widget.onDeactivate != null)
+                            const PopupMenuItem(value: 'deactivate', child: Text('Deactivate')),
+                          if (!user.isActive && widget.onActivate != null)
+                            const PopupMenuItem(value: 'activate', child: Text('Activate')),
+                          if (widget.onDelete != null)
+                            const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'deactivate') {
+                            widget.onDeactivate?.call(user);
+                          } else if (value == 'activate') {
+                            widget.onActivate?.call(user);
+                          } else if (value == 'delete') {
+                            widget.onDelete?.call(user);
+                          }
+                        },
+                      ),
                   ],
                 ),
               ),
