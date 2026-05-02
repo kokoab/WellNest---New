@@ -1,13 +1,11 @@
 import '../utils/json_helpers.dart';
 
-/// User model for admin list (id, name, email, status).
+/// User model for admin list (id, name, email, account status).
 class AdminUser {
   final int id;
   final String name;
   final String email;
   final String status; // 'active' | 'inactive'
-  final int totalPosts;
-  final String? lastLogin;
 
   AdminUser({
     required this.id,
@@ -24,12 +22,25 @@ class AdminUser {
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       status: json['status'] ?? 'active',
-      totalPosts: json['total_posts'] as int? ?? 0,
-      lastLogin: json['last_login'] as String?,
     );
   }
 
   bool get isActive => status == 'active';
 
-  String get statusLabel => isActive ? 'Active' : 'Deactivated';
+  bool get isSuspended => status == 'suspended';
+
+  bool get isDeactivated => status == 'deactivated';
+
+  String get statusLabel {
+    switch (status) {
+      case 'active':
+        return 'Active';
+      case 'suspended':
+        return 'Suspended';
+      case 'deactivated':
+        return 'Deactivated';
+      default:
+        return status;
+    }
+  }
 }

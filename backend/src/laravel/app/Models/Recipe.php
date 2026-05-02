@@ -13,10 +13,12 @@ use App\Models\Post;
 use App\Models\Report;
 use App\Models\RecipeRating;
 use App\Models\User;
-
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Recipe extends Model
 {
     //
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'category_id',

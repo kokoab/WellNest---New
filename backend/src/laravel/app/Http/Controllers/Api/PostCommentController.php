@@ -104,6 +104,7 @@ class PostCommentController extends Controller
 
         $comments = $post->comments()
             ->with('user:id,first_name,last_name,profile_photo_url')
+            ->whereHas('user', fn ($q) => $q->where('account_status', 'active'))
             ->orderBy('created_at', 'asc')
             ->limit(50)
             ->get()

@@ -4,6 +4,16 @@ import '../config/app_config.dart';
 import '../models/admin_user.dart';
 import 'admin_auth_service.dart';
 
+class AdminApiException implements Exception {
+  final int statusCode;
+  final String message;
+
+  const AdminApiException(this.statusCode, this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// API calls for admin user management (list, update status, delete).
 class AdminUserService {
   AdminUserService._();
@@ -13,10 +23,10 @@ class AdminUserService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AdminAuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AdminAuthService.instance.authHeaders,
+  };
 
   /// GET /api/admin/users — returns list of users.
   /// Returns list on success, or throws with message on error.
@@ -25,12 +35,16 @@ class AdminUserService {
     if (range != null && range.isNotEmpty) params['range'] = range;
 
     final response = await http.get(
-      Uri.parse('$_baseUrl/admin/users').replace(queryParameters: params.isEmpty ? null : params),
+      Uri.parse(
+        '$_baseUrl/admin/users',
+      ).replace(queryParameters: params.isEmpty ? null : params),
       headers: _headers,
     );
     if (response.statusCode == 200) {
       final list = jsonDecode(response.body) as List<dynamic>;
-      return list.map((e) => AdminUser.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     _throwFromResponse(response);
   }
@@ -40,7 +54,7 @@ class AdminUserService {
     final response = await http.patch(
       Uri.parse('$_baseUrl/admin/users/$userId/status'),
       headers: _headers,
-      body: jsonEncode({'status': status}),
+      body: jsonEncode({'account_status': status}),
     );
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -60,15 +74,26 @@ class AdminUserService {
   }
 
   static Never _throwFromResponse(http.Response response) {
-    final data = jsonDecode(response.body) as Map<String, dynamic>?;
+    Map<String, dynamic>? data;
+    try {
+      data = jsonDecode(response.body) as Map<String, dynamic>?;
+    } catch (_) {
+      data = null;
+    }
+
     final message = data?['message'] as String?;
     final errors = data?['errors'] as Map<String, dynamic>?;
+
     if (errors != null && errors.isNotEmpty) {
       final first = errors.values.first;
       final list = first is List ? first : [first];
       final msg = list.isNotEmpty ? list.first.toString() : message;
-      throw Exception(msg ?? 'Request failed');
+      throw AdminApiException(response.statusCode, msg ?? 'Request failed');
     }
-    throw Exception(message ?? 'Request failed: ${response.statusCode}');
+
+    throw AdminApiException(
+      response.statusCode,
+      message ?? 'Request failed: ${response.statusCode}',
+    );
   }
 }

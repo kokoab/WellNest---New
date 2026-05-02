@@ -26,7 +26,6 @@ use App\Http\Controllers\Api\MealPlannerController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\RecipeRankingController;
 use App\Http\Controllers\Api\MealPlanController;
-use App\Http\Controllers\Api\AdminDashboardController;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -67,7 +66,7 @@ Route::get('recipes/{recipe}', [RecipeController::class, 'show']);
 Route::get('recipes/{recipe}/ratings', [RecipeRatingController::class, 'index']);
 
 // Protected routes (auth:sanctum)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::get('/user', [UserController::class, 'currentUser']);
     Route::patch('/user', [AuthController::class, 'updateProfile']);
     Route::post('/user/profile-photo', [AuthController::class, 'uploadProfilePhoto']);
@@ -139,10 +138,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'update']);
     Route::delete('message-attachments/{messageAttachment}', [MessageAttachmentController::class, 'delete']);
 
-    // In your auth:sanctum group in routes/api.php
+
     Route::post('/broadcasting/auth', function (Request $request) {
         return Broadcast::auth($request);
     });
+
+    Route::patch('me/deactivate', [UserController::class, 'deactivateSelf']);
 
 
 });
@@ -151,8 +152,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('register-admin', [AdminAuthController::class, 'register']);
     Route::get('admin/users', [AdminUserController::class, 'index']);
-    Route::patch('admin/users/{id}/status', [AdminUserController::class, 'updateStatus']);
-    Route::delete('admin/users/{id}', [AdminUserController::class, 'destroy']);
+    Route::patch('admin/users/{user}/status', [AdminUserController::class, 'updateStatus']);
+    Route::delete('admin/users/{user}', [AdminUserController::class, 'destroy']);
 
     Route::post('categories', [CategoryController::class, 'create']);
     Route::put('categories/{category}', [CategoryController::class, 'update']);

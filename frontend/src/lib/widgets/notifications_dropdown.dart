@@ -53,8 +53,8 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   }
 
   Future<void> _fetchUnreadCount() async {
-    final count = await NotificationService.instance.getUnreadCount();
-    if (mounted) setState(() => _unreadCount = count);
+    final counts = await NotificationService.instance.getUnreadCounts();
+    if (mounted) setState(() => _unreadCount = counts.activityUnread);
   }
 
   void _showOverlay() {
@@ -374,13 +374,16 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     if (showLoading) setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        NotificationService.instance.fetchNotifications(perPage: 15),
-        NotificationService.instance.getUnreadCount(),
+        NotificationService.instance.fetchNotifications(
+          perPage: 15,
+          category: NotificationCategory.activity,
+        ),
+        NotificationService.instance.getUnreadCounts(),
       ]);
       if (!mounted) return;
       setState(() {
         _notifications = results[0] as List<AppNotification>;
-        _unreadCount = results[1] as int;
+        _unreadCount = (results[1] as NotificationCounts).activityUnread;
         _loading = false;
       });
       _overlayEntry?.markNeedsBuild();
@@ -406,6 +409,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       _notifications[idx] = AppNotification(
         id: n.id,
         type: n.type,
+        category: n.category,
         message: n.message,
         data: n.data,
         readAt: DateTime.now().toIso8601String(),
@@ -426,6 +430,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
         return AppNotification(
           id: n.id,
           type: n.type,
+          category: n.category,
           message: n.message,
           data: n.data,
           readAt: DateTime.now().toIso8601String(),
@@ -470,10 +475,6 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       default:
         return Icons.notifications_rounded;
     }
-  }
-
-  Color _colorForType(String type) {
-    return _colorsForType(type).fg;
   }
 
   ({Color bg, Color fg}) _colorsForType(String type) {

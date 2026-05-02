@@ -51,12 +51,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     try {
       final results = await Future.wait([
         NotificationService.instance.fetchNotifications(),
-        NotificationService.instance.getUnreadCount(),
+        NotificationService.instance.getUnreadCounts(),
       ]);
       if (!mounted) return;
       setState(() {
         _notifications = results[0] as List<AppNotification>;
-        _unreadCount = results[1] as int;
+        _unreadCount = (results[1] as NotificationCounts).allUnread;
         _loading = false;
       });
       _fadeController.forward(from: 0);
@@ -77,6 +77,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         _notifications[idx] = AppNotification(
           id: n.id,
           type: n.type,
+          category: n.category,
           message: n.message,
           data: n.data,
           readAt: DateTime.now().toIso8601String(),
@@ -99,6 +100,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             return AppNotification(
               id: n.id,
               type: n.type,
+              category: n.category,
               message: n.message,
               data: n.data,
               readAt: DateTime.now().toIso8601String(),

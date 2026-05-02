@@ -19,14 +19,14 @@ class AuthTest extends TestCase
             'email' => 'test@example.com',
             'password' => Hash::make('password123'),
             'role' => 'user',
-            'status' => 'active',
+            'account_status' => 'active',
             'is_admin' => false,
         ], $overrides));
     }
 
     public function test_register_successfully_creates_user_and_returns_token(): void
     {
-        $response = $this->postJson('/api/register', [
+        $response = $this->postJson('api/register', [
             'first_name' => 'Jane',
             'last_name' => 'Doe',
             'email' => 'jane@example.com',
@@ -51,7 +51,7 @@ class AuthTest extends TestCase
     {
         $this->createUser(['email' => 'duplicate@example.com']);
 
-        $response = $this->postJson('/api/register', [
+        $response = $this->postJson('api/register', [
             'first_name' => 'Jane',
             'last_name' => 'Doe',
             'email' => 'duplicate@example.com',
@@ -69,7 +69,7 @@ class AuthTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('api/login', [
             'email' => 'login@example.com',
             'password' => 'password123',
         ]);
@@ -86,7 +86,7 @@ class AuthTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('api/login', [
             'email' => 'wrongpass@example.com',
             'password' => 'wrong-password',
         ]);
@@ -100,10 +100,10 @@ class AuthTest extends TestCase
         $this->createUser([
             'email' => 'suspended@example.com',
             'password' => Hash::make('password123'),
-            'status' => 'suspended',
+            'account_status' => 'suspended',
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('api/login', [
             'email' => 'suspended@example.com',
             'password' => 'password123',
         ]);

@@ -109,27 +109,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: wellGreen))
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: nestOrange),
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: nestOrange),
                     ),
-                  ),
-                )
-              : _buildContent(colorScheme),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              ),
+            )
+          : _buildContent(colorScheme),
     );
   }
 
@@ -161,6 +158,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               color: wellGreen,
             ),
           ),
+          if (!profile.isAvailable) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: nestOrange.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: nestOrange.withOpacity(0.4)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    profile.availabilityMessage ??
+                        'User is not available right now.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: nestOrange,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Status: ${_statusLabel(profile.accountStatus)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -175,14 +207,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          if (AuthService.instance.isLoggedIn && !_isOwnProfile)
+          if (AuthService.instance.isLoggedIn &&
+              !_isOwnProfile &&
+              profile.isAvailable)
             FilledButton(
               onPressed: _saving ? null : _toggleFollow,
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    profile.isFollowing == true ? colorScheme.surface : wellGreen,
-                foregroundColor:
-                    profile.isFollowing == true ? colorScheme.onSurface : Colors.white,
+                backgroundColor: profile.isFollowing == true
+                    ? colorScheme.surface
+                    : wellGreen,
+                foregroundColor: profile.isFollowing == true
+                    ? colorScheme.onSurface
+                    : Colors.white,
               ),
               child: _saving
                   ? const SizedBox(
@@ -252,6 +288,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'suspended':
+        return 'Suspended';
+      case 'deactivated':
+        return 'Deactivated';
+      default:
+        return 'Active';
+    }
+  }
+
   Widget _buildStat(String value, String label) {
     return Column(
       children: [
@@ -284,7 +331,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           color: wellGreen,
           borderRadius: BorderRadius.circular(25),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(0, 3)),
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 5,
+              offset: Offset(0, 3),
+            ),
           ],
         ),
         padding: const EdgeInsets.all(10),
@@ -293,7 +344,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: recipe.displayImageUrl != null &&
+                child:
+                    recipe.displayImageUrl != null &&
                         recipe.displayImageUrl!.isNotEmpty
                     ? Image.network(
                         recipe.displayImageUrl!,
@@ -341,11 +393,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                post.content,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(post.content, maxLines: 4, overflow: TextOverflow.ellipsis),
               if (post.displayImageUrl != null &&
                   post.displayImageUrl!.isNotEmpty) ...[
                 const SizedBox(height: 12),

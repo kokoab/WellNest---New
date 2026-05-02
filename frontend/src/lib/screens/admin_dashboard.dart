@@ -18,6 +18,7 @@ import 'package:my_app/theme/app_theme.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/providers/theme_provider.dart';
+import 'package:simple_rich_text/simple_rich_text.dart';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 enum _Section { overview, analytics, users, moderation, auditLogs }
@@ -419,22 +420,24 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _confirmDeactivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
-      title: 'Deactivate account?',
-      content:
-          'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
-      actionLabel: 'Deactivate',
+      title: 'Suspend account?',
+      content: SimpleRichText(
+        'Suspend *${user.name}*? They will not be able to sign in until an admin reactivates the account.',
+      ),
+      actionLabel: 'Suspend',
       actionColor: kAccentOrange,
     );
     if (ok != true || !mounted) return;
-    await _updateStatus(user.id, 'inactive');
+    await _updateStatus(user.id, 'suspended');
   }
 
   Future<void> _confirmActivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
-      title: 'Activate account?',
-      content:
-          'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
-      actionLabel: 'Activate',
+      title: 'Unsuspend account?',
+      content: SimpleRichText(
+        'Unsuspend *${user.name}*? They will be able to sign in again.',
+      ),
+      actionLabel: 'Unsuspend',
       actionColor: kPrimaryGreen,
     );
     if (ok != true || !mounted) return;
@@ -446,7 +449,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       await AdminUserService.instance.updateUserStatus(userId, status);
       if (!mounted) return;
       _showSnack(
-        status == 'active' ? 'Account activated' : 'Account deactivated',
+        status == 'active' ? 'Account unsuspended' : 'Account suspended',
       );
       _loadUsers();
     } catch (e) {
@@ -458,8 +461,10 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmDelete(AdminUser user) async {
     final ok = await _showConfirmDialog(
       title: 'Delete account permanently?',
-      content:
-          'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
+      content: SimpleRichText(
+        'Permanently delete *${user.name}*? This cannot be undone.\n'
+        'If this account still has recipes, posts, or comments, deletion will be blocked.',
+      ),
       actionLabel: 'Delete',
       actionColor: Colors.red,
     );
@@ -471,6 +476,26 @@ class _AdminDashboardState extends State<AdminDashboard>
       _loadUsers();
     } catch (e) {
       if (!mounted) return;
+
+      if (e is AdminApiException &&
+          e.statusCode == 403 &&
+          e.message.contains('existing contributions')) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete blocked'),
+            content: Text(e.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
       _showSnack(e.toString().replaceFirst('Exception: ', ''), isError: true);
     }
   }
@@ -496,7 +521,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<bool?> _showConfirmDialog({
     required String title,
-    required String content,
+    required dynamic content,
     required String actionLabel,
     required Color actionColor,
   }) {
@@ -504,8 +529,8 @@ class _AdminDashboardState extends State<AdminDashboard>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        content: Text(content, style: const TextStyle(fontSize: 13)),
+        title: Text(title),
+        content: Text(content),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -2865,32 +2890,82 @@ class _UsersTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapTable(theme, users.length, _flexTable(
-      theme: theme,
-      columnWidths: const {0: FlexColumnWidth(0.4), 1: FlexColumnWidth(1.4), 2: FlexColumnWidth(2), 3: FlexColumnWidth(0.9), 4: FlexColumnWidth(1.2)},
-      headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
-      rows: users.asMap().entries.map((e) {
-        final user = e.value;
-        return _tableRow(theme, [
-          Text('${user.id}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-          Row(children: [
-            _UserAvatar(name: user.name),
-            const SizedBox(width: 8),
-            Expanded(child: Text(user.name.isEmpty ? '—' : user.name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface))),
-          ]),
-          Text(user.email, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-          _StatusPill(isActive: user.isActive),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            if (user.isActive)
-              _ActionIconBtn(icon: Icons.person_off_outlined, color: kAccentOrange, tooltip: 'Deactivate', onPressed: () => onDeactivate(user))
-            else
-              _ActionIconBtn(icon: Icons.person_add_outlined, color: kPrimaryGreen, tooltip: 'Activate', onPressed: () => onActivate(user)),
-            const SizedBox(width: 4),
-            _ActionIconBtn(icon: Icons.delete_outline_rounded, color: Colors.red, tooltip: 'Delete', onPressed: () => onDelete(user)),
-          ]),
-        ], null);
-      }).toList(),
-    ));
+    return _wrapTable(
+      theme,
+      users.length,
+      _flexTable(
+        theme: theme,
+        columnWidths: const {
+          0: FlexColumnWidth(0.4),
+          1: FlexColumnWidth(1.4),
+          2: FlexColumnWidth(2),
+          3: FlexColumnWidth(0.9),
+          4: FlexColumnWidth(1.2),
+        },
+        headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+        rows: users.asMap().entries.map((e) {
+          final user = e.value;
+          final bg = e.key.isEven
+              ? null
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.15,
+                );
+          return _tableRow(theme, [
+            Text(
+              '${user.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              user.name.isEmpty ? '—' : user.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              user.email,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            _StatusChip(isActive: user.isActive),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (user.isActive)
+                  _ActionIconBtn(
+                    icon: Icons.person_off_rounded,
+                    color: kAccentOrange,
+                    tooltip: 'Deactivate',
+                    onPressed: () => onDeactivate(user),
+                  )
+                else
+                  _ActionIconBtn(
+                    icon: Icons.person_add_rounded,
+                    color: kPrimaryGreen,
+                    tooltip: 'Activate',
+                    onPressed: () => onActivate(user),
+                  ),
+                AppSpacing.gapH4,
+                _ActionIconBtn(
+                  icon: Icons.delete_outline,
+                  color: Colors.red,
+                  tooltip: 'Delete',
+                  onPressed: () => onDelete(user),
+                ),
+              ],
+            ),
+          ], bg);
+        }).toList(),
+      ),
+    );
   }
 }
 
@@ -3299,36 +3374,44 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _TypePill extends StatelessWidget {
-  final String type;
-  const _TypePill({required this.type});
+class _StatusChip extends StatelessWidget {
+  final bool isActive;
+  const _StatusChip({required this.isActive});
 
   @override
   Widget build(BuildContext context) {
+    final isActive = status == 'active';
+    final isSuspended = status == 'suspended';
+    final isDeactivated = status == 'deactivated';
+    final color = isActive
+        ? kPrimaryGreen
+        : isSuspended
+        ? Colors.red
+        : kAccentOrange;
+    final label = isActive
+        ? 'Active'
+        : isSuspended
+        ? 'Suspended'
+        : isDeactivated
+        ? 'Deactivated'
+        : status;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: kPrimaryGreen.withValues(alpha: 0.08),
+        color: isActive
+            ? kPrimaryGreen.withValues(alpha: 0.1)
+            : kAccentOrange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.15), width: 0.5),
       ),
-      child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kPrimaryGreen)),
-    );
-  }
-}
-
-class _CategoryPill extends StatelessWidget {
-  final ThemeData theme;
-  final String label;
-  const _CategoryPill({required this.theme, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+      child: Text(
+        isActive ? 'Active' : 'Inactive',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: isActive ? kPrimaryGreen : kAccentOrange,
+        ),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurfaceVariant)),
     );
