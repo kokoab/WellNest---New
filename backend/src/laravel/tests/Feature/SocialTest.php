@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\Post;
 use App\Models\Recipe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -142,6 +144,33 @@ class SocialTest extends TestCase
         $this->assertFalse($user->following()->where('following_id', $otherUser->id)->exists());
     }
 
+    public function test_user_cannot_follow_themselves(): void
+    {
+        $user = $this->createUser();
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("api/users/{$user->id}/follow");
+
+        $response->assertStatus(422)
+            ->assertJsonFragment(['message' => 'You cannot follow yourself.']);
+    }
+
+    public function test_user_cannot_follow_same_user_twice(): void
+    {
+        $user = $this->createUser();
+        $otherUser = $this->createUser(['email' => 'other@example.com']);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/users/{$otherUser->id}/follow")->assertCreated();
+
+        $response = $this->postJson("api/users/{$otherUser->id}/follow");
+
+        $response->assertStatus(409)
+            ->assertJsonFragment(['message' => 'You are already following this user.']);
+    }
+
     public function test_user_can_view_post_likes(): void
     {
         $user = $this->createUser();
@@ -158,5 +187,26 @@ class SocialTest extends TestCase
                 'is_liked' => true,
                 'likes_count' => 1
             ]);
+    }
+
+    public function test_user_can_upload_post_image(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->createUser();
+        $post = $this->createPost([
+            'user_id' => $user->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("api/posts/{$post->id}/images", [
+            'image' => UploadedFile::fake()->create('post.jpg', 100, 'image/jpeg'),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonFragment(['message' => 'Image uploaded successfully']);
+
+        $this->assertNotEmpty($response->json('image_url'));
     }
 }

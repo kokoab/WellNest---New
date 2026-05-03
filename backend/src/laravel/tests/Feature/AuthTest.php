@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use Laravel\Sanctum\Sanctum;
 
 class AuthTest extends TestCase
 {
@@ -96,6 +99,79 @@ class AuthTest extends TestCase
 
         $response->assertStatus(403)
             ->assertJsonFragment(['message' => 'Account is suspended']);
+    }
+
+    public function test_user_can_logout(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('api/logout');
+
+        $response->assertOk()
+            ->assertJsonFragment(['message' => 'Logged out successfully']);
+    }
+
+    public function test_user_can_update_profile(): void
+    {
+        $user = $this->createUser([
+            'email' => 'profile@example.com',
+            'first_name' => 'Old',
+            'last_name' => 'Name',
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->patchJson('api/user', [
+            'first_name' => 'New',
+            'last_name' => 'Person',
+            'email' => 'new-profile@example.com',
+            'password' => 'newpassword123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonFragment(['message' => 'Profile updated']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'first_name' => 'New',
+            'last_name' => 'Person',
+            'email' => 'new-profile@example.com',
+        ]);
+    }
+
+    public function test_user_can_upload_profile_photo(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('api/user/profile-photo', [
+            'image' => UploadedFile::fake()->create('avatar.jpg', 100, 'image/jpeg'),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonFragment(['message' => 'Profile photo uploaded successfully']);
+
+        $this->assertNotEmpty($response->json('profile_photo_url'));
+    }
+
+    public function test_user_can_deactivate_self(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $response = $this->patchJson('api/me/deactivate', [
+            'reason' => 'No longer needed',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonFragment(['message' => 'Account deactivated successfully.']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'account_status' => 'deactivated',
+        ]);
     }
 }
 

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Recipe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -84,6 +86,39 @@ class RecipeInteractionTest extends TestCase
         ]);
     }
 
+    public function test_user_can_update_their_existing_recipe_rating(): void
+    {
+        $user = $this->createUser();
+        $owner = $this->createUser(['email' => 'owner-update@example.com']);
+        $category = $this->createCategory();
+        $recipe = $this->createRecipe([
+            'user_id' => $owner->id,
+            'category_id' => $category->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/ratings", [
+            'rating' => 3,
+            'comment' => 'Okay recipe',
+        ])->assertCreated();
+
+        $response = $this->postJson("api/recipes/{$recipe->id}/ratings", [
+            'rating' => 5,
+            'comment' => 'Much better now',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonFragment(['message' => 'Rating updated']);
+
+        $this->assertDatabaseHas('recipe_ratings', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $user->id,
+            'rating' => 5,
+            'comment' => 'Much better now',
+        ]);
+    }
+
     public function test_user_can_save_and_unsave_recipe(): void
     {
         $user = $this->createUser();
@@ -147,5 +182,51 @@ class RecipeInteractionTest extends TestCase
         $this->assertDatabaseHas('recipe_views', [
             'recipe_id' => $recipe->id
         ]);
+    }
+
+    public function test_user_can_view_their_own_recipe_rating(): void
+    {
+        $user = $this->createUser();
+        $category = $this->createCategory();
+        $recipe = $this->createRecipe([
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/ratings", [
+            'rating' => 4,
+            'comment' => 'Good recipe',
+        ])->assertCreated();
+
+        $response = $this->getJson("api/recipes/{$recipe->id}/ratings/me");
+
+        $response->assertOk()
+            ->assertJsonPath('rating.rating', 4)
+            ->assertJsonPath('rating.comment', 'Good recipe');
+    }
+
+    public function test_recipe_image_can_be_uploaded_by_owner(): void
+    {
+        Storage::fake('public');
+
+        $owner = $this->createUser();
+        $category = $this->createCategory();
+        $recipe = $this->createRecipe([
+            'user_id' => $owner->id,
+            'category_id' => $category->id,
+        ]);
+
+        Sanctum::actingAs($owner);
+
+        $response = $this->postJson("api/recipes/{$recipe->id}/images", [
+            'image' => UploadedFile::fake()->create('recipe.jpg', 100, 'image/jpeg'),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonFragment(['message' => 'Image uploaded successfully']);
+
+        $this->assertNotEmpty($response->json('image_url'));
     }
 }
