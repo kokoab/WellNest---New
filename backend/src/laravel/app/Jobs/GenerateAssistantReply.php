@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Events\AssistantStreamEvent;
 use App\Events\NewMessageEvent;
 use App\Models\Conversation;
@@ -120,6 +121,7 @@ class GenerateAssistantReply
                 $botUser?->name ?? 'WellNest Assistant',
                 strlen($full) > 120 ? substr($full, 0, 120).'...' : $full
             ));
+            event(new UnreadNotificationBadgeUpdated($human->id));
         }
 
         $assistantMessage->load('user:id,first_name,last_name,profile_photo_url', 'attachments');

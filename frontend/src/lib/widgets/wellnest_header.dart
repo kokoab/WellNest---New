@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
+import 'package:my_app/services/reverb_service.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
@@ -69,23 +69,44 @@ class _ChatBadgeButton extends StatefulWidget {
   State<_ChatBadgeButton> createState() => _ChatBadgeButtonState();
 }
 
-class _ChatBadgeButtonState extends State<_ChatBadgeButton> {
+class _ChatBadgeButtonState extends State<_ChatBadgeButton>
+    with WidgetsBindingObserver {
   final ConversationService _conversationService = ConversationService();
-  Timer? _pollTimer;
+  late final VoidCallback _notificationUpdateHandler;
   int _unreadMessages = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _notificationUpdateHandler = _refreshUnreadMessages;
     _refreshUnreadMessages();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.subscribeToNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
       _refreshUnreadMessages();
-    });
+    }
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.unsubscribeFromNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 

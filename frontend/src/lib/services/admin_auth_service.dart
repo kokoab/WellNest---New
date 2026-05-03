@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'reverb_service.dart';
 import 'session_persistence.dart';
 
 /// In-memory store for admin auth token. Used for admin API calls.
@@ -11,18 +12,25 @@ class AdminAuthService {
 
   String? _token;
   bool _isAdmin = false;
+  int? _userId;
 
   String? get token => _token;
   bool get isLoggedIn => _token != null && _isAdmin;
+  int? get userId => _userId;
 
   void setAuth(String token, {required bool isAdmin}) {
     _token = token;
     _isAdmin = isAdmin;
   }
 
+  void setUserId(int? userId) {
+    _userId = userId;
+  }
+
   void clearAuth() {
     _token = null;
     _isAdmin = false;
+    _userId = null;
   }
 
   Map<String, String> get authHeaders {
@@ -38,15 +46,25 @@ class AdminAuthService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/login-admin'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'email': email.trim(), 'password': password}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['token'] as String?;
-        if (token == null || token.isEmpty) return 'Invalid response from server';
+        if (token == null || token.isEmpty)
+          return 'Invalid response from server';
         setAuth(token, isAdmin: true);
-        await SessionPersistence.write(token, isAdmin: true);
+        final admin = data['admin'] as Map<String, dynamic>?;
+        setUserId(admin?['id'] as int?);
+        await SessionPersistence.write(
+          token,
+          isAdmin: true,
+          userId: admin?['id'] as int?,
+        );
         return null;
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
@@ -63,6 +81,7 @@ class AdminAuthService {
   Future<void> logoutAdmin() async {
     if (_token == null) {
       clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
       return;
     }
@@ -73,6 +92,7 @@ class AdminAuthService {
       );
     } finally {
       clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
     }
   }

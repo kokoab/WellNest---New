@@ -10,6 +10,7 @@ class Post {
   final String imageUrl;
   final String? createdAt;
   final int likesCount;
+  final int commentsCount;
   final bool isLiked;
 
   Post({
@@ -22,6 +23,7 @@ class Post {
     required this.imageUrl,
     this.createdAt,
     this.likesCount = 0,
+    this.commentsCount = 0,
     this.isLiked = false,
   });
 
@@ -40,11 +42,14 @@ class Post {
       imageUrl: json['image_url'] as String? ?? '',
       createdAt: json['created_at'] as String?,
       likesCount: json['likes_count'] as int? ?? 0,
+      commentsCount: json['comments_count'] as int? ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,
     );
   }
 
-  String? get displayImageUrl => resolveStorageDisplayUrl(imageUrl.isEmpty ? null : imageUrl);
+  String? get displayImageUrl =>
+      resolveStorageDisplayUrl(imageUrl.isEmpty ? null : imageUrl);
 
-  String? get displayAuthorProfilePhotoUrl => resolveStorageDisplayUrl(userProfilePhotoUrl);
+  String? get displayAuthorProfilePhotoUrl =>
+      resolveStorageDisplayUrl(userProfilePhotoUrl);
 }

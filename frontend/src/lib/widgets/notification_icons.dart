@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/notification_service.dart';
+import 'package:my_app/services/reverb_service.dart';
 import 'package:my_app/theme/app_theme.dart';
 
 /// Split notification icons for the app bar.
@@ -22,87 +24,59 @@ class NotificationIcons extends StatefulWidget {
   State<NotificationIcons> createState() => _NotificationIconsState();
 }
 
-class _NotificationIconsState extends State<NotificationIcons> {
+class _NotificationIconsState extends State<NotificationIcons>
+    with WidgetsBindingObserver {
   int _messageCount = 0;
   int _activityCount = 0;
-  Timer? _pollTimer;
+  late final VoidCallback _notificationUpdateHandler;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _notificationUpdateHandler = _fetchCounts;
     _fetchCounts();
-    _startPolling();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.subscribeToNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchCounts();
+    }
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.unsubscribeFromNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-      _fetchCounts();
-    });
   }
 
   Future<void> _fetchCounts() async {
     try {
-      final notificationService = NotificationService.instance;
-      
-      // Get all notifications and categorize them
-      final notifications = await notificationService.fetchNotifications();
-      
-      int messages = 0;
-      int activity = 0;
-      
-      for (final notification in notifications) {
-        if (notification.isRead) continue;
-        if (_isMessageNotification(notification.type, notification.data)) {
-          messages++;
-        } else if (_isActivityNotification(notification.type, notification.data)) {
-          activity++;
-        }
-      }
-      
+      final counts = await NotificationService.instance.getUnreadCounts();
       if (mounted) {
         setState(() {
-          _messageCount = messages;
-          _activityCount = activity;
+          _messageCount = counts.messageUnread;
+          _activityCount = counts.activityUnread;
         });
       }
     } catch (_) {
       // Keep previous counts if fetch fails.
     }
-  }
-
-  bool _isMessageNotification(String type, Map<String, dynamic> data) {
-    final normalized = type.toLowerCase();
-    if (normalized.contains('message') ||
-        normalized.contains('chat') ||
-        normalized.contains('conversation')) {
-      return true;
-    }
-    return data.containsKey('conversation_id') ||
-        data.containsKey('message_id') ||
-        data['channel']?.toString().toLowerCase() == 'message';
-  }
-
-  bool _isActivityNotification(String type, Map<String, dynamic> data) {
-    final normalized = type.toLowerCase();
-    if (normalized.contains('like') ||
-        normalized.contains('comment') ||
-        normalized.contains('vote') ||
-        normalized.contains('follow') ||
-        normalized.contains('mention')) {
-      return true;
-    }
-    return data.containsKey('post_id') ||
-        data.containsKey('comment_id') ||
-        data.containsKey('recipe_id') ||
-        data['channel']?.toString().toLowerCase() == 'activity';
   }
 
   @override
@@ -163,11 +137,7 @@ class _NotificationIconWithBadge extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(
-                count > 0 ? filledIcon : icon,
-                color: color,
-                size: 24,
-              ),
+              Icon(count > 0 ? filledIcon : icon, color: color, size: 24),
               if (count > 0)
                 Positioned(
                   right: -4,

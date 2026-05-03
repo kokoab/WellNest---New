@@ -8,8 +8,10 @@ Future<void> restoreSessionFromStorage() async {
   if (saved == null) return;
 
   AuthService.instance.setToken(saved.token);
+  AuthService.instance.setUserId(saved.userId);
   if (saved.isAdmin) {
     AdminAuthService.instance.setAuth(saved.token, isAdmin: true);
+    AdminAuthService.instance.setUserId(saved.userId);
   } else {
     AdminAuthService.instance.clearAuth();
   }

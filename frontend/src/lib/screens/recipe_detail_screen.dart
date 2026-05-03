@@ -10,7 +10,6 @@ import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/services/user_service.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
@@ -65,29 +64,50 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     });
     try {
       final recipe = await RecipeService.instance.fetchRecipe(widget.recipeId);
-      RecipeRatingsResponse? ratings;
-      RecipeRating? userRating;
-      try {
-        ratings = await RatingService.instance.fetchRatings(widget.recipeId);
-        if (AuthService.instance.isLoggedIn) {
-          userRating = await RatingService.instance.fetchUserRating(
-            widget.recipeId,
-          );
-          _saved = await SavedRecipeService.instance.isSaved(widget.recipeId);
-        }
-      } catch (_) {}
+      final isLoggedIn = AuthService.instance.isLoggedIn;
+      final userId = AuthService.instance.userId;
 
-      if (AuthService.instance.isLoggedIn) {
-        final user = await UserService.instance.fetchCurrentUser();
-        if (mounted && user != null) {
-          setState(() => _currentUserId = user.id);
-        }
-      }
+      final ratingsFuture = RatingService.instance.fetchRatings(
+        widget.recipeId,
+      );
+      final userRatingFuture = isLoggedIn
+          ? RatingService.instance.fetchUserRating(widget.recipeId)
+          : Future<RecipeRating?>.value(null);
+      final savedFuture = isLoggedIn
+          ? SavedRecipeService.instance.isSaved(widget.recipeId)
+          : Future<bool>.value(false);
+
+      final results = await Future.wait([
+        Future<RecipeRatingsResponse?>(() async {
+          try {
+            return await ratingsFuture;
+          } catch (_) {
+            return null;
+          }
+        }),
+        Future<RecipeRating?>(() async {
+          try {
+            return await userRatingFuture;
+          } catch (_) {
+            return null;
+          }
+        }),
+        Future<bool>(() async {
+          try {
+            return await savedFuture;
+          } catch (_) {
+            return false;
+          }
+        }),
+      ]);
+
       if (!mounted) return;
       setState(() {
         _recipe = recipe;
-        _ratings = ratings;
-        _userRating = userRating;
+        _ratings = results[0] as RecipeRatingsResponse?;
+        _userRating = results[1] as RecipeRating?;
+        _saved = results[2] as bool;
+        _currentUserId = userId;
         _loading = false;
       });
     } catch (e) {
@@ -286,12 +306,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         GestureDetector(
                           onTap: _recipe!.userId != null
                               ? () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          UserProfileScreen(userId: _recipe!.userId!),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserProfileScreen(
+                                      userId: _recipe!.userId!,
                                     ),
-                                  )
+                                  ),
+                                )
                               : null,
                           child: Text(
                             _recipe!.user != null
@@ -336,8 +357,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: AuthService.instance.isLoggedIn &&
-                                        !_liking
+                                onPressed:
+                                    AuthService.instance.isLoggedIn && !_liking
                                     ? () async {
                                         setState(() => _liking = true);
                                         try {
@@ -418,8 +439,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                             AppSpacing.gapH16,
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: AuthService.instance.isLoggedIn &&
-                                        !_saving
+                                onPressed:
+                                    AuthService.instance.isLoggedIn && !_saving
                                     ? () async {
                                         setState(() => _saving = true);
                                         try {

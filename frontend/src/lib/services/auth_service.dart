@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'admin_auth_service.dart';
+import 'reverb_service.dart';
 import 'session_persistence.dart';
 
 /// Result of [AuthService.login]: [error] is set on failure; [isAdmin] when login succeeds.
@@ -28,16 +29,23 @@ class AuthService {
   static AuthService get instance => _instance;
 
   String? _token;
+  int? _userId;
 
   String? get token => _token;
+  int? get userId => _userId;
   bool get isLoggedIn => _token != null;
 
   void setToken(String token) {
     _token = token;
   }
 
+  void setUserId(int? userId) {
+    _userId = userId;
+  }
+
   void clearToken() {
     _token = null;
+    _userId = null;
   }
 
   Map<String, String> get authHeaders {
@@ -73,6 +81,9 @@ class AuthService {
         final token = data['token'] as String?;
         if (token != null && token.isNotEmpty) {
           setToken(token);
+          final user = data['user'] as Map<String, dynamic>?;
+          final userId = user?['id'] as int?;
+          setUserId(userId);
           await SessionPersistence.write(token, isAdmin: false);
         }
         return null;
@@ -110,12 +121,17 @@ class AuthService {
         final user = data['user'] as Map<String, dynamic>?;
         final role = user?['role'] as String?;
         final isAdmin = role == 'admin';
+        setUserId(user?['id'] as int?);
         if (isAdmin) {
           AdminAuthService.instance.setAuth(token, isAdmin: true);
         } else {
           AdminAuthService.instance.clearAuth();
         }
-        await SessionPersistence.write(token, isAdmin: isAdmin);
+        await SessionPersistence.write(
+          token,
+          isAdmin: isAdmin,
+          userId: user?['id'] as int?,
+        );
         return LoginResult.success(isAdmin: isAdmin);
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
@@ -135,6 +151,7 @@ class AuthService {
     if (_token == null) {
       clearToken();
       AdminAuthService.instance.clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
       return;
     }
@@ -146,6 +163,7 @@ class AuthService {
     } finally {
       clearToken();
       AdminAuthService.instance.clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
     }
   }
@@ -155,6 +173,7 @@ class AuthService {
     if (_token == null) {
       clearToken();
       AdminAuthService.instance.clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
       return;
     }
@@ -179,6 +198,7 @@ class AuthService {
     } finally {
       clearToken();
       AdminAuthService.instance.clearAuth();
+      ReverbService.instance.disconnect();
       await SessionPersistence.clear();
     }
   }

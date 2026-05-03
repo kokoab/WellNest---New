@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import '../config/app_config.dart';
@@ -14,6 +15,8 @@ class ReverbService {
   static ReverbService get instance => _instance;
 
   final Map<int, Channel> _channels = {};
+  final Map<int, Channel> _notificationChannels = {};
+  final Map<int, List<VoidCallback>> _notificationListeners = {};
   bool _initialized = false;
 
   ReverbClient get _client {
@@ -26,7 +29,10 @@ class ReverbService {
     );
   }
 
-  Future<Map<String, String>> _authorizer(String channelName, String socketId) async {
+  Future<Map<String, String>> _authorizer(
+    String channelName,
+    String socketId,
+  ) async {
     final token = AuthService.instance.token;
     if (token == null || token.isEmpty) return {};
     return {'Authorization': 'Bearer $token'};
@@ -45,9 +51,59 @@ class ReverbService {
     for (final c in _channels.values) {
       c.unsubscribe();
     }
+    for (final c in _notificationChannels.values) {
+      c.unsubscribe();
+    }
     _channels.clear();
+    _notificationChannels.clear();
+    _notificationListeners.clear();
     _client.disconnect();
     _initialized = false;
+  }
+
+  Future<void> subscribeToNotificationUpdates(
+    int userId,
+    VoidCallback onUpdate,
+  ) async {
+    if (!_initialized) await connect();
+
+    final listeners = _notificationListeners.putIfAbsent(userId, () => []);
+    if (!listeners.contains(onUpdate)) {
+      listeners.add(onUpdate);
+    }
+
+    if (_notificationChannels.containsKey(userId)) return;
+
+    final channelName = 'notifications.$userId';
+    final channel = _client.subscribeToPrivateChannel(channelName);
+
+    void handleUpdate(String eventName, dynamic data) {
+      for (final listener in List<VoidCallback>.from(
+        _notificationListeners[userId] ?? const [],
+      )) {
+        listener();
+      }
+    }
+
+    channel.bind('notification.badge.updated', handleUpdate);
+    channel.bind('.notification.badge.updated', handleUpdate);
+    _notificationChannels[userId] = channel;
+  }
+
+  Future<void> unsubscribeFromNotificationUpdates(
+    int userId,
+    VoidCallback onUpdate,
+  ) async {
+    final listeners = _notificationListeners[userId];
+    if (listeners == null) return;
+    listeners.remove(onUpdate);
+    if (listeners.isNotEmpty) return;
+
+    _notificationListeners.remove(userId);
+    final channel = _notificationChannels.remove(userId);
+    if (channel != null) {
+      await channel.unsubscribe();
+    }
   }
 
   /// Subscribe to new messages in a conversation. [onMessage] receives the payload from the backend (map with 'message' key).
@@ -135,5 +191,6 @@ class ReverbService {
   }
 
   /// Optional: expose connection state for UI (e.g. "Live" / "Reconnecting").
-  Stream<ConnectionState> get connectionState => _client.onConnectionStateChange;
+  Stream<ConnectionState> get connectionState =>
+      _client.onConnectionStateChange;
 }

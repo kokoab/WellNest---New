@@ -7,7 +7,6 @@ import 'package:my_app/models/chat_message.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/services/user_service.dart';
 import 'package:my_app/theme/app_theme.dart';
 
 /// Single conversation: messages list + input. Subscribes to Reverb for live new messages.
@@ -45,9 +44,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   bool _uploadingAttachment = false;
   bool _pickingImage = false;
   int? _currentUserId;
-  CurrentUser? _currentUser;
   final ImagePicker _picker = ImagePicker();
-  Timer? _syncTimer;
 
   /// Non-null while the assistant is generating (shows typewriter / streaming bubble).
   String? _streamingPreview;
@@ -62,22 +59,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentUser();
+    _currentUserId = AuthService.instance.userId;
     _loadMessages();
     _subscribeLive();
-    _startBackgroundSync();
     _service.markConversationAsRead(widget.conversationId);
-  }
-
-  Future<void> _loadCurrentUser() async {
-    if (!AuthService.instance.isLoggedIn) return;
-    final user = await UserService.instance.fetchCurrentUser();
-    if (mounted && user != null) {
-      setState(() {
-        _currentUser = user;
-        _currentUserId = user.id;
-      });
-    }
   }
 
   Future<void> _loadMessages() async {
@@ -140,37 +125,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
     _service.unsubscribeFromLiveMessages(widget.conversationId);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _startBackgroundSync() {
-    _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      _syncMessagesSilently();
-    });
-  }
-
-  Future<void> _syncMessagesSilently() async {
-    if (!mounted || _loading || _sending || _uploadingAttachment) return;
-    try {
-      final data = await _service.fetchMessages(widget.conversationId);
-      final latest = ConversationService.messagesFromResponse(data);
-      if (!mounted || latest.isEmpty) return;
-
-      final existingIds = _messages.map((m) => m.id).toSet();
-      final unseen = latest.where((m) => !existingIds.contains(m.id)).toList();
-      if (unseen.isEmpty) return;
-
-      setState(() {
-        _messages = [...unseen, ..._messages];
-      });
-    } catch (_) {
-      // Keep UI stable if polling fails; realtime push may still arrive.
-    }
   }
 
   Future<void> _send() async {
@@ -581,9 +539,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                             if (isMe) ...[
                               const SizedBox(width: 8),
                               InitialsAvatar(
-                                name: _currentUser?.displayName ?? 'Me',
+                                name: 'Me',
                                 size: 28,
-                                imageUrl: _currentUser?.displayProfilePhotoUrl,
+                                imageUrl: null,
                               ),
                             ],
                           ],

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Events\NewMessageEvent;
 use App\Jobs\GenerateAssistantReply;
 use App\Models\Conversation;
@@ -86,6 +87,7 @@ class MessageController extends Controller
                 $request->user()->name,
                 $notificationContent
             ));
+            event(new UnreadNotificationBadgeUpdated($otherUser->id));
         }
 
         $message->load('user:id,first_name,last_name,profile_photo_url', 'attachments');

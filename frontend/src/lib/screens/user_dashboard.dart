@@ -207,13 +207,19 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       final top = all.take(3).toList();
       final savedState = <int, bool>{};
       if (AuthService.instance.isLoggedIn) {
-        for (final r in top) {
-          try {
-            savedState[r.id] = await SavedRecipeService.instance.isSaved(r.id);
-          } catch (_) {
-            savedState[r.id] = false;
-          }
-        }
+        final savedResults = await Future.wait(
+          top.map((r) async {
+            try {
+              return MapEntry(
+                r.id,
+                await SavedRecipeService.instance.isSaved(r.id),
+              );
+            } catch (_) {
+              return MapEntry(r.id, false);
+            }
+          }),
+        );
+        savedState.addEntries(savedResults);
       }
       if (!mounted) return;
       setState(() {
@@ -568,15 +574,17 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox(height: 0),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: WeeklyMealPlannerStrip(
-                weekStart: _plannerWeekStart,
-                onWeekChanged: (nextWeekStart) {
-                  setState(() => _plannerWeekStart = nextWeekStart);
-                },
-              ),
-            ),
+            secondChild: _plannerExpanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: WeeklyMealPlannerStrip(
+                      weekStart: _plannerWeekStart,
+                      onWeekChanged: (nextWeekStart) {
+                        setState(() => _plannerWeekStart = nextWeekStart);
+                      },
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

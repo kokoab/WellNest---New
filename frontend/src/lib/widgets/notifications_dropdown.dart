@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/notification.dart';
+import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/reverb_service.dart';
 import '../screens/recipe_detail_screen.dart';
 
 /// Facebook-style notifications dropdown. Wrap the bell icon and show dropdown on tap.
@@ -19,7 +21,8 @@ class NotificationsDropdown extends StatefulWidget {
   State<NotificationsDropdown> createState() => _NotificationsDropdownState();
 }
 
-class _NotificationsDropdownState extends State<NotificationsDropdown> {
+class _NotificationsDropdownState extends State<NotificationsDropdown>
+    with WidgetsBindingObserver {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
 
@@ -29,27 +32,41 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
   int _unreadCount = 0;
   bool _loading = true;
   bool _isOpen = false;
-  Timer? _pollTimer;
+  late final VoidCallback _notificationUpdateHandler;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _notificationUpdateHandler = _fetchUnreadCount;
     _fetchUnreadCount();
-    _startPolling();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.subscribeToNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchUnreadCount();
+    }
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      ReverbService.instance.unsubscribeFromNotificationUpdates(
+        userId,
+        _notificationUpdateHandler,
+      );
+    }
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-      _fetchUnreadCount();
-    });
   }
 
   Future<void> _fetchUnreadCount() async {
@@ -109,7 +126,9 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                                   Flexible(
                                     child: _loading
                                         ? const Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 40),
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 40,
+                                            ),
                                             child: Center(
                                               child: CircularProgressIndicator(
                                                 color: wellGreen,
@@ -118,22 +137,29 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                                             ),
                                           )
                                         : _notifications.isEmpty
-                                            ? _buildEmptyState()
-                                            : ListView.separated(
-                                                shrinkWrap: true,
-                                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                                itemCount: _notifications.length,
-                                                separatorBuilder: (_, __) => Divider(
+                                        ? _buildEmptyState()
+                                        : ListView.separated(
+                                            shrinkWrap: true,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 6,
+                                            ),
+                                            itemCount: _notifications.length,
+                                            separatorBuilder: (_, __) =>
+                                                Divider(
                                                   height: 1,
                                                   indent: 66,
                                                   endIndent: 14,
-                                                  color: Colors.grey.withOpacity(0.1),
+                                                  color: Colors.grey
+                                                      .withOpacity(0.1),
                                                 ),
-                                                itemBuilder: (c, index) {
-                                                  final n = _notifications[index];
-                                                  return _buildNotificationTile(c, n);
-                                                },
-                                              ),
+                                            itemBuilder: (c, index) {
+                                              final n = _notifications[index];
+                                              return _buildNotificationTile(
+                                                c,
+                                                n,
+                                              );
+                                            },
+                                          ),
                                   ),
                                   _buildFooter(ctx),
                                 ],
@@ -165,7 +191,11 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       decoration: const BoxDecoration(color: wellGreen),
       child: Row(
         children: [
-          const Icon(Icons.notifications_rounded, color: Colors.white, size: 19),
+          const Icon(
+            Icons.notifications_rounded,
+            color: Colors.white,
+            size: 19,
+          ),
           const SizedBox(width: 8),
           const Text(
             'Notifications',
@@ -199,7 +229,10 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
             GestureDetector(
               onTap: _markAllAsRead,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(20),
@@ -264,9 +297,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F8FA),
-          border: Border(
-            top: BorderSide(color: Colors.grey.withOpacity(0.12)),
-          ),
+          border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.12))),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -390,9 +421,9 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
     } catch (_) {
       if (mounted) {
         setState(() {
-        _notifications = [];
-        _loading = false;
-      });
+          _notifications = [];
+          _loading = false;
+        });
       }
       _overlayEntry?.markNeedsBuild();
     }
@@ -539,13 +570,19 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
                   top: -3,
                   right: -3,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: nestOrange,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
                     child: Text(
                       _unreadCount > 99 ? '99+' : '$_unreadCount',
                       style: const TextStyle(

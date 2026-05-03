@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Recipe;
 use App\Models\RecipeRating;
@@ -40,6 +41,7 @@ class RecipeRatingController extends Controller
                     $validated['rating'],
                     $comment
                 ));
+                event(new UnreadNotificationBadgeUpdated($owner->id));
             }
             return response()->json([
                 'message' => 'Rating updated',
@@ -65,6 +67,7 @@ class RecipeRatingController extends Controller
                 $validated['rating'],
                 $validated['comment'] ?? null
             ));
+            event(new UnreadNotificationBadgeUpdated($owner->id));
         }
 
         return response()->json([

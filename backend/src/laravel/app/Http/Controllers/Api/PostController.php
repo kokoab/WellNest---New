@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Post;
+use App\Models\Vote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -56,7 +57,13 @@ class PostController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $viewer = $request->user('sanctum');
+
         $query = Post::with('user:id,first_name,last_name,profile_photo_url')
+            ->withCount([
+                'votes as likes_count',
+                'comments as comments_count',
+            ])
             ->whereHas('user', fn ($q) => $q->where('account_status', 'active'))
             ->orderBy('created_at', 'desc');
 
@@ -81,6 +88,12 @@ class PostController extends Controller
             $query->whereIn('user_id', $followingIds);
         }
 
+        if ($viewer !== null) {
+            $query->withExists([
+                'votes as is_liked' => fn ($q) => $q->where('user_id', $viewer->id),
+            ]);
+        }
+
         $posts = $query->get()->map(fn (Post $post) => $this->postPayload($post));
 
         return response()->json($posts);
@@ -95,6 +108,9 @@ class PostController extends Controller
             'content' => $post->content,
             'image_url' => $this->fixImageUrl($post->image_url ?? ''),
             'created_at' => $post->created_at?->toIso8601String(),
+            'likes_count' => (int) ($post->likes_count ?? 0),
+            'comments_count' => (int) ($post->comments_count ?? 0),
+            'is_liked' => (bool) ($post->is_liked ?? false),
             'user' => $this->postUserPayload($post->user),
         ];
     }

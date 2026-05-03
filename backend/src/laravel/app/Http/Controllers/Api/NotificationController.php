@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Http\Controllers\Controller;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -73,6 +74,7 @@ class NotificationController extends Controller
     {
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
+        event(new UnreadNotificationBadgeUpdated($request->user()->id));
 
         return response()->json(['message' => 'Notification marked as read']);
     }
@@ -83,6 +85,7 @@ class NotificationController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $request->user()->unreadNotifications->markAsRead();
+        event(new UnreadNotificationBadgeUpdated($request->user()->id));
 
         return response()->json(['message' => 'All notifications marked as read']);
     }

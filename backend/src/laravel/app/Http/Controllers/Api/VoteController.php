@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\Recipe;
@@ -42,6 +43,7 @@ class VoteController extends Controller
                 $recipe->title,
                 $user->name
             ));
+            event(new UnreadNotificationBadgeUpdated($owner->id));
         }
 
         return response()->json(['message' => 'Recipe liked', 'liked' => true], 201);
@@ -85,6 +87,7 @@ class VoteController extends Controller
         $owner = $post->user;
         if ($owner && $owner->id !== $user->id) {
             $owner->notify(new PostLikedNotification($post->id, $user->name));
+            event(new UnreadNotificationBadgeUpdated($owner->id));
         }
 
         return response()->json(['message' => 'Post liked', 'liked' => true], 201);

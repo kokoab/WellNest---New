@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\Recipe;
@@ -41,6 +42,7 @@ class ReportController extends Controller
                 $validated['reason'] ?? null,
                 $validated['details'] ?? null
             ));
+            event(new UnreadNotificationBadgeUpdated($admin->id));
         }
 
         return response()->json(['message' => 'Recipe reported. Admins will review.'], 201);
@@ -74,6 +76,7 @@ class ReportController extends Controller
                 $validated['reason'] ?? null,
                 $validated['details'] ?? null
             ));
+            event(new UnreadNotificationBadgeUpdated($admin->id));
         }
 
         return response()->json(['message' => 'Post reported. Admins will review.'], 201);
@@ -107,6 +110,7 @@ class ReportController extends Controller
                 $validated['reason'],
                 $validated['details'] ?? null,
             ));
+            event(new UnreadNotificationBadgeUpdated($admin->id));
         }
 
         return response()->json(['message' => 'User reported. Admins will review'], 201);

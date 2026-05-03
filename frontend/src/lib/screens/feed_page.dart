@@ -51,16 +51,6 @@ class _FeedPageState extends State<FeedPage> {
   final Map<int, TextEditingController> _commentControllers = {};
   _FeedScope _feedScope = _FeedScope.all;
 
-  String get _initials {
-    final first = (_currentUser?.firstName ?? '').trim();
-    final last = (_currentUser?.lastName ?? '').trim();
-    final initials =
-        '${first.isNotEmpty ? first[0] : ''}${last.isNotEmpty ? last[0] : ''}'
-            .toUpperCase()
-            .trim();
-    return initials.isEmpty ? '?' : initials;
-  }
-
   @override
   void dispose() {
     for (final c in _commentControllers.values) {
@@ -77,38 +67,7 @@ class _FeedPageState extends State<FeedPage> {
 
   /// Load user first so isOwnPost and isLiked are correct when posts render.
   Future<void> _loadUserThenPosts() async {
-    await _loadUser();
-    await _loadPosts();
-  }
-
-  /// Fetch comment counts for all posts silently in the background.
-  Future<void> _loadAllCommentCounts(List<Post> posts) async {
-    for (final p in posts) {
-      if (!mounted) return;
-      try {
-        final comments = await PostService.instance.fetchComments(p.id);
-        if (mounted) {
-          setState(() => _postCommentsCount[p.id] = comments.length);
-        }
-      } catch (_) {}
-    }
-  }
-
-  /// Fetch like counts and liked state for all posts, same pattern as _loadAllCommentCounts.
-  Future<void> _loadAllLikes(List<Post> posts) async {
-    for (final p in posts) {
-      if (!mounted) return;
-      if (_liking[p.id] == true) continue; // skip if mid-interaction
-      try {
-        final result = await VoteService.instance.fetchPostLikes(p.id);
-        if (mounted) {
-          setState(() {
-            _postLikesCount[p.id] = result.count;
-            _postLiked[p.id] = result.isLiked;
-          });
-        }
-      } catch (_) {}
-    }
+    await Future.wait([_loadUser(), _loadPosts()]);
   }
 
   Future<void> _loadUser() async {
@@ -132,15 +91,12 @@ class _FeedPageState extends State<FeedPage> {
       setState(() {
         _posts = posts;
         _loading = false;
-        // Initialize with defaults — real values loaded by _loadAllLikes()
         for (final p in posts) {
-          _postLiked[p.id] ??= false;
-          _postLikesCount[p.id] ??= 0;
+          _postLiked[p.id] = p.isLiked;
+          _postLikesCount[p.id] = p.likesCount;
+          _postCommentsCount[p.id] = p.commentsCount;
         }
       });
-      // Load comment and like counts in background for all posts
-      _loadAllCommentCounts(posts);
-      _loadAllLikes(posts);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -503,7 +459,7 @@ class _FeedPageState extends State<FeedPage> {
     final likesCount = _postLikesCount[post.id] ?? 0;
     final commentsCount = expanded
         ? comments.length
-        : (_postCommentsCount[post.id] ?? 0);
+        : (_postCommentsCount[post.id] ?? post.commentsCount);
     _commentControllers[post.id] ??= TextEditingController();
 
     void goToDetail() {

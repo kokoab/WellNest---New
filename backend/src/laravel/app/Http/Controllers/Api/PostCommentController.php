@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\UnreadNotificationBadgeUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\PostComment;
@@ -53,7 +54,7 @@ class PostCommentController extends Controller
         $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('comment-images', 'public');
-            $imageUrl = $this->toAbsoluteImageUrl(Storage::disk('public')->url($path));
+            $imageUrl = $this->toAbsoluteImageUrl(Storage::url($path));
         }
 
         $user = $request->user();
@@ -78,6 +79,7 @@ class PostCommentController extends Controller
                 $validated['comment'] ?? '📷 Image',
                 $post->recipe_id
             ));
+            event(new UnreadNotificationBadgeUpdated($owner->id));
         }
 
         return response()->json([
