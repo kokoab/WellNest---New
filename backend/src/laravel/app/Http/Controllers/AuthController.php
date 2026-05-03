@@ -172,6 +172,10 @@ class AuthController extends Controller
 
     public function deactivateSelf(Request $request): JsonResponse
     {
+        $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
         $user = $request->user();
 
         $user->account_status = 'deactivated';
@@ -182,7 +186,7 @@ class AuthController extends Controller
         ActivityLogService::log(
             'auth',
             'self_deactivate',
-            'User deactivated own account',
+            $request->reason ?? 'User deactivated own account',
             $user->id,
         );
 

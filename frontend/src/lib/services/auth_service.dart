@@ -151,7 +151,7 @@ class AuthService {
   }
 
   /// User-initiated deactivation. This calls the backend, then clears local auth.
-  Future<void> deactivateAccount() async {
+  Future<void> deactivateAccount({String? reason}) async {
     if (_token == null) {
       clearToken();
       AdminAuthService.instance.clearAuth();
@@ -162,7 +162,12 @@ class AuthService {
     try {
       final response = await http.patch(
         Uri.parse('$_baseUrl/me/deactivate'),
-        headers: {...authHeaders, 'Accept': 'application/json'},
+        headers: {
+          ...authHeaders,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'reason': reason}),
       );
 
       if (response.statusCode != 200) {

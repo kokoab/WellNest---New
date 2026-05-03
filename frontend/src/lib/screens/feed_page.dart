@@ -734,25 +734,28 @@ class _FeedPageState extends State<FeedPage> {
       final liked = _postLiked[postId] ?? false;
       if (liked) {
         await VoteService.instance.unlikePost(postId);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _postLiked[postId] = false;
             _postLikesCount[postId] = ((_postLikesCount[postId] ?? 1) - 1)
                 .clamp(0, 999999);
           });
+        }
       } else {
         await VoteService.instance.likePost(postId);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _postLiked[postId] = true;
             _postLikesCount[postId] = (_postLikesCount[postId] ?? 0) + 1;
           });
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _liking[postId] = false);
     }
@@ -764,11 +767,12 @@ class _FeedPageState extends State<FeedPage> {
       setState(() => _commenting[postId] = true);
       try {
         final comments = await PostService.instance.fetchComments(postId);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _commentsExpanded[postId] = true;
             _postComments[postId] = comments;
           });
+        }
       } finally {
         if (mounted) setState(() => _commenting[postId] = false);
       }
@@ -831,8 +835,9 @@ class _FeedPageState extends State<FeedPage> {
               onTap: () async {
                 final picker = ImagePicker();
                 final x = await picker.pickImage(source: ImageSource.gallery);
-                if (x != null && mounted)
+                if (x != null && mounted) {
                   setState(() => _commentImages[postId] = x);
+                }
               },
               child: Container(
                 width: 36,
@@ -916,10 +921,11 @@ class _FeedPageState extends State<FeedPage> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _submitting[postId] = false);
     }
@@ -946,15 +952,17 @@ class _FeedPageState extends State<FeedPage> {
     if (ok != true || !mounted) return;
     try {
       await ReportService.instance.reportPost(postId);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Report submitted')));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 }

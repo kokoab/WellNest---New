@@ -180,7 +180,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   @override
   void dispose() {
-    for (final c in _reviewControllers.values) c.dispose();
+    for (final c in _reviewControllers.values) {
+      c.dispose();
+    }
     _searchController.dispose();
     _searchDebounce?.cancel();
     _topRankedPageController.dispose();

@@ -388,10 +388,12 @@ class _NotificationsDropdownState extends State<NotificationsDropdown> {
       });
       _overlayEntry?.markNeedsBuild();
     } catch (_) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _notifications = [];
         _loading = false;
       });
+      }
       _overlayEntry?.markNeedsBuild();
     }
   }

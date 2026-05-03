@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 20),
               // Logo placeholder, re-use existing
-              Container(
+              SizedBox(
                 height: 100,
                 width: 100,
                 child: Image.asset(

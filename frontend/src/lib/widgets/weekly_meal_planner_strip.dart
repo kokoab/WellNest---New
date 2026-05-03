@@ -79,10 +79,12 @@ class _WeeklyMealPlannerStripState extends State<WeeklyMealPlannerStrip> {
         recipeId: picked.id,
         plannedDate: _normalized(day),
       );
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _plans.removeWhere((p) => _normalized(p.plannedDate) == _normalized(day));
         _plans.add(plan);
       });
+      }
       widget.onAssignRecipe?.call(_normalized(day), picked.id);
     } catch (e) {
       if (mounted) {

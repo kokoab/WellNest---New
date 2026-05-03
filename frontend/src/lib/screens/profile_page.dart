@@ -226,51 +226,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 30),
 
                 if (AuthService.instance.isLoggedIn) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      key: ValueKey(
-                        'add_recipe_${Theme.of(context).brightness}',
-                      ),
-                      onPressed: _addingRecipe
-                          ? null
-                          : () async {
-                              setState(() => _addingRecipe = true);
-                              try {
-                                final result =
-                                    await RecipeFormScreen.showAsModal(context);
-                                if (result == true && mounted) _load();
-                              } finally {
-                                if (mounted)
-                                  setState(() => _addingRecipe = false);
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _addingRecipe
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              'Add new Recipe',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -304,23 +259,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pushNamed('/conversations'),
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: const Text('Messages'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: wellGreen,
-                        side: const BorderSide(color: wellGreen),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
                 const SizedBox(height: 40),
 
@@ -577,20 +515,56 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _confirmDeactivateAccount() async {
-    final shouldDeactivate = await showDialog<bool>(
+    final reasonController = TextEditingController();
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Deactivate account?'),
-        content: const Text(
-          'This will hide your account until you sign in again. You can reactivate it later by logging in.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will hide your account until you sign in again. You can reactivate it later by logging in.',
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reason (optional):',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: reasonController,
+              decoration: InputDecoration(
+                hintText: 'e.g. Taking a break',
+                filled: true,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+              maxLines: 2,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, null),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(ctx, {
+              'confirmed': true,
+              'reason': reasonController.text,
+            }),
             style: FilledButton.styleFrom(backgroundColor: nestOrange),
             child: const Text('Deactivate'),
           ),
@@ -598,14 +572,16 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
 
-    if (shouldDeactivate != true || !mounted) return;
+    if (result == null || result['confirmed'] != true || !mounted) return;
 
     setState(() {
       _deactivatingAccount = true;
     });
 
     try {
-      await AuthService.instance.deactivateAccount();
+      await AuthService.instance.deactivateAccount(
+        reason: result['reason'] as String?,
+      );
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     } catch (e) {

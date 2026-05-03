@@ -24,10 +24,7 @@ class WellnestHeader extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'lib/assets/images/logo1.png',
-              height: logoHeight,
-            ),
+            Image.asset('lib/assets/images/logo1.png', height: logoHeight),
             const SizedBox(width: 10),
             GeorgiaProDisplaySquish(
               child: Text(
@@ -42,20 +39,21 @@ class WellnestHeader extends StatelessWidget {
         ),
 
         /// RIGHT SIDE (Chat + Notifications)
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const _ChatBadgeButton(iconSize: iconSize),
-
-            NotificationsDropdown(
-              iconColor: AppColors.accentOrange,
-              child: Icon(
-                Icons.notifications,
-                color: AppColors.accentOrange,
-                size: iconSize,
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: _ChatBadgeButton(iconSize: iconSize)),
+              NotificationsDropdown(
+                iconColor: AppColors.accentOrange,
+                child: Icon(
+                  Icons.notifications,
+                  color: AppColors.accentOrange,
+                  size: iconSize,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

@@ -69,7 +69,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _window,
+                    initialValue: _window,
                     decoration: const InputDecoration(labelText: 'Window'),
                     items: const [
                       DropdownMenuItem(value: '7d', child: Text('Last 7 days')),
@@ -89,7 +89,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _mode,
+                    initialValue: _mode,
                     decoration: const InputDecoration(labelText: 'Sort by'),
                     items: const [
                       DropdownMenuItem(

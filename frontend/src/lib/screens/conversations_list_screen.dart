@@ -63,38 +63,42 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
   Future<void> _runSearch(String query) async {
     if (query.trim().isEmpty) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _searchResults = [];
           _searching = false;
         });
+      }
       return;
     }
     setState(() => _searching = true);
     try {
       final list = await _service.searchUsers(query);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _searchResults = list;
           _searching = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _searchResults = [];
           _searching = false;
           _error = e.toString().replaceFirst('Exception: ', '');
         });
+      }
     }
   }
 
   Future<void> _load() async {
     if (!AuthService.instance.isLoggedIn) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
           _error = 'Please log in.';
         });
+      }
       return;
     }
     setState(() {
@@ -104,17 +108,19 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     try {
       await _service.ensureAssistantConversation();
       final list = await _service.fetchConversations();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _conversations = list;
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString().replaceFirst('Exception: ', '');
           _loading = false;
         });
+      }
     }
   }
 

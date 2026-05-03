@@ -391,7 +391,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             const SizedBox(height: 16),
           ],
           DropdownButtonFormField<int>(
-            value: _categories.isEmpty ? null : _selectedCategoryId,
+            initialValue: _categories.isEmpty ? null : _selectedCategoryId,
             decoration: const InputDecoration(labelText: 'Category'),
             hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
             items: _categories

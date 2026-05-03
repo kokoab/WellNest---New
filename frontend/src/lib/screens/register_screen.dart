@@ -55,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               const SizedBox(height: 10),
               // Logo, re-use existing
-              Container(
+              SizedBox(
                 height: 80,
                 width: 80,
                 child: Image.asset(

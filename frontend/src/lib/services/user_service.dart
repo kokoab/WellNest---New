@@ -27,7 +27,7 @@ class CurrentUser {
     this.followingCount = 0,
   });
 
-  String get displayName => '${firstName} ${lastName}'.trim();
+  String get displayName => '$firstName $lastName'.trim();
 
   bool get isActiveAccount => accountStatus == 'active';
 

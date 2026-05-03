@@ -75,7 +75,7 @@ class _AdminRecipeRankingScreenState extends State<AdminRecipeRankingScreen> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
-            value: _window,
+            initialValue: _window,
             items: const [
               DropdownMenuItem(value: '7d', child: Text('Last 7 days')),
               DropdownMenuItem(value: '30d', child: Text('Last 30 days')),

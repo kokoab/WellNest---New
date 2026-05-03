@@ -88,19 +88,22 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     try {
       final data = await _service.fetchMessages(widget.conversationId);
       final list = ConversationService.messagesFromResponse(data);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _messages = list;
           _loading = false;
-          if (_currentUserId == null && list.isNotEmpty)
+          if (_currentUserId == null && list.isNotEmpty) {
             _currentUserId = list.first.userId;
+          }
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString().replaceFirst('Exception: ', '');
           _loading = false;
         });
+      }
     }
   }
 

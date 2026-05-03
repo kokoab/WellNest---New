@@ -25,7 +25,7 @@ class ApiService {
       body: jsonEncode({
         'content': content,
         if (title != null && title.isNotEmpty) 'title': title,
-        if (recipeId != null) 'recipe_id': recipeId,
+        'recipe_id': ?recipeId,
       }),
     );
     if (response.statusCode == 201) {

@@ -45,10 +45,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _loadComments() async {
     try {
       final comments = await PostService.instance.fetchComments(_post.id);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _comments = comments;
         _commentsLoaded = true;
       });
+      }
     } catch (_) {
       if (mounted) setState(() => _commentsLoaded = true);
     }

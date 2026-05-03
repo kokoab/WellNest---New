@@ -344,13 +344,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                           if (_liked) {
                                             await VoteService.instance
                                                 .unlikeRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _liked = false);
+                                            }
                                           } else {
                                             await VoteService.instance
                                                 .likeRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _liked = true);
+                                            }
                                           }
                                         } catch (e) {
                                           if (mounted) {
@@ -368,8 +370,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             );
                                           }
                                         } finally {
-                                          if (mounted)
+                                          if (mounted) {
                                             setState(() => _liking = false);
+                                          }
                                         }
                                       }
                                     : null,
@@ -423,13 +426,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                           if (_saved) {
                                             await SavedRecipeService.instance
                                                 .unsaveRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _saved = false);
+                                            }
                                           } else {
                                             await SavedRecipeService.instance
                                                 .saveRecipe(_recipe!.id);
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(() => _saved = true);
+                                            }
                                           }
                                           if (mounted) {
                                             ScaffoldMessenger.of(
@@ -461,8 +466,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             );
                                           }
                                         } finally {
-                                          if (mounted)
+                                          if (mounted) {
                                             setState(() => _saving = false);
+                                          }
                                         }
                                       }
                                     : null,

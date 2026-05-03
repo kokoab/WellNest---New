@@ -43,8 +43,9 @@ class RecipeService {
     final params = <String, String>{'page': '$page'};
     if (categoryId != null) params['category_id'] = '$categoryId';
     if (userId != null) params['user_id'] = '$userId';
-    if (search != null && search.trim().isNotEmpty)
+    if (search != null && search.trim().isNotEmpty) {
       params['search'] = search.trim();
+    }
     final uri = Uri.parse('$_baseUrl/recipes').replace(queryParameters: params);
     final response = await http.get(uri, headers: _headersForRead);
     if (response.statusCode == 200) {
