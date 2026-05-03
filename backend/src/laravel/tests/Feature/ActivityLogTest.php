@@ -3,28 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\ActivityLog;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
-use Illuminate\Support\Facades\Hash;
 
 class ActivityLogTest extends TestCase
 {
     use RefreshDatabase;
-
-    private function createUser(array $overrides = []): User
-    {
-        return User::create(array_merge([
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('password123'),
-            'role' => 'user',
-            'account_status' => 'active',
-            'is_admin' => false,
-        ], $overrides));
-    }
 
     public function test_user_can_log_meal_planner_activity(): void
     {

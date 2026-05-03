@@ -4,44 +4,22 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Post;
-use App\Models\User;
-use App\Models\PostComment;
 use App\Models\Recipe;
-use App\Models\Report;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
-use Illuminate\Support\Facades\Hash;
 
 class SocialTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createUser(array $overrides = []): User
-    {
-        return User::create(array_merge([
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('password123'),
-            'role' => 'user',
-            'account_status' => 'active',
-            'is_admin' => false,
-        ], $overrides));
-    }
-
-    private function createPost(User $user): Post
-    {
-        return Post::create([
-            'user_id' => $user->id,
-            'content' => 'Sample post content'
-        ]);
-    }
 
     public function test_user_can_comment_on_post(): void
     {
         $user = $this->createUser();
-        $post = $this->createPost($user);
+        $post = $this->createPost([
+            'user_id' => $user->id,
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -60,8 +38,10 @@ class SocialTest extends TestCase
     public function test_user_can_like_and_unlike_post(): void
     {
         $user = $this->createUser();
-        $post = $this->createPost($user);
-
+        $post = $this->createPost([
+            'user_id' => $user->id,
+        ]);
+        
         Sanctum::actingAs($user);
 
         // Like
@@ -86,8 +66,9 @@ class SocialTest extends TestCase
     public function test_user_can_report_post(): void
     {
         $user = $this->createUser();
-        $post = $this->createPost($user);
-
+        $post = $this->createPost([
+            'user_id' => $user->id,
+        ]);
         Sanctum::actingAs($user);
 
         $response = $this->postJson("api/posts/{$post->id}/report", [
@@ -107,8 +88,8 @@ class SocialTest extends TestCase
     public function test_user_can_report_recipe(): void
     {
         $user = $this->createUser();
-        $category = Category::create(['name' => 'Test Cat', 'description' => 'Test Desc']);
-        $recipe = Recipe::create([
+        $category = $this->createCategory(['name' => 'Test Cat', 'description' => 'Test Desc']);
+        $recipe = $this->createRecipe([
             'user_id' => $user->id,
             'category_id' => $category->id,
             'title' => 'Test',
@@ -134,8 +115,8 @@ class SocialTest extends TestCase
 
     public function test_categories_listing(): void
     {
-        Category::create(['name' => 'Cat 1', 'description' => 'Desc 1']);
-        Category::create(['name' => 'Cat 2', 'description' => 'Desc 2']);
+        $this->createCategory(['name' => 'Cat 1', 'description' => 'Desc 1']);
+        $this->createCategory(['name' => 'Cat 2', 'description' => 'Desc 2']);
 
         $response = $this->getJson('api/categories');
 
@@ -164,8 +145,9 @@ class SocialTest extends TestCase
     public function test_user_can_view_post_likes(): void
     {
         $user = $this->createUser();
-        $post = $this->createPost($user);
-        
+        $post = $this->createPost([
+            'user_id' => $user->id,
+        ]);  
         Sanctum::actingAs($user);
         $this->postJson("api/posts/{$post->id}/like");
 

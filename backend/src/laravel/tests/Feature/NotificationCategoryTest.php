@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class NotificationCategoryTest extends TestCase
@@ -13,7 +13,7 @@ class NotificationCategoryTest extends TestCase
 
     public function test_notifications_have_correct_categories_and_counts()
     {
-        $user = User::factory()->create();
+        $user = $this->createUser();
 
         // Create a message notification
         $user->notifications()->create([
@@ -37,7 +37,8 @@ class NotificationCategoryTest extends TestCase
             'read_at' => null,
         ]);
 
-        $response = $this->actingAs($user)->getJson('api/notifications');
+        Sanctum::actingAs($user);
+        $response = $this->getJson('api/notifications');
 
         $response->assertStatus(200)
                  ->assertJsonCount(2, 'data')
@@ -54,7 +55,7 @@ class NotificationCategoryTest extends TestCase
 
     public function test_unread_count_endpoint_returns_split_counts()
     {
-        $user = User::factory()->create();
+        $user = $this->createUser();
 
         // 2 messages, 1 activity unread
         for ($i=0; $i<2; $i++) {
@@ -70,7 +71,8 @@ class NotificationCategoryTest extends TestCase
             'data' => ['type' => 'recipe_liked'],
         ]);
 
-        $response = $this->actingAs($user)->getJson('api/notifications/unread-count');
+        Sanctum::actingAs($user);
+        $response = $this->getJson('api/notifications/unread-count');
 
         $response->assertStatus(200)
                  ->assertJsonPath('counts.message_unread', 2)
@@ -80,7 +82,7 @@ class NotificationCategoryTest extends TestCase
 
     public function test_filtering_by_category()
     {
-        $user = User::factory()->create();
+        $user = $this->createUser();
 
         $user->notifications()->create([
             'id' => \Illuminate\Support\Str::uuid(),
@@ -93,7 +95,8 @@ class NotificationCategoryTest extends TestCase
             'data' => ['type' => 'recipe_liked'],
         ]);
 
-        $response = $this->actingAs($user)->getJson('api/notifications?category=MESSAGE_TYPE');
+        Sanctum::actingAs($user);
+        $response = $this->getJson('api/notifications?category=MESSAGE_TYPE');
         $response->assertStatus(200)->assertJsonCount(1, 'data');
         $this->assertEquals('MESSAGE_TYPE', $response->json('data.0.category'));
     }

@@ -4,6 +4,11 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use RuntimeException;
+use App\Models\User;
+use App\Models\Category;
+use App\Models\Recipe;
+use App\Models\Post;
+use App\Models\Ingredient;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -36,4 +41,43 @@ abstract class TestCase extends BaseTestCase
 
         return $app;
     }
+
+    protected function createAdmin(array $attributes = [])
+    {
+        return User::factory()->admin()->create(array_merge([
+            'status' => 'active',
+            'account_status' => 'active',
+        ], $attributes));
+    }
+
+    protected function createUser(array $attributes = [])
+    {
+        return User::factory()->regular()->create(array_merge([
+            'status' => 'active',
+            'account_status' => 'active',
+        ], $attributes));
+    }
+
+    protected function createCategory(array $attributes = [])
+    {
+        return Category::factory()->create($attributes);
+    }
+
+    protected function createRecipe(array $attributes = [])
+    {
+        return Recipe::factory()->create($attributes);
+    }
+
+    protected function createIngredient(array $attributes = [])
+    {
+        return Ingredient::factory()->create($attributes);
+    }
+
+    protected function createPost(array $attributes = [])
+    {
+        return Post::factory()->create($attributes);
+    } 
+
+
+
 }

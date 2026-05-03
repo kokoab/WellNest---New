@@ -13,7 +13,7 @@ class AccountStatusTest extends TestCase
 
     public function test_active_user_is_authorized_to_the_system(): void
     {
-        $user = User::factory()->create(['account_status' => 'active']);
+        $user = $this->createUser();
 
 
         Sanctum::actingAs($user);
@@ -24,7 +24,7 @@ class AccountStatusTest extends TestCase
 
     public function test_suspended_user_is_blocked_by_middleware()
     {
-        $user = User::factory()->create(['account_status' => 'suspended']);
+        $user = $this->createUser(['account_status' => 'suspended']);
 
         Sanctum::actingAs($user);
         $response = $this->getJson('api/user');
@@ -35,7 +35,7 @@ class AccountStatusTest extends TestCase
 
     public function test_deactivated_user_is_blocked_by_middleware()
     {
-        $user = User::factory()->create(['account_status' => 'deactivated']);
+        $user = $this->createUser(['account_status' => 'deactivated']);
 
         Sanctum::actingAs($user);
         $response = $this->getJson('api/user');
@@ -46,8 +46,8 @@ class AccountStatusTest extends TestCase
 
     public function test_admin_can_suspend_user()
     {
-        $admin = User::factory()->create(['role' => 'admin', 'is_admin' => true]);
-        $user = User::factory()->create(['account_status' => 'active']);
+        $admin = $this->createAdmin();
+        $user = $this->createUser();
 
         Sanctum::actingAs($admin);
         $response = $this->patchJson("api/admin/users/{$user->id}/status", [
@@ -60,7 +60,7 @@ class AccountStatusTest extends TestCase
 
     public function test_user_can_deactivate_self()
     {
-        $user = User::factory()->create(['account_status' => 'active']);
+        $user = $this->createUser();
 
         Sanctum::actingAs($user);
         $response = $this->patchJson('api/me/deactivate');

@@ -4,25 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
     use RefreshDatabase;
-
-    private function createUser(array $overrides = []): User
-    {
-        return User::create(array_merge([
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('password123'),
-            'role' => 'user',
-            'account_status' => 'active',
-            'is_admin' => false,
-        ], $overrides));
-    }
 
     public function test_register_successfully_creates_user_and_returns_token(): void
     {
@@ -66,7 +52,7 @@ class AuthTest extends TestCase
     {
         $this->createUser([
             'email' => 'login@example.com',
-            'password' => Hash::make('password123'),
+            'password' => 'password123',
         ]);
 
         $response = $this->postJson('api/login', [
@@ -83,7 +69,7 @@ class AuthTest extends TestCase
     {
         $this->createUser([
             'email' => 'wrongpass@example.com',
-            'password' => Hash::make('password123'),
+            'password' => 'password123',
         ]);
 
         $response = $this->postJson('api/login', [
@@ -99,7 +85,7 @@ class AuthTest extends TestCase
     {
         $this->createUser([
             'email' => 'suspended@example.com',
-            'password' => Hash::make('password123'),
+            'password' => 'password123',
             'account_status' => 'suspended',
         ]);
 

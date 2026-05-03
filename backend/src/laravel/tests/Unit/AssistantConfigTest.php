@@ -15,7 +15,7 @@ class AssistantConfigTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createUser(array $overrides = []): User
+    protected function createUser(array $overrides = []): User
     {
         return User::create(array_merge([
             'first_name' => 'Test',

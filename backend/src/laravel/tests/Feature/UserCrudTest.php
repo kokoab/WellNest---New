@@ -19,22 +19,23 @@ class UserCrudTest extends TestCase
 
     use RefreshDatabase;
 
+
     public function test_admin_can_delete_user_without_data(): void
     {
-        $admin = User::factory()->admin()->create();
-        $target = User::factory()->regular()->create();
+        $admin = $this->createAdmin();
+        $target = $this->createUser();
 
         Sanctum::actingAs($admin);
 
         $response = $this->deleteJson("/api/admin/users/{$target->id}");
 
         $response->assertNoContent();
-        $this->assertDatabaseMissing('users', ['id' => $target->id]);   
+        $this->assertDatabaseMissing('users', ['id' => $target->id]);
     }
 
     public function test_admin_cannot_delete_own_account(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = $this->createAdmin();
 
         Sanctum::actingAs($admin);
 
@@ -43,11 +44,11 @@ class UserCrudTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_admin_cannot_delete_user_with_data(): void 
+    public function test_admin_cannot_delete_user_with_data(): void
     {
-        $admin = User::factory()->admin()->create();
-        $target = User::factory()->regular()->create(); 
-        
+        $admin = $this->createAdmin();
+        $target = $this->createUser();
+
         $recipePost = Recipe::factory()->create([
             'user_id' => $target->id,
         ]);
@@ -59,13 +60,12 @@ class UserCrudTest extends TestCase
         $response->assertForbidden();
         $this->assertDatabaseHas('users', ['id' => $target->id]);
         $this->assertDatabaseHas('recipes', ['id' => $recipePost->id]);
-
     }
 
     public function test_regular_user_cannot_delete_user(): void
     {
-        $user = User::factory()->regular()->create();
-        $target = User::factory()->regular()->create();
+        $user = $this->createUser();
+        $target = $this->createUser();
 
         Sanctum::actingAs($user);
 
@@ -77,8 +77,7 @@ class UserCrudTest extends TestCase
 
     public function test_unauthenticated_user_cannot_delete_user(): void
     {
-        $user = User::factory()->regular()->create();
-        $target = User::factory()->regular()->create();
+        $target = $this->createUser();
 
         $response = $this->deleteJson("/api/admin/users/{$target->id}");
 
@@ -88,7 +87,7 @@ class UserCrudTest extends TestCase
 
     public function test_deleting_non_existent_user_returns_404(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = $this->createAdmin();
 
         Sanctum::actingAs($admin);
 

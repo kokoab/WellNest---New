@@ -15,19 +15,6 @@ class MealPlanTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createUser(array $overrides = []): User
-    {
-        return User::create(array_merge([
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('password123'),
-            'role' => 'user',
-            'account_status' => 'active',
-            'is_admin' => false,
-        ], $overrides));
-    }
-
     private function createMealPlan(User $user, Recipe $recipe): MealPlan
     {
         return MealPlan::create([
@@ -41,8 +28,8 @@ class MealPlanTest extends TestCase
     public function test_user_can_create_meal_plan(): void
     {
         $user = $this->createUser();
-        $category = Category::create(['name' => 'Meals', 'description' => 'Meals desc']);
-        $recipe = Recipe::create([
+        $category = $this->createCategory(['name' => 'Meals', 'description' => 'Meals desc']);
+        $recipe = $this->createRecipe([
             'user_id' => $user->id,
             'category_id' => $category->id,
             'title' => 'Test',
@@ -67,8 +54,8 @@ class MealPlanTest extends TestCase
     public function test_user_can_list_their_meal_plans(): void
     {
         $user = $this->createUser();
-        $category = Category::create(['name' => 'Meals', 'description' => 'Meals desc']);
-        $recipe = Recipe::create([
+        $category = $this->createCategory(['name' => 'Meals', 'description' => 'Meals desc']);
+        $recipe = $this->createRecipe([
             'user_id' => $user->id,
             'category_id' => $category->id,
             'title' => 'Test',
@@ -88,8 +75,8 @@ class MealPlanTest extends TestCase
     public function test_user_can_delete_meal_plan(): void
     {
         $user = $this->createUser();
-        $category = Category::create(['name' => 'Meals', 'description' => 'Meals desc']);
-        $recipe = Recipe::create([
+        $category = $this->createCategory(['name' => 'Meals', 'description' => 'Meals desc']);
+        $recipe = $this->createRecipe([
             'user_id' => $user->id,
             'category_id' => $category->id,
             'title' => 'Test',
@@ -112,8 +99,8 @@ class MealPlanTest extends TestCase
     {
         $user = $this->createUser();
         $otherUser = $this->createUser(['email' => 'other@example.com']);
-        $category = Category::create(['name' => 'Meals', 'description' => 'Meals desc']);
-        $recipe = Recipe::create([
+        $category = $this->createCategory(['name' => 'Meals', 'description' => 'Meals desc']);
+        $recipe = $this->createRecipe([
             'user_id' => $otherUser->id,
             'category_id' => $category->id,
             'title' => 'Test',
