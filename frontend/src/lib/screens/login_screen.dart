@@ -32,9 +32,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (!result.isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.error ?? 'Login failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.error ?? 'Login failed')));
       return;
     }
     Navigator.pushReplacementNamed(
@@ -51,7 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: kBackgroundCream,
       appBar: AppBar(
-        title: const Text("Login", style: TextStyle(fontSize: 16, color: kPrimaryGreen)),
+        title: const Text(
+          "Login",
+          style: TextStyle(fontSize: 16, color: kPrimaryGreen),
+        ),
         backgroundColor: kBackgroundCream,
         elevation: 0,
         foregroundColor: kPrimaryGreen,
@@ -119,10 +122,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           hintText: 'Enter your email',
-                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                          hintStyle: TextStyle(
+                            fontFamily: 'HelveticaNow',
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ),
@@ -150,10 +162,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           hintText: 'Enter your password',
-                          hintStyle: TextStyle(fontFamily: 'HelveticaNow', color: Colors.grey.shade600),
+                          hintStyle: TextStyle(
+                            fontFamily: 'HelveticaNow',
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ),
@@ -169,28 +190,57 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: kPrimaryGreen))
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: kPrimaryGreen,
+                          ),
+                        )
                       : ElevatedButton(
                           onPressed: _submitLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: nestOrange,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: nestOrange,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: 'HelveticaNow',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          child: const Text('Enter'),
                         ),
-                        child: const Text('Enter'),
-                      ),
                 ),
               ),
-              AppSpacing.gapV24,
+              AppSpacing.gapV12,
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/forgot-password'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: kAccentOrange,
+                    textStyle: const TextStyle(
+                      fontFamily: 'HelveticaNow',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Forgot password?'),
+                ),
+              ),
+              AppSpacing.gapV16,
               // Connect: Navigate to Register page
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     "Don't have an account? ",
-                    style: TextStyle(color: wellGreen, fontFamily: 'HelveticaNow'),
+                    style: TextStyle(
+                      color: wellGreen,
+                      fontFamily: 'HelveticaNow',
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, '/register'),

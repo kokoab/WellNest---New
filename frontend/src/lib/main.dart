@@ -7,6 +7,7 @@ import 'package:my_app/screens/admin_dashboard.dart';
 import 'package:my_app/screens/admin_login.dart';
 import 'package:my_app/screens/user_dashboard.dart';
 import 'package:my_app/screens/login_screen.dart';
+import 'package:my_app/screens/forgot_password_screen.dart';
 import 'package:my_app/screens/register_screen.dart';
 import 'package:my_app/screens/splash_screen.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
@@ -56,6 +57,8 @@ class MyApp extends StatelessWidget {
           home: const _PrecacheWrapper(child: _AppInitialHome()),
           routes: {
             '/login': (context) => const LoginScreen(),
+            '/forgot-password': (context) => const ForgotPasswordScreen(),
+            '/reset-password': (context) => const ForgotPasswordScreen(),
             '/register': (context) => const RegisterScreen(),
             '/admin_login': (context) => const AdminLoginScreen(),
             '/admin_dashboard': (context) => const AdminDashboard(),
@@ -107,10 +110,7 @@ class _PrecacheWrapperState extends State<_PrecacheWrapper> {
   void _precacheOnce() {
     if (_precached) return;
     _precached = true;
-    precacheImage(
-      const AssetImage('lib/assets/images/logo1.png'),
-      context,
-    );
+    precacheImage(const AssetImage('lib/assets/images/logo1.png'), context);
   }
 
   @override
