@@ -71,6 +71,8 @@ class _AdminDashboardState extends State<AdminDashboard>
   bool _usersHasMore = true;
   bool _usersLoadingMore = false;
   int _usersQuerySerial = 0;
+  int _usersTotalCount = 0;
+  int _usersActiveTotalCount = 0;
 
   List<Report> _reports = [];
   bool _reportsLoading = true;
@@ -160,12 +162,14 @@ class _AdminDashboardState extends State<AdminDashboard>
       _error = null;
     });
     try {
-      final list = await AdminUserService.instance.fetchUsers(
+      final result = await AdminUserService.instance.fetchUsers(
         range: _usersRange.apiValue,
       );
       if (!mounted) return;
       setState(() {
-        _users = list;
+        _users = result.users;
+        _usersTotalCount = result.total;
+        _usersActiveTotalCount = result.activeTotal;
         _loading = false;
       });
     } catch (e) {
@@ -206,7 +210,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
 
     try {
-      final list = await AdminUserService.instance.fetchUsers(
+      final result = await AdminUserService.instance.fetchUsers(
         range: _usersRange.apiValue,
         search: _searchQuery,
         page: _usersPage,
@@ -216,13 +220,15 @@ class _AdminDashboardState extends State<AdminDashboard>
       if (querySerial != _usersQuerySerial) return;
       setState(() {
         if (reset) {
-          _users = list;
+          _users = result.users;
           _loading = false;
         } else {
-          _users.addAll(list);
+          _users.addAll(result.users);
           _usersLoadingMore = false;
         }
-        if (list.length < _usersPerPage) {
+        _usersTotalCount = result.total;
+        _usersActiveTotalCount = result.activeTotal;
+        if (result.users.length < _usersPerPage) {
           _usersHasMore = false;
         } else {
           _usersPage += 1;
@@ -430,13 +436,13 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (_exportingInsightsCsv) return;
     setState(() => _exportingInsightsCsv = true);
     try {
-      final filteredUsers = await AdminUserService.instance.fetchUsers(
+      final filteredUsersResult = await AdminUserService.instance.fetchUsers(
         range: _insightsRange.apiValue,
       );
       final filteredReports = await AdminModerationService.instance
           .fetchReports(range: _insightsRange.apiValue);
-      final totalUsers = filteredUsers.length;
-      final activeUsers = filteredUsers.where((u) => u.isActive).length;
+      final totalUsers = _usersTotalCount;
+      final activeUsers = filteredUsersResult.users.where((u) => u.isActive).length;
       final allRecipes = <Recipe>[];
       for (var page = 1; page <= 5; page++) {
         final res = await RecipeService.instance.fetchRecipes(
@@ -852,6 +858,8 @@ class _AdminDashboardState extends State<AdminDashboard>
           theme: theme,
           isWide: isWide,
           users: _users,
+          totalUsers: _usersTotalCount,
+          activeUsers: _usersActiveTotalCount,
           loading: _loading,
           reports: _reports,
           reportsLoading: _reportsLoading,
@@ -2626,6 +2634,8 @@ class _OverviewSection extends StatelessWidget {
   final ThemeData theme;
   final bool isWide;
   final List<AdminUser> users;
+  final int totalUsers;
+  final int activeUsers;
   final bool loading;
   final List<Report> reports;
   final bool reportsLoading;
@@ -2647,6 +2657,8 @@ class _OverviewSection extends StatelessWidget {
     required this.theme,
     required this.isWide,
     required this.users,
+    required this.totalUsers,
+    required this.activeUsers,
     required this.loading,
     required this.reports,
     required this.reportsLoading,
@@ -2667,7 +2679,6 @@ class _OverviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeUsers = users.where((u) => u.isActive).length;
     final openReports = reports
         .where((r) => _normalizeReportStatus(r.status) == 'open')
         .length;
@@ -2679,9 +2690,9 @@ class _OverviewSection extends StatelessWidget {
     final postGrowthTrend = _formatTrend(
       _seriesPercentDelta(postFrequencyPoints),
     );
-    final activeRatio = users.isEmpty
+    final activeRatio = totalUsers == 0
         ? 0
-        : ((activeUsers / users.length) * 100).round();
+        : ((activeUsers / totalUsers) * 100).round();
     final activeTrendText = users.isEmpty ? 'No data' : '$activeRatio% active';
 
     return Column(
@@ -2713,7 +2724,7 @@ class _OverviewSection extends StatelessWidget {
                     child: _StatCard(
                       theme: theme,
                       title: 'Total Users',
-                      value: loading ? '—' : '${users.length}',
+                      value: loading ? '—' : '$totalUsers',
                       icon: Icons.people_outline_rounded,
                       color: const Color(0xFF3C6DF0),
                       trend: userGrowthTrend,
@@ -2766,7 +2777,7 @@ class _OverviewSection extends StatelessWidget {
                         child: _StatCard(
                           theme: theme,
                           title: 'Total Users',
-                          value: loading ? '—' : '${users.length}',
+                          value: loading ? '—' : '$totalUsers',
                           icon: Icons.people_outline_rounded,
                           color: const Color(0xFF3C6DF0),
                           trend: userGrowthTrend,

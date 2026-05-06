@@ -14,6 +14,23 @@ class AdminApiException implements Exception {
   String toString() => message;
 }
 
+/// Result class for fetching users
+class FetchUsersResult {
+  final List<AdminUser> users;
+  final int total;
+  final int activeTotal;
+  final int currentPage;
+  final int lastPage;
+
+  FetchUsersResult({
+    required this.users,
+    required this.total,
+    required this.activeTotal,
+    required this.currentPage,
+    required this.lastPage,
+  });
+}
+
 /// API calls for admin user management (list, update status, delete).
 class AdminUserService {
   AdminUserService._();
@@ -29,9 +46,9 @@ class AdminUserService {
   };
 
   /// GET /api/admin/users — returns list of users.
-  /// Returns list on success, or throws with message on error.
   /// Fetch users, supports optional `range`, `search`, and pagination.
-  Future<List<AdminUser>> fetchUsers({
+  /// Returns FetchUsersResult with users list and total count from API.
+  Future<FetchUsersResult> fetchUsers({
     String? range,
     String? search,
     int page = 1,
@@ -53,10 +70,35 @@ class AdminUserService {
     );
     if (response.statusCode == 200) {
       final body = jsonDecode(response.body);
-      final list = body is List ? body : (body is Map<String, dynamic> && body['data'] is List ? body['data'] as List<dynamic> : <dynamic>[]);
-      return list
+      final list = body is List
+          ? body
+          : (body is Map<String, dynamic> && body['data'] is List
+              ? body['data'] as List<dynamic>
+              : <dynamic>[]);
+      final users = list
           .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
           .toList();
+
+      // Extract total count from meta
+      int total = users.length;
+      int activeTotal = 0;
+      int currentPage = 1;
+      int lastPage = 1;
+      if (body is Map<String, dynamic> && body['meta'] is Map) {
+        final meta = body['meta'] as Map<String, dynamic>;
+        total = (meta['total'] as int?) ?? users.length;
+        activeTotal = (meta['active_total'] as int?) ?? 0;
+        currentPage = (meta['current_page'] as int?) ?? 1;
+        lastPage = (meta['last_page'] as int?) ?? 1;
+      }
+
+      return FetchUsersResult(
+        users: users,
+        total: total,
+        activeTotal: activeTotal,
+        currentPage: currentPage,
+        lastPage: lastPage,
+      );
     }
     _throwFromResponse(response);
   }

@@ -56,6 +56,9 @@ class AdminUserController extends Controller
             'created_at' => $u->created_at?->toIso8601String(),
         ]);
 
+        // Count active users matching the query (before pagination)
+        $activeCount = (clone $usersQuery)->where('account_status', 'active')->orWhereNull('account_status')->count();
+
         return response()->json([
             'data' => $users,
             'meta' => [
@@ -63,6 +66,7 @@ class AdminUserController extends Controller
                 'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
+                'active_total' => $activeCount,
             ],
             'links' => [
                 'next' => $paginator->nextPageUrl(),
