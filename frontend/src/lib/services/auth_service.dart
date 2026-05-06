@@ -146,6 +146,63 @@ class AuthService {
     }
   }
 
+  /// POST /api/forgot-password with the user's email address.
+  Future<String?> requestPasswordReset(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/forgot-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email.trim()}),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200) {
+        return data?['message'] as String? ??
+            'If that email exists, a reset code has been sent.';
+      }
+
+      return data?['message'] as String? ?? 'Failed to request password reset';
+    } catch (e) {
+      return 'Failed to connect: $e';
+    }
+  }
+
+  /// POST /api/reset-password with code, email, and the new password.
+  Future<String?> resetPassword({
+    required String code,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/reset-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'code': code.trim(),
+          'email': email.trim(),
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        }),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200) {
+        return data?['message'] as String? ?? 'Password reset successfully.';
+      }
+
+      return data?['message'] as String? ?? 'Failed to reset password';
+    } catch (e) {
+      return 'Failed to connect: $e';
+    }
+  }
+
   /// POST /api/logout with Bearer token. Clears local token and admin session mirror.
   Future<void> logout() async {
     if (_token == null) {
