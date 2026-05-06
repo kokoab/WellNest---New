@@ -51,7 +51,6 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard>
     with SingleTickerProviderStateMixin {
-  // ── state ──────────────────────────────────────────────────────────────────
   _Section _currentSection = _Section.overview;
   bool _sidebarCollapsed = false;
 
@@ -121,7 +120,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
-  // ── loaders ────────────────────────────────────────────────────────────────
   Future<void> _loadReports() async {
     if (!mounted) return;
     setState(() {
@@ -170,338 +168,60 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
+  // ── Web modals ────────────────────────────────────────────────────────────
+
   Future<void> _showUserPostsModal(AdminUser user) async {
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return _buildAdminUserModal(
-          ctx,
-          title: 'Posts by ${user.name}',
-          child: FutureBuilder<List<Post>>(
-            future: ApiService().fetchPosts(userId: user.id),
-            builder: (ctx, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(
-                  child: CircularProgressIndicator(color: kPrimaryGreen),
-                );
-              }
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    snapshot.error.toString(),
-                    style: const TextStyle(color: kAccentOrange),
-                  ),
-                );
-              }
-              final posts = snapshot.data ?? [];
-              if (posts.isEmpty) {
-                return const Center(
-                  child: Text('This user has not created any posts yet.'),
-                );
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: posts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final post = posts[index];
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Theme.of(context).dividerColor.withOpacity(0.4),
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post.content.isEmpty ? 'No text content' : post.content,
-                          maxLines: 5,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        if (post.displayImageUrl != null) ...[
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              post.displayImageUrl!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: 140,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Text(
-                              '${post.commentsCount} comments',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${post.likesCount} likes',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              post.createdAt != null ? post.createdAt!.split('T').first : 'Unknown',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: 'Posts by ${user.name}',
+        icon: Icons.article_outlined,
+        iconColor: kPrimaryGreen,
+        child: FutureBuilder<List<Post>>(
+          future: ApiService().fetchPosts(userId: user.id),
+          builder: (ctx, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const _ModalLoading();
+            }
+            if (snapshot.hasError) {
+              return _ModalError(message: snapshot.error.toString());
+            }
+            final posts = snapshot.data ?? [];
+            if (posts.isEmpty) {
+              return const _ModalEmpty(
+                message: 'This user has not created any posts yet.',
               );
-            },
-          ),
-        );
-      },
+            }
+            return _PostsModalContent(posts: posts);
+          },
+        ),
+      ),
     );
   }
 
   Future<void> _showUserCommentsModal(AdminUser user) async {
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return _buildAdminUserModal(
-          ctx,
-          title: 'Comments on ${user.name}’s posts',
-          child: _buildUserCommentsContent(user),
-        );
-      },
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: "Comments on ${user.name}'s posts",
+        icon: Icons.comment_outlined,
+        iconColor: kAccentOrange,
+        child: _CommentsModalContent(user: user),
+      ),
     );
   }
 
-  Widget _buildUserCommentsContent(AdminUser user) {
-    final commentFutures = <int, Future<List<PostComment>>>{};
-    int? expandedPostId;
-
-    return StatefulBuilder(
-      builder: (context, setModalState) {
-        return FutureBuilder<List<Post>>(
-          future: ApiService().fetchPosts(userId: user.id),
-          builder: (ctx, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(
-                child: CircularProgressIndicator(color: kPrimaryGreen),
-              );
-            }
-            if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  snapshot.error.toString(),
-                  style: const TextStyle(color: kAccentOrange),
-                ),
-              );
-            }
-            final posts = snapshot.data ?? [];
-            if (posts.isEmpty) {
-              return const Center(
-                child: Text('This user has no posts to show comments for.'),
-              );
-            }
-
-            return ListView.separated(
-              padding: const EdgeInsets.only(bottom: 24),
-              itemCount: posts.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                final isExpanded = expandedPostId == post.id;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Card(
-                      elevation: 2,
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            title: Text(
-                              post.content.isEmpty ? 'Untitled post' : post.content,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            subtitle: Text(
-                              '${post.commentsCount} comments',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(
-                                isExpanded ? Icons.expand_less : Icons.expand_more,
-                                color: kPrimaryGreen,
-                              ),
-                              onPressed: () {
-                                setModalState(() {
-                                  if (isExpanded) {
-                                    expandedPostId = null;
-                                  } else {
-                                    expandedPostId = post.id;
-                                    commentFutures[post.id] ??= PostService.instance.fetchComments(post.id);
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          if (isExpanded)
-                            FutureBuilder<List<PostComment>>(
-                              future: commentFutures[post.id],
-                              builder: (context, commentSnapshot) {
-                                if (commentSnapshot.connectionState != ConnectionState.done) {
-                                  return const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: CircularProgressIndicator(color: kPrimaryGreen),
-                                    ),
-                                  );
-                                }
-                                if (commentSnapshot.hasError) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                                    child: Text(
-                                      commentSnapshot.error.toString(),
-                                      style: const TextStyle(color: kAccentOrange),
-                                    ),
-                                  );
-                                }
-                                final comments = commentSnapshot.data ?? [];
-                                if (comments.isEmpty) {
-                                  return const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                                    child: Text('No comments on this post yet.'),
-                                  );
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  child: Column(
-                                    children: comments.map((comment) {
-                                      return Card(
-                                        elevation: 1,
-                                        margin: const EdgeInsets.only(bottom: 10),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              comment.userName,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              comment.comment.isEmpty ? 'No text comment' : comment.comment,
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-                                            if (comment.imageUrl != null) ...[
-                                              const SizedBox(height: 8),
-                                              ClipRRect(
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: Image.network(
-                                                  comment.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  width: double.infinity,
-                                                  height: 120,
-                                                ),
-                                              ),
-                                            ],
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              comment.createdAt.isEmpty
-                                                  ? 'Unknown'
-                                                  : comment.createdAt.split('T').first,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                  ),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildAdminUserModal(BuildContext context,
-      {required String title, required Widget child}) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.78,
-      child: Material(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 50,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.dividerColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              Expanded(child: child),
-            ],
-          ),
-        ),
+  Future<void> _showUserRecipesModal(AdminUser user) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: 'Recipes by ${user.name}',
+        icon: Icons.restaurant_menu_outlined,
+        iconColor: const Color(0xFFE6930A),
+        child: _RecipesModalContent(userId: user.id),
       ),
     );
   }
@@ -581,7 +301,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     _loadAnalytics();
   }
 
-  // ── CSV helpers ────────────────────────────────────────────────────────────
   String _escapeCsv(String? s) {
     if (s == null || s.isEmpty) return '';
     if (s.contains(',') || s.contains('"') || s.contains('\n')) {
@@ -646,10 +365,8 @@ class _AdminDashboardState extends State<AdminDashboard>
       );
       final filteredReports = await AdminModerationService.instance
           .fetchReports(range: _insightsRange.apiValue);
-
       final totalUsers = filteredUsers.length;
       final activeUsers = filteredUsers.where((u) => u.isActive).length;
-
       final allRecipes = <Recipe>[];
       for (var page = 1; page <= 5; page++) {
         final res = await RecipeService.instance.fetchRecipes(
@@ -660,7 +377,6 @@ class _AdminDashboardState extends State<AdminDashboard>
         if (res.recipes.length < 10) break;
       }
       final totalRecipes = allRecipes.length;
-
       allRecipes.sort((a, b) {
         final aCount = a.ratingsCount ?? 0;
         final bCount = b.ratingsCount ?? 0;
@@ -759,7 +475,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
-  // ── user actions ───────────────────────────────────────────────────────────
   List<AdminUser> get _filteredUsers {
     if (_searchQuery.trim().isEmpty) return _users;
     final q = _searchQuery.trim().toLowerCase();
@@ -934,7 +649,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
   }
 
-  // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -973,7 +687,6 @@ class _AdminDashboardState extends State<AdminDashboard>
         fontWeight: FontWeight.w600,
       ),
     );
-
     return Theme(
       data: theme.copyWith(textTheme: dashboardTextTheme),
       child: Scaffold(
@@ -985,7 +698,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
   }
 
-  // ── wide layout ────────────────────────────────────────────────────────────
   Widget _buildWideLayout(ThemeData theme) {
     return Row(
       children: [
@@ -1030,7 +742,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
   }
 
-  // ── narrow layout ──────────────────────────────────────────────────────────
   Widget _buildNarrowLayout(ThemeData theme) {
     return Column(
       children: [
@@ -1074,11 +785,8 @@ class _AdminDashboardState extends State<AdminDashboard>
     Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
   }
 
-  void _toggleTheme() {
-    context.read<ThemeProvider>().toggleTheme();
-  }
+  void _toggleTheme() => context.read<ThemeProvider>().toggleTheme();
 
-  // ── section content router ─────────────────────────────────────────────────
   Widget _buildSectionContent(ThemeData theme, {required bool isWide}) {
     switch (_currentSection) {
       case _Section.overview:
@@ -1140,6 +848,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           onDelete: _confirmDelete,
           onViewPosts: _showUserPostsModal,
           onViewComments: _showUserCommentsModal,
+          onViewRecipes: _showUserRecipesModal,
         );
       case _Section.moderation:
         return _ModerationSection(
@@ -1174,6 +883,1106 @@ class _AdminDashboardState extends State<AdminDashboard>
           onExport: _exportAuditLogsCsv,
         );
     }
+  }
+}
+
+// ─── Web Modal Shell ──────────────────────────────────────────────────────────
+class _WebModal extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final Widget child;
+
+  const _WebModal({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final screenSize = MediaQuery.sizeOf(context);
+    final modalWidth = (screenSize.width * 0.88).clamp(340.0, 760.0);
+    final modalMaxHeight = screenSize.height * 0.84;
+    final cardBg = isDark ? const Color(0xFF1C1C1C) : Colors.white;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.black.withValues(alpha: 0.07);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: modalWidth,
+          maxHeight: modalMaxHeight,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
+                blurRadius: 48,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, size: 16, color: iconColor),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(34, 34),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: borderColor, width: 0.5),
+                        ),
+                      ),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 0.5, color: borderColor),
+              // Scrollable body
+              Flexible(
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: child,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Modal shared states ──────────────────────────────────────────────────────
+class _ModalLoading extends StatelessWidget {
+  const _ModalLoading();
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.all(48),
+    child: Center(
+      child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2),
+    ),
+  );
+}
+
+class _ModalError extends StatelessWidget {
+  final String message;
+  const _ModalError({required this.message});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Center(
+      child: Text(
+        message.replaceFirst('Exception: ', ''),
+        style: const TextStyle(color: kAccentOrange, fontSize: 13),
+        textAlign: TextAlign.center,
+      ),
+    ),
+  );
+}
+
+class _ModalEmpty extends StatelessWidget {
+  final String message;
+  const _ModalEmpty({required this.message});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 36,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Posts Modal Content ──────────────────────────────────────────────────────
+class _PostsModalContent extends StatelessWidget {
+  final List<Post> posts;
+  const _PostsModalContent({required this.posts});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: List.generate(posts.length, (i) {
+        final post = posts[i];
+        final cardBg = isDark
+            ? const Color(0xFF252525)
+            : const Color(0xFFF9F9F9);
+        final borderColor = isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.06);
+        return Padding(
+          padding: EdgeInsets.only(bottom: i == posts.length - 1 ? 0 : 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 0.5),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post.content.isEmpty ? 'No text content' : post.content,
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurface,
+                    height: 1.5,
+                  ),
+                ),
+                if (post.displayImageUrl != null) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      post.displayImageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 160,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.black.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image_outlined,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Image unavailable',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${post.commentsCount}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.favorite_border_rounded,
+                      size: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${post.likesCount}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      post.createdAt != null
+                          ? post.createdAt!.split('T').first
+                          : 'Unknown',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Comments Modal Content ───────────────────────────────────────────────────
+class _CommentsModalContent extends StatefulWidget {
+  final AdminUser user;
+  const _CommentsModalContent({required this.user});
+  @override
+  State<_CommentsModalContent> createState() => _CommentsModalContentState();
+}
+
+class _CommentsModalContentState extends State<_CommentsModalContent> {
+  final Map<int, Future<List<PostComment>>> _commentFutures = {};
+  int? _expandedPostId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return FutureBuilder<List<Post>>(
+      future: ApiService().fetchPosts(userId: widget.user.id),
+      builder: (ctx, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done)
+          return const _ModalLoading();
+        if (snapshot.hasError)
+          return _ModalError(message: snapshot.error.toString());
+        final posts = snapshot.data ?? [];
+        if (posts.isEmpty)
+          return const _ModalEmpty(
+            message: 'This user has no posts to show comments for.',
+          );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: List.generate(posts.length, (i) {
+            final post = posts[i];
+            final isExpanded = _expandedPostId == post.id;
+            final cardBg = isDark
+                ? const Color(0xFF252525)
+                : const Color(0xFFF9F9F9);
+            final borderColor = isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.06);
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: i == posts.length - 1 ? 0 : 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor, width: 0.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Post header row
+                    InkWell(
+                      onTap: () => setState(() {
+                        if (isExpanded) {
+                          _expandedPostId = null;
+                        } else {
+                          _expandedPostId = post.id;
+                          _commentFutures[post.id] ??= PostService.instance
+                              .fetchComments(post.id);
+                        }
+                      }),
+                      borderRadius: isExpanded
+                          ? const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            )
+                          : BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    post.content.isEmpty
+                                        ? 'Untitled post'
+                                        : post.content,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: theme.colorScheme.onSurface,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${post.commentsCount} comment${post.commentsCount == 1 ? '' : 's'}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: kPrimaryGreen.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                isExpanded
+                                    ? Icons.expand_less_rounded
+                                    : Icons.expand_more_rounded,
+                                size: 16,
+                                color: kPrimaryGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Expanded comments
+                    if (isExpanded) ...[
+                      Divider(height: 0.5, color: borderColor),
+                      FutureBuilder<List<PostComment>>(
+                        future: _commentFutures[post.id],
+                        builder: (ctx, cs) {
+                          if (cs.connectionState != ConnectionState.done)
+                            return const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: kPrimaryGreen,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          if (cs.hasError)
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                cs.error.toString(),
+                                style: const TextStyle(
+                                  color: kAccentOrange,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          final comments = cs.data ?? [];
+                          if (comments.isEmpty)
+                            return const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Text(
+                                'No comments on this post yet.',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            );
+                          return Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: comments.map((comment) {
+                                final cBg = isDark
+                                    ? const Color(0xFF1E1E1E)
+                                    : Colors.white;
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: cBg,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          _UserAvatar(name: comment.userName),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            comment.userName,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            comment.createdAt.isEmpty
+                                                ? 'Unknown'
+                                                : comment.createdAt
+                                                      .split('T')
+                                                      .first,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (comment.comment.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          comment.comment,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.colorScheme.onSurface,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                      if (comment.imageUrl != null) ...[
+                                        const SizedBox(height: 8),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          child: Image.network(
+                                            comment.imageUrl!,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: 100,
+                                            errorBuilder: (_, __, ___) =>
+                                                Container(
+                                                  height: 40,
+                                                  color: isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.04,
+                                                        )
+                                                      : Colors.black.withValues(
+                                                          alpha: 0.04,
+                                                        ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      'Image unavailable',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+// ─── Recipes Modal Content ────────────────────────────────────────────────────
+class _RecipesModalContent extends StatefulWidget {
+  final int userId;
+  const _RecipesModalContent({required this.userId});
+  @override
+  State<_RecipesModalContent> createState() => _RecipesModalContentState();
+}
+
+class _RecipesModalContentState extends State<_RecipesModalContent> {
+  bool _cardView = true; // toggle: card vs list
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return FutureBuilder<List<Recipe>>(
+      future: RecipeService.instance.fetchRecipes(userId: widget.userId).then((res) => res.recipes),
+      builder: (ctx, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done)
+          return const _ModalLoading();
+        if (snapshot.hasError)
+          return _ModalError(message: snapshot.error.toString());
+        final recipes = snapshot.data ?? [];
+        if (recipes.isEmpty)
+          return const _ModalEmpty(
+            message: 'This user has not created any recipes yet.',
+          );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Toolbar: count + view toggle
+            Row(
+              children: [
+                Text(
+                  '${recipes.length} recipe${recipes.length == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                _ViewToggle(
+                  isCard: _cardView,
+                  onChanged: (v) => setState(() => _cardView = v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Card grid view
+            if (_cardView)
+              _RecipeCardGrid(recipes: recipes, isDark: isDark, theme: theme)
+            else
+              _RecipeListView(recipes: recipes, isDark: isDark, theme: theme),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─── View toggle button ───────────────────────────────────────────────────────
+class _ViewToggle extends StatelessWidget {
+  final bool isCard;
+  final ValueChanged<bool> onChanged;
+  const _ViewToggle({required this.isCard, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ToggleBtn(
+            icon: Icons.grid_view_rounded,
+            active: isCard,
+            onTap: () => onChanged(true),
+            tooltip: 'Card view',
+          ),
+          const SizedBox(width: 2),
+          _ToggleBtn(
+            icon: Icons.view_list_rounded,
+            active: !isCard,
+            onTap: () => onChanged(false),
+            tooltip: 'List view',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleBtn extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+  final String tooltip;
+  const _ToggleBtn({
+    required this.icon,
+    required this.active,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 26,
+          height: 24,
+          decoration: BoxDecoration(
+            color: active
+                ? (isDark ? const Color(0xFF2A2A2A) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Icon(
+            icon,
+            size: 14,
+            color: active
+                ? kPrimaryGreen
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Recipe Card Grid ─────────────────────────────────────────────────────────
+class _RecipeCardGrid extends StatelessWidget {
+  final List<Recipe> recipes;
+  final bool isDark;
+  final ThemeData theme;
+  const _RecipeCardGrid({
+    required this.recipes,
+    required this.isDark,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Responsive: 2 columns on wide modal, 1 on narrow
+    final width = MediaQuery.sizeOf(context).width;
+    final cols = width >= 600 ? 2 : 1;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.black.withValues(alpha: 0.07);
+    final cardBg = isDark ? const Color(0xFF252525) : const Color(0xFFF9F9F9);
+
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final colWidth = (constraints.maxWidth - (cols - 1) * 12) / cols;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: recipes.map((recipe) {
+            final imageUrl = recipe.displayImageUrl;
+            final rating = recipe.averageRating;
+            final ratingsCount = recipe.ratingsCount ?? 0;
+            final category = recipe.category?.name;
+
+            return SizedBox(
+              width: colWidth,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor, width: 0.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Image
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              height: 140,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _RecipeImagePlaceholder(
+                                    isDark: isDark,
+                                    theme: theme,
+                                  ),
+                            )
+                          : _RecipeImagePlaceholder(
+                              isDark: isDark,
+                              theme: theme,
+                            ),
+                    ),
+                    // Info
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (category != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: kPrimaryGreen.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                category,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: kPrimaryGreen,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                          ],
+                          Text(
+                            recipe.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                              height: 1.3,
+                            ),
+                          ),
+                          if (recipe.description?.isNotEmpty == true) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              recipe.description!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              if (rating != null) ...[
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 13,
+                                  color: Color(0xFFE6930A),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFE6930A),
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '($ratingsCount)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              if (recipe.prepTime != null) ...[
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${recipe.prepTime} min',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+// ─── Recipe List View ─────────────────────────────────────────────────────────
+class _RecipeListView extends StatelessWidget {
+  final List<Recipe> recipes;
+  final bool isDark;
+  final ThemeData theme;
+  const _RecipeListView({
+    required this.recipes,
+    required this.isDark,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.black.withValues(alpha: 0.07);
+    final cardBg = isDark ? const Color(0xFF252525) : const Color(0xFFF9F9F9);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: List.generate(recipes.length, (i) {
+        final recipe = recipes[i];
+        final imageUrl = recipe.displayImageUrl;
+        final rating = recipe.averageRating;
+        final ratingsCount = recipe.ratingsCount ?? 0;
+        final category = recipe.category?.name;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: i == recipes.length - 1 ? 0 : 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 0.5),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Thumbnail
+                ClipRRect(
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(12),
+                  ),
+                  child: SizedBox(
+                    width: 88,
+                    height: 88,
+                    child: imageUrl != null
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _RecipeImagePlaceholder(
+                                  isDark: isDark,
+                                  theme: theme,
+                                  small: true,
+                                ),
+                          )
+                        : _RecipeImagePlaceholder(
+                            isDark: isDark,
+                            theme: theme,
+                            small: true,
+                          ),
+                  ),
+                ),
+                // Details
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (category != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: kPrimaryGreen.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  category,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: kPrimaryGreen,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            if (recipe.prepTime != null)
+                              Text(
+                                '${recipe.prepTime} min',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          recipe.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        if (recipe.description?.isNotEmpty == true) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            recipe.description!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        if (rating != null)
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 12,
+                                color: Color(0xFFE6930A),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                rating.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFE6930A),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '($ratingsCount)',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _RecipeImagePlaceholder extends StatelessWidget {
+  final bool isDark;
+  final ThemeData theme;
+  final bool small;
+  const _RecipeImagePlaceholder({
+    required this.isDark,
+    required this.theme,
+    this.small = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.04)
+          : Colors.black.withValues(alpha: 0.04),
+      child: Center(
+        child: Icon(
+          Icons.restaurant_menu_outlined,
+          size: small ? 20 : 28,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+        ),
+      ),
+    );
   }
 }
 
@@ -1419,7 +2228,6 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isActive = section == currentSection;
     final isDark = theme.brightness == Brightness.dark;
-
     return Tooltip(
       message: collapsed ? label : '',
       preferBelow: false,
@@ -1484,7 +2292,6 @@ class _BottomNav extends StatelessWidget {
   final _Section currentSection;
   final ValueChanged<_Section> onSectionChanged;
   final ThemeData theme;
-
   const _BottomNav({
     required this.currentSection,
     required this.onSectionChanged,
@@ -1557,7 +2364,6 @@ class _BottomNavItem extends StatelessWidget {
   final _Section section;
   final _Section currentSection;
   final ValueChanged<_Section> onTap;
-
   const _BottomNavItem({
     required this.icon,
     required this.label,
@@ -1638,7 +2444,6 @@ class _TopBar extends StatelessWidget {
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : Colors.black.withValues(alpha: 0.07);
-
     return Container(
       height: _kTopBarHeight,
       decoration: BoxDecoration(
@@ -1736,7 +2541,6 @@ class _TopBarIconBtn extends StatelessWidget {
   final VoidCallback? onPressed;
   final String tooltip;
   final Color color;
-
   const _TopBarIconBtn({
     required this.icon,
     required this.onPressed,
@@ -1745,17 +2549,15 @@ class _TopBarIconBtn extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: color),
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(34, 34),
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => IconButton(
+    onPressed: onPressed,
+    icon: Icon(icon, size: 18, color: color),
+    tooltip: tooltip,
+    style: IconButton.styleFrom(
+      minimumSize: const Size(34, 34),
+      padding: EdgeInsets.zero,
+    ),
+  );
 }
 
 // ─── Overview Section ─────────────────────────────────────────────────────────
@@ -1843,8 +2645,6 @@ class _OverviewSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-
-        // ── Stat cards ──────────────────────────────────────────────────────
         isWide
             ? Row(
                 children: [
@@ -1956,10 +2756,7 @@ class _OverviewSection extends StatelessWidget {
                   ),
                 ],
               ),
-
         const SizedBox(height: 24),
-
-        // ── Charts section ──────────────────────────────────────────────────
         _ChartsSection(
           theme: theme,
           users: users,
@@ -1972,10 +2769,7 @@ class _OverviewSection extends StatelessWidget {
           chatbotInteractionPoints: chatbotInteractionPoints,
           isWide: isWide,
         ),
-
         const SizedBox(height: 24),
-
-        // ── Meal Planner summary ────────────────────────────────────────────
         _MinimalSectionLabel(theme: theme, label: 'Meal Planner Activity'),
         const SizedBox(height: 10),
         _SurfaceCard(
@@ -2014,10 +2808,7 @@ class _OverviewSection extends StatelessWidget {
           _EmptyState(theme: theme, message: 'No meal planner activity yet.')
         else
           _RecentLogsList(theme: theme, logs: mealPlannerLogs.take(5).toList()),
-
         const SizedBox(height: 22),
-
-        // ── Export row ──────────────────────────────────────────────────────
         Row(
           children: [
             _DateRangeDropdown(
@@ -2033,7 +2824,6 @@ class _OverviewSection extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 22),
         _MinimalSectionLabel(
           theme: theme,
@@ -2045,7 +2835,6 @@ class _OverviewSection extends StatelessWidget {
           theme: theme,
           refreshNonce: rankingsRefreshNonce,
         ),
-
         const SizedBox(height: 22),
         _MinimalSectionLabel(
           theme: theme,
@@ -2057,7 +2846,6 @@ class _OverviewSection extends StatelessWidget {
           _EmptyState(theme: theme, message: 'No audit logs yet')
         else
           _RecentLogsList(theme: theme, logs: auditLogs.take(5).toList()),
-
         const SizedBox(height: 32),
       ],
     );
@@ -2347,7 +3135,6 @@ class _ChartCard extends StatelessWidget {
                 ? kPrimaryGreen.withValues(alpha: 0.08)
                 : Colors.black.withValues(alpha: 0.03),
             blurRadius: 1,
-            offset: const Offset(0, 0),
           ),
         ],
       ),
@@ -2418,7 +3205,6 @@ class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
   final bool dashed;
-
   const _LegendDot({
     required this.color,
     required this.label,
@@ -2451,7 +3237,6 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-// ─── User Growth Chart ────────────────────────────────────────────────────────
 class _UserGrowthCard extends StatelessWidget {
   final ThemeData theme;
   final bool isDark;
@@ -2473,7 +3258,6 @@ class _UserGrowthCard extends StatelessWidget {
     final labels = _buildDateLabels(chartPoints, pointsCount);
     final usersSeries = _normalizeSeries(userGrowthPoints, pointsCount);
     final postsSeries = _normalizeSeries(postFrequencyPoints, pointsCount);
-
     return _ChartCard(
       theme: theme,
       title: 'User growth',
@@ -2502,7 +3286,6 @@ class _UserGrowthCard extends StatelessWidget {
   }
 }
 
-// ─── Recipe Ratings Chart ─────────────────────────────────────────────────────
 class _RecipeRatingsCard extends StatelessWidget {
   final ThemeData theme;
   final bool isDark;
@@ -2518,7 +3301,6 @@ class _RecipeRatingsCard extends StatelessWidget {
     const pointsCount = 5;
     final labels = _buildDateLabels(chatbotInteractionPoints, pointsCount);
     final values = _normalizeSeries(chatbotInteractionPoints, pointsCount);
-
     return _ChartCard(
       theme: theme,
       title: 'Chatbot interactions',
@@ -2550,7 +3332,6 @@ class _RecipeRatingsCard extends StatelessWidget {
   }
 }
 
-// ─── Moderation Donut Chart ───────────────────────────────────────────────────
 class _ModerationDonutCard extends StatelessWidget {
   final ThemeData theme;
   final bool isDark;
@@ -2570,14 +3351,12 @@ class _ModerationDonutCard extends StatelessWidget {
       buckets.approved.toDouble(),
       buckets.removed.toDouble(),
     ];
-    final openCount = buckets.open;
     final total = reports.length;
-
     return _ChartCard(
       theme: theme,
       title: 'Moderation overview',
       subtitle: 'Report status breakdown',
-      badge: total == 0 ? 'No reports' : '$openCount open',
+      badge: total == 0 ? 'No reports' : '${buckets.open} open',
       badgeGreen: false,
       legend: [
         const _LegendDot(color: Color(0xFFBA7517), label: 'Open'),
@@ -2606,7 +3385,6 @@ class _ModerationDonutCard extends StatelessWidget {
   }
 }
 
-// ─── Audit Activity Stacked Bar Chart ─────────────────────────────────────────
 class _AuditActivityCard extends StatelessWidget {
   final ThemeData theme;
   final bool isDark;
@@ -2638,7 +3416,6 @@ class _AuditActivityCard extends StatelessWidget {
       chatbotInteractionPoints,
       pointsCount,
     );
-
     return _ChartCard(
       theme: theme,
       title: 'Platform activity',
@@ -2685,9 +3462,7 @@ List<String> _buildDateLabels(List<AdminStatPoint> source, int length) {
       ? dates.sublist(dates.length - length)
       : dates;
   final labels = tail.map((d) => '${d.month}/${d.day}').toList(growable: true);
-  while (labels.length < length) {
-    labels.insert(0, '—');
-  }
+  while (labels.length < length) labels.insert(0, '—');
   return labels;
 }
 
@@ -2713,7 +3488,7 @@ String _formatHumanDate(String? raw) {
   final parsed = DateTime.tryParse(raw);
   if (parsed == null) return raw;
   final local = parsed.toLocal();
-  const months = <String>[
+  const months = [
     'Jan',
     'Feb',
     'Mar',
@@ -2800,17 +3575,14 @@ class _LinePainter extends CustomPainter {
     const double padRight = 12;
     const double padTop = 10;
     const double padBottom = 24;
-
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
-
     final allValues = [...seriesA, ...seriesB];
     final dataMin = allValues.isNotEmpty ? allValues.reduce(math.min) : 0.0;
     final dataMax = allValues.isNotEmpty ? allValues.reduce(math.max) : 0.0;
     final minV = dataMin;
     final maxV = dataMax;
     final range = (maxV - minV) == 0 ? (maxV == 0 ? 1.0 : maxV) : maxV - minV;
-
     final gridPaint = Paint()
       ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
       ..strokeWidth = 0.5;
@@ -2818,8 +3590,6 @@ class _LinePainter extends CustomPainter {
       fontSize: 9,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
-
-    // Grid lines + Y labels
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
@@ -2841,8 +3611,6 @@ class _LinePainter extends CustomPainter {
         align: TextAlign.right,
       );
     }
-
-    // X labels
     if (labels.length > 1) {
       for (int i = 0; i < labels.length; i++) {
         final x = padLeft + (i / (labels.length - 1)) * chartW;
@@ -2855,13 +3623,11 @@ class _LinePainter extends CustomPainter {
         );
       }
     }
-
-    // Helper to build path
     Path buildPath(List<double> data) {
       final path = Path();
       if (data.isEmpty) return path;
       for (int i = 0; i < data.length; i++) {
-        final x = (data.length > 1)
+        final x = data.length > 1
             ? padLeft + (i / (data.length - 1)) * chartW
             : padLeft + chartW / 2;
         final y = padTop + chartH - ((data[i] - minV) / range) * chartH;
@@ -2870,7 +3636,6 @@ class _LinePainter extends CustomPainter {
       return path;
     }
 
-    // Fill under line A
     void drawFill(List<double> data, Color color) {
       final path = buildPath(data);
       final fillPath = Path.from(path)
@@ -2887,8 +3652,6 @@ class _LinePainter extends CustomPainter {
 
     drawFill(seriesA, colorA);
     drawFill(seriesB, colorB);
-
-    // Lines
     void drawLine(List<double> data, Color color, {bool dashed = false}) {
       final path = buildPath(data);
       final paint = Paint()
@@ -2906,8 +3669,6 @@ class _LinePainter extends CustomPainter {
 
     drawLine(seriesA, colorA);
     drawLine(seriesB, colorB, dashed: true);
-
-    // Dots
     void drawDots(List<double> data, Color color) {
       for (int i = 0; i < data.length; i++) {
         final x = padLeft + (i / (data.length - 1)) * chartW;
@@ -2935,9 +3696,7 @@ class _LinePainter extends CustomPainter {
       final next = (dist + (drawing ? dashLen : gapLen))
           .clamp(0.0, metric.length)
           .toDouble();
-      if (drawing) {
-        canvas.drawPath(metric.extractPath(dist, next), paint);
-      }
+      if (drawing) canvas.drawPath(metric.extractPath(dist, next), paint);
       dist = next;
       drawing = !drawing;
     }
@@ -2970,7 +3729,6 @@ class _BarPainter extends CustomPainter {
   final List<String> labels;
   final List<Color> colors;
   final bool isDark;
-
   const _BarPainter({
     required this.values,
     required this.labels,
@@ -2984,7 +3742,6 @@ class _BarPainter extends CustomPainter {
     const double padRight = 12;
     const double padTop = 10;
     const double padBottom = 24;
-
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final dataMax = values.isNotEmpty ? values.reduce(math.max) : 0.0;
@@ -2992,7 +3749,6 @@ class _BarPainter extends CustomPainter {
     final n = values.length;
     final barW = n > 0 ? (chartW / n) * 0.55 : 0.0;
     final gap = n > 0 ? (chartW / n) * 0.45 : 0.0;
-
     final gridPaint = Paint()
       ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
       ..strokeWidth = 0.5;
@@ -3000,7 +3756,6 @@ class _BarPainter extends CustomPainter {
       fontSize: 9,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
-
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
@@ -3022,19 +3777,18 @@ class _BarPainter extends CustomPainter {
         align: TextAlign.right,
       );
     }
-
     for (int i = 0; i < n; i++) {
       final x = padLeft + i * (chartW / n) + gap / 2;
       final barH = (values[i] / maxV) * chartH;
       final y = padTop + chartH - barH;
-
-      final rRect = RRect.fromRectAndCorners(
-        Rect.fromLTWH(x, y, barW, barH),
-        topLeft: const Radius.circular(4),
-        topRight: const Radius.circular(4),
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(x, y, barW, barH),
+          topLeft: const Radius.circular(4),
+          topRight: const Radius.circular(4),
+        ),
+        Paint()..color = colors[i],
       );
-      canvas.drawRRect(rRect, Paint()..color = colors[i]);
-
       _drawText(
         canvas,
         labels[i],
@@ -3072,7 +3826,6 @@ class _DonutPainter extends CustomPainter {
   final List<String> labels;
   final List<Color> colors;
   final bool isDark;
-
   const _DonutPainter({
     required this.values,
     required this.labels,
@@ -3088,40 +3841,41 @@ class _DonutPainter extends CustomPainter {
     final cy = size.height / 2;
     final radius = math.min(cx, cy) - 8;
     const strokeW = 26.0;
-
     double startAngle = -math.pi / 2;
     for (int i = 0; i < values.length; i++) {
       final sweep = (values[i] / safeTotal) * 2 * math.pi;
-      final paint = Paint()
-        ..color = colors[i]
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeW
-        ..strokeCap = StrokeCap.butt;
       canvas.drawArc(
         Rect.fromCircle(center: Offset(cx, cy), radius: radius),
         startAngle + 0.03,
         sweep - 0.06,
         false,
-        paint,
+        Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeW
+          ..strokeCap = StrokeCap.butt,
       );
       startAngle += sweep;
     }
-
-    // Center text
-    final totalInt = total.toInt().toString();
-    final centerLabelStyle = TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      color: isDark ? Colors.white : const Color(0xFF2C2C2A),
+    _drawCenteredText(
+      canvas,
+      total.toInt().toString(),
+      Offset(cx, cy - 8),
+      TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.white : const Color(0xFF2C2C2A),
+      ),
     );
-    final subLabelStyle = TextStyle(
-      fontSize: 9,
-      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+    _drawCenteredText(
+      canvas,
+      'reports',
+      Offset(cx, cy + 10),
+      TextStyle(
+        fontSize: 9,
+        color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+      ),
     );
-    _drawCenteredText(canvas, totalInt, Offset(cx, cy - 8), centerLabelStyle);
-    _drawCenteredText(canvas, 'reports', Offset(cx, cy + 10), subLabelStyle);
-
-    // Legend (right side)
     final legendX = size.width * 0.62;
     const legendStartY = 20.0;
     const itemH = 26.0;
@@ -3133,7 +3887,6 @@ class _DonutPainter extends CustomPainter {
       fontSize: 10,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
-
     for (int i = 0; i < values.length; i++) {
       final y = legendStartY + i * itemH;
       canvas.drawRRect(
@@ -3206,7 +3959,6 @@ class _StackedBarPainter extends CustomPainter {
   final Color colorC;
   final List<String> labels;
   final bool isDark;
-
   const _StackedBarPainter({
     required this.seriesA,
     required this.seriesB,
@@ -3224,20 +3976,15 @@ class _StackedBarPainter extends CustomPainter {
     const double padRight = 12;
     const double padTop = 10;
     const double padBottom = 24;
-
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final n = seriesA.length;
-
     double maxV = 0;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
       maxV = math.max(maxV, seriesA[i] + seriesB[i] + seriesC[i]);
-    }
     maxV = (maxV * 1.1).ceilToDouble();
-
     final barW = (chartW / n) * 0.55;
     final gap = (chartW / n) * 0.45;
-
     final gridPaint = Paint()
       ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
       ..strokeWidth = 0.5;
@@ -3245,7 +3992,6 @@ class _StackedBarPainter extends CustomPainter {
       fontSize: 9,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
-
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
@@ -3254,21 +4000,18 @@ class _StackedBarPainter extends CustomPainter {
         Offset(padLeft + chartW, y),
         gridPaint,
       );
-      final val = (i / gridCount) * maxV;
       _drawText(
         canvas,
-        val.toInt().toString(),
+        ((i / gridCount) * maxV).toInt().toString(),
         Offset(0, y - 5),
         labelStyle,
         maxWidth: padLeft - 4,
         align: TextAlign.right,
       );
     }
-
     for (int i = 0; i < n; i++) {
       final x = padLeft + i * (chartW / n) + gap / 2;
       double currentY = padTop + chartH;
-
       void drawSegment(double val, Color color, {bool isTop = false}) {
         if (val <= 0) return;
         final segH = (val / maxV) * chartH;
@@ -3287,7 +4030,6 @@ class _StackedBarPainter extends CustomPainter {
       drawSegment(seriesC[i], colorC);
       drawSegment(seriesB[i], colorB);
       drawSegment(seriesA[i], colorA, isTop: true);
-
       _drawText(
         canvas,
         labels[i],
@@ -3326,12 +4068,10 @@ class _StackedBarPainter extends CustomPainter {
 class _OverviewRecipeRankingsCard extends StatefulWidget {
   final ThemeData theme;
   final int refreshNonce;
-
   const _OverviewRecipeRankingsCard({
     required this.theme,
     required this.refreshNonce,
   });
-
   @override
   State<_OverviewRecipeRankingsCard> createState() =>
       _OverviewRecipeRankingsCardState();
@@ -3403,7 +4143,7 @@ class _OverviewRecipeRankingsCardState
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
-    if (_loading) {
+    if (_loading)
       return _SurfaceCard(
         theme: theme,
         child: const Padding(
@@ -3416,8 +4156,7 @@ class _OverviewRecipeRankingsCardState
           ),
         ),
       );
-    }
-    if (_error != null) {
+    if (_error != null)
       return _SurfaceCard(
         theme: theme,
         child: Padding(
@@ -3428,7 +4167,6 @@ class _OverviewRecipeRankingsCardState
           ),
         ),
       );
-    }
 
     return _SurfaceCard(
       theme: theme,
@@ -3565,7 +4303,6 @@ class _OverviewRecipeRankingsCardState
 class _WindowTabs extends StatelessWidget {
   final String current;
   final ValueChanged<String> onChanged;
-
   const _WindowTabs({required this.current, required this.onChanged});
 
   @override
@@ -3625,7 +4362,6 @@ class _WindowTabs extends StatelessWidget {
 class _RecentLogsList extends StatelessWidget {
   final ThemeData theme;
   final List<ActivityLog> logs;
-
   const _RecentLogsList({required this.theme, required this.logs});
 
   @override
@@ -3728,6 +4464,7 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onDelete;
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
+  final void Function(AdminUser) onViewRecipes; // ← NEW
 
   const _UsersSection({
     required this.theme,
@@ -3746,6 +4483,7 @@ class _UsersSection extends StatelessWidget {
     required this.onDelete,
     required this.onViewPosts,
     required this.onViewComments,
+    required this.onViewRecipes,
   });
 
   @override
@@ -3809,6 +4547,7 @@ class _UsersSection extends StatelessWidget {
             onDelete: onDelete,
             onViewPosts: onViewPosts,
             onViewComments: onViewComments,
+            onViewRecipes: onViewRecipes,
           ),
         const SizedBox(height: 32),
       ],
@@ -4013,7 +4752,6 @@ const _kMaxH = 500.0;
 Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
   final height = (rowCount * _kRowH + 48.0).clamp(_kMinH, _kMaxH);
   final isDark = theme.brightness == Brightness.dark;
-
   return Container(
     width: double.infinity,
     clipBehavior: Clip.antiAlias,
@@ -4031,7 +4769,6 @@ Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
       builder: (ctx, constraints) {
         final horizontalController = ScrollController();
         final verticalController = ScrollController();
-
         return SizedBox(
           height: height,
           child: Scrollbar(
@@ -4132,6 +4869,7 @@ class _UsersTable extends StatelessWidget {
   final void Function(AdminUser) onDelete;
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
+  final void Function(AdminUser) onViewRecipes; // ← NEW
 
   const _UsersTable({
     required this.theme,
@@ -4141,6 +4879,7 @@ class _UsersTable extends StatelessWidget {
     required this.onDelete,
     required this.onViewPosts,
     required this.onViewComments,
+    required this.onViewRecipes,
   });
 
   @override
@@ -4155,7 +4894,7 @@ class _UsersTable extends StatelessWidget {
           1: FlexColumnWidth(1.4),
           2: FlexColumnWidth(2),
           3: FlexColumnWidth(0.9),
-          4: FlexColumnWidth(1.2),
+          4: FlexColumnWidth(1.6), // slightly wider for extra button
         },
         headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
         rows: users.asMap().entries.map((e) {
@@ -4226,6 +4965,14 @@ class _UsersTable extends StatelessWidget {
                   onPressed: () => onViewComments(user),
                 ),
                 const SizedBox(width: 4),
+                // ─ NEW: Recipes button ─
+                _ActionIconBtn(
+                  icon: Icons.restaurant_menu_outlined,
+                  color: const Color(0xFFE6930A),
+                  tooltip: 'Recipes',
+                  onPressed: () => onViewRecipes(user),
+                ),
+                const SizedBox(width: 4),
                 _ActionIconBtn(
                   icon: Icons.delete_outline_rounded,
                   color: Colors.red,
@@ -4245,7 +4992,6 @@ class _ReportsTable extends StatelessWidget {
   final ThemeData theme;
   final List<Report> reports;
   final Future<void> Function(int, String) onAction;
-
   const _ReportsTable({
     required this.theme,
     required this.reports,
@@ -4365,7 +5111,6 @@ class _ReportsTable extends StatelessWidget {
 class _AuditLogsTable extends StatelessWidget {
   final ThemeData theme;
   final List<ActivityLog> logs;
-
   const _AuditLogsTable({required this.theme, required this.logs});
 
   @override
@@ -4545,7 +5290,6 @@ class _SurfaceCard extends StatelessWidget {
   final ThemeData theme;
   final Widget child;
   final EdgeInsetsGeometry? padding;
-
   const _SurfaceCard({required this.theme, required this.child, this.padding});
 
   @override
@@ -4575,7 +5319,6 @@ class _MinimalSectionLabel extends StatelessWidget {
   final ThemeData theme;
   final String label;
   final String? subtitle;
-
   const _MinimalSectionLabel({
     required this.theme,
     required this.label,
@@ -4616,7 +5359,6 @@ class _SearchBar extends StatelessWidget {
   final ThemeData theme;
   final ValueChanged<String> onChanged;
   final String hintText;
-
   const _SearchBar({
     required this.theme,
     required this.onChanged,
@@ -4677,22 +5419,18 @@ class _SearchBar extends StatelessWidget {
 // ─── Empty / Error / Loading states ──────────────────────────────────────────
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
-
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(40),
-      child: Center(
-        child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.all(40),
+    child: Center(
+      child: CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2),
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
   final ThemeData theme;
   final String message;
-
   const _EmptyState({required this.theme, required this.message});
 
   @override
@@ -4727,7 +5465,6 @@ class _ErrorState extends StatelessWidget {
   final ThemeData theme;
   final String message;
   final VoidCallback onRetry;
-
   const _ErrorState({
     required this.theme,
     required this.message,
@@ -4777,7 +5514,6 @@ class _ErrorState extends StatelessWidget {
 class _DateRangeDropdown extends StatelessWidget {
   final _DateRangeFilter value;
   final ValueChanged<_DateRangeFilter> onChanged;
-
   const _DateRangeDropdown({required this.value, required this.onChanged});
 
   @override
@@ -4866,7 +5602,6 @@ class _GreenButton extends StatelessWidget {
   final bool loading;
   final VoidCallback? onPressed;
   final bool compact;
-
   const _GreenButton({
     required this.label,
     required this.icon,
@@ -4908,7 +5643,6 @@ class _ActionIconBtn extends StatelessWidget {
   final String tooltip;
   final VoidCallback onPressed;
   final double size;
-
   const _ActionIconBtn({
     required this.icon,
     required this.color,
@@ -4941,7 +5675,6 @@ class _ActionIconBtn extends StatelessWidget {
 // ─── User avatar initials ─────────────────────────────────────────────────────
 class _UserAvatar extends StatelessWidget {
   final String name;
-
   const _UserAvatar({required this.name});
 
   String get _initials {
@@ -4988,7 +5721,6 @@ class _UserAvatar extends StatelessWidget {
 // ─── Pills ────────────────────────────────────────────────────────────────────
 class _StatusPill extends StatelessWidget {
   final bool isActive;
-
   const _StatusPill({required this.isActive});
 
   @override
@@ -5029,7 +5761,6 @@ class _StatusPill extends StatelessWidget {
 
 class _TypePill extends StatelessWidget {
   final String type;
-
   const _TypePill({required this.type});
 
   @override
@@ -5059,7 +5790,6 @@ class _TypePill extends StatelessWidget {
 class _CategoryPill extends StatelessWidget {
   final ThemeData theme;
   final String label;
-
   const _CategoryPill({required this.theme, required this.label});
 
   @override
