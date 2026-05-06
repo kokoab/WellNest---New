@@ -449,8 +449,9 @@ class _AdminDashboardState extends State<AdminDashboard>
                                             ),
                                           ],
                                         ),
-                                      );
-                                    }).toList(),
+                                      ),
+                                    );
+                                  }).toList(),
                                   ),
                                 );
                               },
