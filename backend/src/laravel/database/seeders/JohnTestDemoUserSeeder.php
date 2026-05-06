@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Post;
 use App\Models\Recipe;
 use App\Models\User;
+use App\Support\JohnTestRealisticRecipes;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\Hash;
  * Falls back to JOHN_TEST_DEMO_POSTS when POSTS_MIN unset (default 300).
  *
  * Env overrides:
- * - JOHN_TEST_DEMO_RECIPES_MIN (0 skips recipes)
+ * - JOHN_TEST_REALISTIC_RECIPES_WITH_PHOTOS_MIN (default 30; 0 skips photo recipes — runs before bulk recipe fill)
+ * - JOHN_TEST_DEMO_RECIPES_MIN (0 skips bulk recipes)
  * - JOHN_TEST_DEMO_RECIPE_POSTS_MIN (0 skips recipe-linked posts)
  * - JOHN_TEST_DEMO_POSTS_MIN or JOHN_TEST_DEMO_POSTS (0 skips plain posts)
  */
@@ -46,6 +48,14 @@ class JohnTestDemoUserSeeder extends Seeder
         if ($categories->isEmpty()) {
             Category::factory()->count(10)->create();
             $categories = Category::query()->get();
+        }
+
+        $realisticPhotoMin = (int) env('JOHN_TEST_REALISTIC_RECIPES_WITH_PHOTOS_MIN', 30);
+        if ($realisticPhotoMin > 0) {
+            $addedPhotoRecipes = JohnTestRealisticRecipes::seedPhotographedRecipes($user, $categories, $realisticPhotoMin);
+            if ($this->command && $addedPhotoRecipes > 0) {
+                $this->command->info("John test demo: added {$addedPhotoRecipes} realistic recipes with photos (minimum with images {$realisticPhotoMin}).");
+            }
         }
 
         $recipesMin = (int) env('JOHN_TEST_DEMO_RECIPES_MIN', 90);
@@ -110,7 +120,8 @@ class JohnTestDemoUserSeeder extends Seeder
             $totalPosts = Post::where('user_id', $user->id)->count();
             $recipePosts = Post::where('user_id', $user->id)->whereNotNull('recipe_id')->count();
             $recipeTotal = Recipe::where('user_id', $user->id)->count();
-            $this->command->info("John test demo summary ({$email}): recipes={$recipeTotal}, posts total={$totalPosts}, posts with recipe={$recipePosts}.");
+            $recipesWithImages = Recipe::where('user_id', $user->id)->whereHas('images')->count();
+            $this->command->info("John test demo summary ({$email}): recipes={$recipeTotal} (with images: {$recipesWithImages}), posts total={$totalPosts}, posts with recipe={$recipePosts}.");
         }
     }
 }
