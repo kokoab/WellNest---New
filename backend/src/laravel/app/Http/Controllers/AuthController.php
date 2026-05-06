@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Services\ActivityLogService;
@@ -76,6 +78,73 @@ class AuthController extends Controller
             'user' => $user,
             'token' => $token
         ], 200);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|string|email|max:255',
+        ]);
+
+        $email = strtolower(trim($request->email));
+        $user = User::where('email', $email)->first();
+
+        if ($user) {
+            $code = (string) random_int(100000, 999999);
+            Cache::put($this->passwordResetCodeCacheKey($email), Hash::make($code), now()->addMinutes(10));
+
+            Mail::raw(
+                "Your WellNest password reset code is: {$code}\n\nThis code expires in 10 minutes.",
+                function ($message) use ($email) {
+                    $message->to($email)->subject('Your WellNest password reset code');
+                }
+            );
+        }
+
+        return response()->json([
+            'message' => 'If that email exists, a reset code has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|string|email|max:255',
+            'code' => 'required|string|min:6|max:6',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $email = strtolower(trim($request->email));
+        $cacheKey = $this->passwordResetCodeCacheKey($email);
+        $storedHash = Cache::get($cacheKey);
+
+        if (! $storedHash || ! Hash::check($request->code, $storedHash)) {
+            return response()->json([
+                'message' => 'The reset code is invalid or expired.',
+            ], 422);
+        }
+
+        $user = User::where('email', $email)->first();
+        if (! $user) {
+            return response()->json([
+                'message' => 'The reset code is invalid or expired.',
+            ], 422);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($request->password),
+        ])->save();
+
+        Cache::forget($cacheKey);
+
+        return response()->json([
+            'message' => 'Password reset successfully.',
+        ]);
+    }
+
+    private function passwordResetCodeCacheKey(string $email): string
+    {
+        return 'password-reset-code:' . $email;
     }
 
     public function logout(Request $request)

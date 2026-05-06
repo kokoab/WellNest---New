@@ -25,8 +25,8 @@ docker compose exec backend_app php artisan db:seed --force
 
 After running `php artisan db:seed`, you can sign in to the **admin** app with:
 
-| Field    | Value              |
-|----------|--------------------|
+| Field        | Value               |
+| ------------ | ------------------- |
 | **Email**    | `admin@example.com` |
 | **Password** | `password`          |
 
@@ -34,9 +34,26 @@ Use these on the **Admin Login** screen in the Flutter app. Change the password 
 
 ## Default test user (regular user)
 
-| Field    | Value              |
-|----------|--------------------|
-| **Email**    | `test@example.com`  |
-| **Password** | `password`          |
+| Field        | Value              |
+| ------------ | ------------------ |
+| **Email**    | `test@example.com` |
+| **Password** | `password`         |
 
 Used for the normal (non-admin) login flow.
+
+## Real email for password resets
+
+To send password-reset codes to a real inbox, set these in `backend/src/laravel/.env` and restart the backend containers:
+
+```bash
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=yourgmailaddress@gmail.com
+MAIL_PASSWORD=your_gmail_app_password
+MAIL_FROM_ADDRESS=yourgmailaddress@gmail.com
+MAIL_FROM_NAME="WellNest"
+```
+
+Use a Gmail App Password, not your normal Gmail password.

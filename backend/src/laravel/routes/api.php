@@ -32,6 +32,8 @@ use App\Models\PostComment;
 // Public routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
+Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('reset-password', [AuthController::class, 'resetPassword']);
 Route::post('login-admin', [AdminAuthController::class, 'login']);
 
 Route::get('/hello', function () {
@@ -147,8 +149,6 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     });
 
     Route::patch('me/deactivate', [UserController::class, 'deactivateSelf']);
-
-
 });
 
 // Admin-only routes (auth:sanctum + admin)
