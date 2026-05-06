@@ -22,6 +22,7 @@ class AdminUserController extends Controller
         }
 
         $range = $request->query('range');
+        $search = trim((string) $request->query('search', ''));
 
         $usersQuery = User::query()
             ->orderBy('created_at', 'desc');
@@ -31,18 +32,43 @@ class AdminUserController extends Controller
             $usersQuery->where('created_at', '>=', $startDate);
         }
 
-        $users = $usersQuery
-            ->get()
-            ->map(fn(User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'email' => $u->email,
-                'status' => $u->account_status ?? 'active',
-                'account_status' => $u->account_status ?? 'active',
-                'created_at' => $u->created_at,
-            ]);
+        if ($search !== '') {
+            $usersQuery->where(function ($query) use ($search) {
+                $like = '%' . addcslashes($search, '%_\\') . '%';
+                $query->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhereRaw("CONCAT_WS(' ', first_name, last_name) LIKE ?", [$like]);
+            });
+        }
 
-        return response()->json($users);
+        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
+        $page = max(1, (int) $request->query('page', 1));
+
+        $paginator = $usersQuery->paginate($perPage, ['*'], 'page', $page);
+
+        $users = $paginator->getCollection()->map(fn(User $u) => [
+            'id' => $u->id,
+            'name' => $u->name,
+            'email' => $u->email,
+            'status' => $u->account_status ?? 'active',
+            'account_status' => $u->account_status ?? 'active',
+            'created_at' => $u->created_at?->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'data' => $users,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'links' => [
+                'next' => $paginator->nextPageUrl(),
+                'prev' => $paginator->previousPageUrl(),
+            ],
+        ]);
     }
 
     /**

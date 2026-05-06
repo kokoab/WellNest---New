@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:my_app/models/activity_log.dart';
@@ -63,6 +64,13 @@ class _AdminDashboardState extends State<AdminDashboard>
   String? _error;
   String _searchQuery = '';
   _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
+  Timer? _usersSearchDebounce;
+  // Pagination state for users
+  int _usersPage = 1;
+  final int _usersPerPage = 10;
+  bool _usersHasMore = true;
+  bool _usersLoadingMore = false;
+  int _usersQuerySerial = 0;
 
   List<Report> _reports = [];
   bool _reportsLoading = true;
@@ -98,6 +106,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   @override
   void dispose() {
+    _usersSearchDebounce?.cancel();
     _mainScrollController.dispose();
     _horizontalScrollController.dispose();
     _verticalScrollController.dispose();
@@ -106,7 +115,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _loadAll() async {
     await Future.wait<void>([
-      _loadUsers(),
+      _loadUsersPage(reset: true),
       _loadReports(),
       _loadRecipeTotal(),
       _loadAuditLogs(),
@@ -164,6 +173,67 @@ class _AdminDashboardState extends State<AdminDashboard>
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
+      });
+    }
+  }
+
+  void _handleUsersSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _usersSearchDebounce?.cancel();
+    _usersSearchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _loadUsersPage(reset: true);
+    });
+  }
+
+  Future<void> _loadUsersPage({bool reset = false}) async {
+    if (!mounted) return;
+    final querySerial = ++_usersQuerySerial;
+    if (reset) {
+      _usersPage = 1;
+      _usersHasMore = true;
+      _usersLoadingMore = false;
+    }
+    if (!_usersHasMore) return;
+    if (!reset) {
+      setState(() => _usersLoadingMore = true);
+    } else {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _users = [];
+      });
+    }
+
+    try {
+      final list = await AdminUserService.instance.fetchUsers(
+        range: _usersRange.apiValue,
+        search: _searchQuery,
+        page: _usersPage,
+        perPage: _usersPerPage,
+      );
+      if (!mounted) return;
+      if (querySerial != _usersQuerySerial) return;
+      setState(() {
+        if (reset) {
+          _users = list;
+          _loading = false;
+        } else {
+          _users.addAll(list);
+          _usersLoadingMore = false;
+        }
+        if (list.length < _usersPerPage) {
+          _usersHasMore = false;
+        } else {
+          _usersPage += 1;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+        _usersLoadingMore = false;
       });
     }
   }
@@ -473,18 +543,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     } finally {
       if (mounted) setState(() => _exportingAuditLogsCsv = false);
     }
-  }
-
-  List<AdminUser> get _filteredUsers {
-    if (_searchQuery.trim().isEmpty) return _users;
-    final q = _searchQuery.trim().toLowerCase();
-    return _users
-        .where(
-          (u) =>
-              u.email.toLowerCase().contains(q) ||
-              u.name.toLowerCase().contains(q),
-        )
-        .toList();
   }
 
   Future<void> _confirmDeactivate(AdminUser user) async {
@@ -830,17 +888,17 @@ class _AdminDashboardState extends State<AdminDashboard>
       case _Section.users:
         return _UsersSection(
           theme: theme,
-          users: _filteredUsers,
+          users: _users,
           loading: _loading,
           error: _error,
           searchQuery: _searchQuery,
-          onSearchChanged: (v) => setState(() => _searchQuery = v),
+          onSearchChanged: _handleUsersSearchChanged,
           selectedRange: _usersRange,
           onRangeChanged: (range) {
             setState(() => _usersRange = range);
-            _loadUsers();
+            _loadUsersPage(reset: true);
           },
-          onRefresh: _loadUsers,
+          onRefresh: () => _loadUsersPage(reset: true),
           onExport: _exportingUsersCsv ? null : _exportUsersCsv,
           exporting: _exportingUsersCsv,
           onDeactivate: _confirmDeactivate,
@@ -849,6 +907,9 @@ class _AdminDashboardState extends State<AdminDashboard>
           onViewPosts: _showUserPostsModal,
           onViewComments: _showUserCommentsModal,
           onViewRecipes: _showUserRecipesModal,
+          hasMore: _usersHasMore,
+          isLoadingMore: _usersLoadingMore,
+          onLoadMore: () => _loadUsersPage(reset: false),
         );
       case _Section.moderation:
         return _ModerationSection(
@@ -4465,6 +4526,9 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
   final void Function(AdminUser) onViewRecipes; // ← NEW
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback onLoadMore;
 
   const _UsersSection({
     required this.theme,
@@ -4484,6 +4548,9 @@ class _UsersSection extends StatelessWidget {
     required this.onViewPosts,
     required this.onViewComments,
     required this.onViewRecipes,
+    required this.hasMore,
+    required this.isLoadingMore,
+    required this.onLoadMore,
   });
 
   @override
@@ -4538,7 +4605,7 @@ class _UsersSection extends StatelessWidget {
                 ? 'No users yet'
                 : 'No users match your search',
           )
-        else
+        else ...[
           _UsersTable(
             theme: theme,
             users: users,
@@ -4549,6 +4616,18 @@ class _UsersSection extends StatelessWidget {
             onViewComments: onViewComments,
             onViewRecipes: onViewRecipes,
           ),
+          const SizedBox(height: 12),
+          if (hasMore)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _GreenButton(
+                label: isLoadingMore ? 'Loading…' : 'Load more users',
+                icon: Icons.expand_more_rounded,
+                loading: isLoadingMore,
+                onPressed: isLoadingMore ? null : onLoadMore,
+              ),
+            ),
+        ],
         const SizedBox(height: 32),
       ],
     );
@@ -4884,105 +4963,108 @@ class _UsersTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _wrapTable(
-      theme,
-      users.length,
-      _flexTable(
-        theme: theme,
-        columnWidths: const {
-          0: FlexColumnWidth(0.4),
-          1: FlexColumnWidth(1.4),
-          2: FlexColumnWidth(2),
-          3: FlexColumnWidth(0.9),
-          4: FlexColumnWidth(1.6), // slightly wider for extra button
-        },
-        headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
-        rows: users.asMap().entries.map((e) {
-          final user = e.value;
-          return _tableRow(theme, [
-            Text(
-              '${user.id}',
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
+    // Render table without an inner vertical scroll so the page's outer
+    // ScrollController can detect when the bottom is reached.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+        child: _flexTable(
+          theme: theme,
+          columnWidths: const {
+            0: FlexColumnWidth(0.4),
+            1: FlexColumnWidth(1.4),
+            2: FlexColumnWidth(2),
+            3: FlexColumnWidth(0.9),
+            4: FlexColumnWidth(1.6),
+          },
+          headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+          rows: users.asMap().entries.map((e) {
+            final user = e.value;
+            return _tableRow(theme, [
+              Text(
+                '${user.id}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            Row(
-              children: [
-                _UserAvatar(name: user.name),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    user.name.isEmpty ? '—' : user.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface,
+              Row(
+                children: [
+                  _UserAvatar(name: user.name),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      user.name.isEmpty ? '—' : user.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            Text(
-              user.email,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
+                ],
               ),
-            ),
-            _StatusPill(isActive: user.isActive),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (user.isActive)
+              Text(
+                user.email,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              _StatusPill(isActive: user.isActive),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (user.isActive)
+                    _ActionIconBtn(
+                      icon: Icons.person_off_outlined,
+                      color: kAccentOrange,
+                      tooltip: 'Deactivate',
+                      onPressed: () => onDeactivate(user),
+                    )
+                  else
+                    _ActionIconBtn(
+                      icon: Icons.person_add_outlined,
+                      color: kPrimaryGreen,
+                      tooltip: 'Activate',
+                      onPressed: () => onActivate(user),
+                    ),
+                  const SizedBox(width: 4),
                   _ActionIconBtn(
-                    icon: Icons.person_off_outlined,
-                    color: kAccentOrange,
-                    tooltip: 'Deactivate',
-                    onPressed: () => onDeactivate(user),
-                  )
-                else
-                  _ActionIconBtn(
-                    icon: Icons.person_add_outlined,
+                    icon: Icons.article_outlined,
                     color: kPrimaryGreen,
-                    tooltip: 'Activate',
-                    onPressed: () => onActivate(user),
+                    tooltip: 'Posts',
+                    onPressed: () => onViewPosts(user),
                   ),
-                const SizedBox(width: 4),
-                _ActionIconBtn(
-                  icon: Icons.article_outlined,
-                  color: kPrimaryGreen,
-                  tooltip: 'Posts',
-                  onPressed: () => onViewPosts(user),
-                ),
-                const SizedBox(width: 4),
-                _ActionIconBtn(
-                  icon: Icons.comment_outlined,
-                  color: kAccentOrange,
-                  tooltip: 'Comments',
-                  onPressed: () => onViewComments(user),
-                ),
-                const SizedBox(width: 4),
-                // ─ NEW: Recipes button ─
-                _ActionIconBtn(
-                  icon: Icons.restaurant_menu_outlined,
-                  color: const Color(0xFFE6930A),
-                  tooltip: 'Recipes',
-                  onPressed: () => onViewRecipes(user),
-                ),
-                const SizedBox(width: 4),
-                _ActionIconBtn(
-                  icon: Icons.delete_outline_rounded,
-                  color: Colors.red,
-                  tooltip: 'Delete',
-                  onPressed: () => onDelete(user),
-                ),
-              ],
-            ),
-          ], null);
-        }).toList(),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.comment_outlined,
+                    color: kAccentOrange,
+                    tooltip: 'Comments',
+                    onPressed: () => onViewComments(user),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.restaurant_menu_outlined,
+                    color: const Color(0xFFE6930A),
+                    tooltip: 'Recipes',
+                    onPressed: () => onViewRecipes(user),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.delete_outline_rounded,
+                    color: Colors.red,
+                    tooltip: 'Delete',
+                    onPressed: () => onDelete(user),
+                  ),
+                ],
+              ),
+            ], null);
+          }).toList(),
+        ),
       ),
     );
   }

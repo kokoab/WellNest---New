@@ -37,6 +37,11 @@ class _FeedPageState extends State<FeedPage> {
   List<Post> _posts = [];
   bool _loading = true;
   Object? _loadError;
+  final ScrollController _scrollController = ScrollController();
+  int _currentPage = 1;
+  final int _perPage = 10;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
   final Map<int, bool> _postLiked = {};
   final Map<int, int> _postLikesCount = {};
   final Map<int, int> _postCommentsCount = {};
@@ -52,17 +57,20 @@ class _FeedPageState extends State<FeedPage> {
   _FeedScope _feedScope = _FeedScope.all;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadUserThenPosts();
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     for (final c in _commentControllers.values) {
       c.dispose();
     }
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserThenPosts();
   }
 
   /// Load user first so isOwnPost and isLiked are correct when posts render.
@@ -77,24 +85,43 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  Future<void> _loadPosts() async {
+  Future<void> _loadPosts({bool reset = true}) async {
     if (!mounted) return;
+    if (reset) {
+      _currentPage = 1;
+      _hasMore = true;
+    }
     setState(() {
-      _loading = true;
+      if (reset) {
+        _loading = true;
+      } else {
+        _isLoadingMore = true;
+      }
       _loadError = null;
     });
     try {
       final posts = await _apiService.fetchPosts(
         followingOnly: _feedScope == _FeedScope.following,
+        page: _currentPage,
+        perPage: _perPage,
       );
       if (!mounted) return;
       setState(() {
-        _posts = posts;
+        if (reset) {
+          _posts = posts;
+        } else {
+          _posts.addAll(posts);
+        }
         _loading = false;
+        _isLoadingMore = false;
         for (final p in posts) {
           _postLiked[p.id] = p.isLiked;
           _postLikesCount[p.id] = p.likesCount;
           _postCommentsCount[p.id] = p.commentsCount;
+        }
+        // If returned fewer than perPage, assume no more pages.
+        if (posts.length < _perPage) {
+          _hasMore = false;
         }
       });
     } catch (e) {
@@ -102,7 +129,18 @@ class _FeedPageState extends State<FeedPage> {
       setState(() {
         _loadError = e;
         _loading = false;
+        _isLoadingMore = false;
       });
+    }
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loading || _isLoadingMore) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      // load next page
+      _currentPage += 1;
+      _loadPosts(reset: false);
     }
   }
 
@@ -151,6 +189,7 @@ class _FeedPageState extends State<FeedPage> {
         },
         color: wellGreen,
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
             SliverToBoxAdapter(
               child: RepaintBoundary(

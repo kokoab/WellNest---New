@@ -98,9 +98,26 @@ class PostController extends Controller
             ]);
         }
 
-        $posts = $query->get()->map(fn (Post $post) => $this->postPayload($post));
+        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
+        $page = max(1, (int) $request->query('page', 1));
 
-        return response()->json($posts);
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+
+        $posts = $paginator->getCollection()->map(fn (Post $post) => $this->postPayload($post));
+
+        return response()->json([
+            'data' => $posts,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'links' => [
+                'next' => $paginator->nextPageUrl(),
+                'prev' => $paginator->previousPageUrl(),
+            ],
+        ]);
     }
 
     private function postPayload(Post $post): array

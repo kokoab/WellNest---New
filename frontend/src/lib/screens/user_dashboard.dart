@@ -160,6 +160,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   String _searchQuery = '';
   Timer? _searchDebounce;
   int _loadRecipesGeneration = 0;
+  int _recipesPage = 1;
+  final int _recipesPerPage = 10;
+  bool _recipesHasMore = true;
+  bool _recipesLoadingMore = false;
   List<RecipeRankingItem> _topRanked = [];
   bool _loadingRanked = false;
   final Map<int, bool> _topRankedSaved = {};
@@ -170,6 +174,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     viewportFraction: 0.9,
   );
   final ValueNotifier<int> _topRankedPage = ValueNotifier<int>(0);
+  final ScrollController _scrollController = ScrollController();
   DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
   bool _plannerExpanded = false;
 
@@ -187,6 +192,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     _searchDebounce?.cancel();
     _topRankedPageController.dispose();
     _topRankedPage.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -195,6 +201,15 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     super.initState();
     _load();
     _loadTopRanked();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_recipesHasMore || _recipesLoadingMore || _loading) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      _loadMoreRecipes();
+    }
   }
 
   Future<void> _loadTopRanked() async {
@@ -252,6 +267,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         RecipeService.instance.fetchRecipes(
           categoryId: _selectedCategoryId,
           search: _searchQuery.isEmpty ? null : _searchQuery,
+          page: 1,
         ),
       ]);
       if (!mounted) return;
@@ -259,6 +275,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         _categories = results[0] as List<Category>;
         final resp = results[1] as RecipeListResponse;
         _recipes = resp.recipes;
+        _recipesPage = resp.currentPage;
+        _recipesHasMore = resp.recipes.length >= _recipesPerPage;
         _loading = false;
       });
     } catch (e) {
@@ -286,12 +304,15 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       final resp = await RecipeService.instance.fetchRecipes(
         categoryId: categoryAtRequest,
         search: searchAtRequest.isEmpty ? null : searchAtRequest,
+        page: 1,
       );
       if (!mounted) return;
       // Ignore stale response: user may have typed/changed filter before this completed
       if (generation != _loadRecipesGeneration) return;
       setState(() {
         _recipes = resp.recipes;
+        _recipesPage = resp.currentPage;
+        _recipesHasMore = resp.recipes.length >= _recipesPerPage;
         _loading = false;
         _error = null;
       });
@@ -302,6 +323,31 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMoreRecipes() async {
+    if (!mounted || !_recipesHasMore || _recipesLoadingMore) return;
+    final generation = ++_loadRecipesGeneration;
+    setState(() => _recipesLoadingMore = true);
+    try {
+      final nextPage = _recipesPage + 1;
+      final resp = await RecipeService.instance.fetchRecipes(
+        categoryId: _selectedCategoryId,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
+        page: nextPage,
+      );
+      if (!mounted) return;
+      if (generation != _loadRecipesGeneration) return;
+      setState(() {
+        _recipes.addAll(resp.recipes);
+        _recipesPage = resp.currentPage;
+        if (resp.recipes.length < _recipesPerPage) _recipesHasMore = false;
+        _recipesLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _recipesLoadingMore = false);
     }
   }
 
@@ -341,6 +387,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         },
         color: wellGreen,
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
@@ -702,7 +749,20 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           },
         ),
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 100)),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: _recipesLoadingMore
+                ? const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF097333)),
+                  )
+                : const SizedBox(height: 100),
+          ),
+        ),
+      ),
     ];
   }
 

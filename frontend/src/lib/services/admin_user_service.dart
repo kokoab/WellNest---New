@@ -30,9 +30,20 @@ class AdminUserService {
 
   /// GET /api/admin/users — returns list of users.
   /// Returns list on success, or throws with message on error.
-  Future<List<AdminUser>> fetchUsers({String? range}) async {
+  /// Fetch users, supports optional `range`, `search`, and pagination.
+  Future<List<AdminUser>> fetchUsers({
+    String? range,
+    String? search,
+    int page = 1,
+    int perPage = 10,
+  }) async {
     final params = <String, String>{};
     if (range != null && range.isNotEmpty) params['range'] = range;
+    if (search != null && search.trim().isNotEmpty) {
+      params['search'] = search.trim();
+    }
+    params['page'] = '$page';
+    params['per_page'] = '$perPage';
 
     final response = await http.get(
       Uri.parse(
@@ -41,7 +52,8 @@ class AdminUserService {
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      final list = jsonDecode(response.body) as List<dynamic>;
+      final body = jsonDecode(response.body);
+      final list = body is List ? body : (body is Map<String, dynamic> && body['data'] is List ? body['data'] as List<dynamic> : <dynamic>[]);
       return list
           .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
           .toList();

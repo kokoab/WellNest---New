@@ -25,7 +25,7 @@ class ApiService {
       body: jsonEncode({
         'content': content,
         if (title != null && title.isNotEmpty) 'title': title,
-        'recipe_id': ?recipeId,
+        if (recipeId != null) 'recipe_id': recipeId,
       }),
     );
     if (response.statusCode == 201) {
@@ -77,7 +77,12 @@ class ApiService {
     }
   }
 
-  Future<List<Post>> fetchPosts({int? userId, bool followingOnly = false}) async {
+  Future<List<Post>> fetchPosts({
+    int? userId,
+    bool followingOnly = false,
+    int page = 1,
+    int perPage = 10,
+  }) async {
     final queryParameters = <String, String>{};
     if (userId != null) {
       queryParameters['user_id'] = '$userId';
@@ -85,6 +90,8 @@ class ApiService {
     if (followingOnly) {
       queryParameters['feed'] = 'following';
     }
+    queryParameters['page'] = '$page';
+    queryParameters['per_page'] = '$perPage';
 
     final uri = Uri.parse('$_baseUrl/posts').replace(
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
@@ -93,7 +100,12 @@ class ApiService {
       final response = await http.get(uri, headers: _headers); // auth headers so backend knows who's logged in
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
-        final list = body is List ? body : <dynamic>[];
+        // Backwards compatible: endpoint may return a plain list or a paginated object with 'data'.
+        final list = body is List
+            ? body
+            : (body is Map<String, dynamic> && body['data'] is List)
+                ? body['data'] as List
+                : <dynamic>[];
         return list.map((dynamic item) => Post.fromJson(item as Map<String, dynamic>)).toList();
       } else {
         throw Exception("Server Error: ${response.statusCode}");
