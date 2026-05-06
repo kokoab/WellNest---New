@@ -13,7 +13,10 @@ import 'package:my_app/services/admin_user_service.dart';
 import 'package:my_app/services/admin_moderation_service.dart';
 import 'package:my_app/services/admin_activity_log_service.dart';
 import 'package:my_app/services/admin_dashboard_service.dart';
+import 'package:my_app/services/api_service.dart';
+import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/models/post.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
@@ -165,6 +168,342 @@ class _AdminDashboardState extends State<AdminDashboard>
         _loading = false;
       });
     }
+  }
+
+  Future<void> _showUserPostsModal(AdminUser user) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _buildAdminUserModal(
+          ctx,
+          title: 'Posts by ${user.name}',
+          child: FutureBuilder<List<Post>>(
+            future: ApiService().fetchPosts(userId: user.id),
+            builder: (ctx, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(color: kPrimaryGreen),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    snapshot.error.toString(),
+                    style: const TextStyle(color: kAccentOrange),
+                  ),
+                );
+              }
+              final posts = snapshot.data ?? [];
+              if (posts.isEmpty) {
+                return const Center(
+                  child: Text('This user has not created any posts yet.'),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.only(bottom: 24),
+                itemCount: posts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final post = posts[index];
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Theme.of(context).dividerColor.withOpacity(0.4),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.content.isEmpty ? 'No text content' : post.content,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        if (post.displayImageUrl != null) ...[
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              post.displayImageUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: 140,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Text(
+                              '${post.commentsCount} comments',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${post.likesCount} likes',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              post.createdAt != null ? post.createdAt!.split('T').first : 'Unknown',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showUserCommentsModal(AdminUser user) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _buildAdminUserModal(
+          ctx,
+          title: 'Comments on ${user.name}’s posts',
+          child: _buildUserCommentsContent(user),
+        );
+      },
+    );
+  }
+
+  Widget _buildUserCommentsContent(AdminUser user) {
+    final commentFutures = <int, Future<List<PostComment>>>{};
+    int? expandedPostId;
+
+    return StatefulBuilder(
+      builder: (context, setModalState) {
+        return FutureBuilder<List<Post>>(
+          future: ApiService().fetchPosts(userId: user.id),
+          builder: (ctx, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(
+                child: CircularProgressIndicator(color: kPrimaryGreen),
+              );
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  snapshot.error.toString(),
+                  style: const TextStyle(color: kAccentOrange),
+                ),
+              );
+            }
+            final posts = snapshot.data ?? [];
+            if (posts.isEmpty) {
+              return const Center(
+                child: Text('This user has no posts to show comments for.'),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: posts.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                final isExpanded = expandedPostId == post.id;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Card(
+                      elevation: 2,
+                      margin: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text(
+                              post.content.isEmpty ? 'Untitled post' : post.content,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              '${post.commentsCount} comments',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(
+                                isExpanded ? Icons.expand_less : Icons.expand_more,
+                                color: kPrimaryGreen,
+                              ),
+                              onPressed: () {
+                                setModalState(() {
+                                  if (isExpanded) {
+                                    expandedPostId = null;
+                                  } else {
+                                    expandedPostId = post.id;
+                                    commentFutures[post.id] ??= PostService.instance.fetchComments(post.id);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          if (isExpanded)
+                            FutureBuilder<List<PostComment>>(
+                              future: commentFutures[post.id],
+                              builder: (context, commentSnapshot) {
+                                if (commentSnapshot.connectionState != ConnectionState.done) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(color: kPrimaryGreen),
+                                    ),
+                                  );
+                                }
+                                if (commentSnapshot.hasError) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                                    child: Text(
+                                      commentSnapshot.error.toString(),
+                                      style: const TextStyle(color: kAccentOrange),
+                                    ),
+                                  );
+                                }
+                                final comments = commentSnapshot.data ?? [];
+                                if (comments.isEmpty) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                                    child: Text('No comments on this post yet.'),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  child: Column(
+                                    children: comments.map((comment) {
+                                      return Card(
+                                        elevation: 1,
+                                        margin: const EdgeInsets.only(bottom: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              comment.userName,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              comment.comment.isEmpty ? 'No text comment' : comment.comment,
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                            if (comment.imageUrl != null) ...[
+                                              const SizedBox(height: 8),
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: Image.network(
+                                                  comment.imageUrl!,
+                                                  fit: BoxFit.cover,
+                                                  width: double.infinity,
+                                                  height: 120,
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              comment.createdAt.isEmpty
+                                                  ? 'Unknown'
+                                                  : comment.createdAt.split('T').first,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAdminUserModal(BuildContext context,
+      {required String title, required Widget child}) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.78,
+      child: Material(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadRecipeTotal() async {
@@ -799,6 +1138,8 @@ class _AdminDashboardState extends State<AdminDashboard>
           onDeactivate: _confirmDeactivate,
           onActivate: _confirmActivate,
           onDelete: _confirmDelete,
+          onViewPosts: _showUserPostsModal,
+          onViewComments: _showUserCommentsModal,
         );
       case _Section.moderation:
         return _ModerationSection(
@@ -3385,6 +3726,8 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onDeactivate;
   final void Function(AdminUser) onActivate;
   final void Function(AdminUser) onDelete;
+  final void Function(AdminUser) onViewPosts;
+  final void Function(AdminUser) onViewComments;
 
   const _UsersSection({
     required this.theme,
@@ -3401,6 +3744,8 @@ class _UsersSection extends StatelessWidget {
     required this.onDeactivate,
     required this.onActivate,
     required this.onDelete,
+    required this.onViewPosts,
+    required this.onViewComments,
   });
 
   @override
@@ -3462,6 +3807,8 @@ class _UsersSection extends StatelessWidget {
             onDeactivate: onDeactivate,
             onActivate: onActivate,
             onDelete: onDelete,
+            onViewPosts: onViewPosts,
+            onViewComments: onViewComments,
           ),
         const SizedBox(height: 32),
       ],
@@ -3783,6 +4130,8 @@ class _UsersTable extends StatelessWidget {
   final void Function(AdminUser) onDeactivate;
   final void Function(AdminUser) onActivate;
   final void Function(AdminUser) onDelete;
+  final void Function(AdminUser) onViewPosts;
+  final void Function(AdminUser) onViewComments;
 
   const _UsersTable({
     required this.theme,
@@ -3790,6 +4139,8 @@ class _UsersTable extends StatelessWidget {
     required this.onDeactivate,
     required this.onActivate,
     required this.onDelete,
+    required this.onViewPosts,
+    required this.onViewComments,
   });
 
   @override
@@ -3860,6 +4211,20 @@ class _UsersTable extends StatelessWidget {
                     tooltip: 'Activate',
                     onPressed: () => onActivate(user),
                   ),
+                const SizedBox(width: 4),
+                _ActionIconBtn(
+                  icon: Icons.article_outlined,
+                  color: kPrimaryGreen,
+                  tooltip: 'Posts',
+                  onPressed: () => onViewPosts(user),
+                ),
+                const SizedBox(width: 4),
+                _ActionIconBtn(
+                  icon: Icons.comment_outlined,
+                  color: kAccentOrange,
+                  tooltip: 'Comments',
+                  onPressed: () => onViewComments(user),
+                ),
                 const SizedBox(width: 4),
                 _ActionIconBtn(
                   icon: Icons.delete_outline_rounded,

@@ -64,8 +64,12 @@ class PostController extends Controller
                 'votes as likes_count',
                 'comments as comments_count',
             ])
-            ->whereHas('user', fn ($q) => $q->where('account_status', 'active'))
             ->orderBy('created_at', 'desc');
+
+        // Only filter by active users if not admin
+        if (!$viewer || !$viewer->is_admin) {
+            $query->whereHas('user', fn ($q) => $q->where('account_status', 'active'));
+        }
 
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->integer('user_id'));

@@ -100,16 +100,22 @@ class PostCommentController extends Controller
     /**
      * List comments for a post.
      */
-    public function index(Post $post): JsonResponse
+    public function index(Request $request, Post $post): JsonResponse
     {
+        $viewer = $request->user('sanctum');
         $hasImageUrl = Schema::hasColumn('post_comments', 'image_url');
 
-        $comments = $post->comments()
+        $query = $post->comments()
             ->with('user:id,first_name,last_name,profile_photo_url')
-            ->whereHas('user', fn ($q) => $q->where('account_status', 'active'))
             ->orderBy('created_at', 'asc')
-            ->limit(50)
-            ->get()
+            ->limit(50);
+
+        // Only filter by active users if not admin
+        if (!$viewer || !$viewer->is_admin) {
+            $query->whereHas('user', fn ($q) => $q->where('account_status', 'active'));
+        }
+
+        $comments = $query->get()
             ->map(fn (PostComment $c) => [
                 'id'        => $c->id,
                 'comment'   => $c->comment,
