@@ -14,17 +14,24 @@ class BulkUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $count = (int) env('BULK_USERS_COUNT', 200);
+        $count = (int) env('BULK_USERS_COUNT', 500);
         if ($count <= 0) {
             return;
         }
 
-        User::factory()
-            ->count($count)
-            ->create();
+        $regularUsersCount = User::query()
+            ->where('is_admin', false)
+            ->count();
+
+        $toCreate = max(0, $count - $regularUsersCount);
+        if ($toCreate > 0) {
+            User::factory()
+                ->count($toCreate)
+                ->create();
+        }
 
         if ($this->command) {
-            $this->command->info("Seeded {$count} users.");
+            $this->command->info("Regular users target: {$count}. Created: {$toCreate}.");
         }
     }
 }

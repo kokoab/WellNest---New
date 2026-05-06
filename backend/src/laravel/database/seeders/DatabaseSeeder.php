@@ -48,6 +48,7 @@ class DatabaseSeeder extends Seeder
             AssistantBotSeeder::class,
             CategorySeeder::class,
             RecipeSeeder::class,
+            JohnTestDemoUserSeeder::class,
         ]);
     }
 }
