@@ -390,43 +390,72 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          DropdownButtonFormField<int>(
-            initialValue: _categories.isEmpty ? null : _selectedCategoryId,
-            decoration: const InputDecoration(labelText: 'Category'),
-            hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
-            items: _categories
-                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                .toList(),
-            onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
-            validator: (v) => v == null ? 'Select a category' : null,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Category', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                isExpanded: true,
+                initialValue: _categories.isEmpty ? null : _selectedCategoryId,
+                decoration: const InputDecoration(isDense: true),
+                hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
+                items: _categories
+                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
+                validator: (v) => v == null ? 'Select a category' : null,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           _buildImageSection(),
           const SizedBox(height: 16),
           _buildIngredientsSection(),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Title'),
-            validator: _validateTitle,
-            maxLength: 255,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Title', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(hintText: 'Enter recipe title', isDense: true),
+                validator: _validateTitle,
+                maxLength: 255,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _instructionsController,
-            decoration: const InputDecoration(
-              labelText: 'Instructions',
-              alignLabelWithHint: true,
-            ),
-            validator: _validateInstructions,
-            maxLines: 4,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Instructions', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _instructionsController,
+                decoration: const InputDecoration(
+                  hintText: 'Describe how to prepare this recipe',
+                  isDense: true,
+                ),
+                validator: _validateInstructions,
+                maxLines: 4,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _prepTimeController,
-            decoration: const InputDecoration(labelText: 'Prep time (minutes)'),
-            keyboardType: TextInputType.number,
-            validator: _validatePrepTime,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Prep time (minutes)', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _prepTimeController,
+                decoration: const InputDecoration(hintText: 'e.g. 30', isDense: true),
+                keyboardType: TextInputType.number,
+                validator: _validatePrepTime,
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           FilledButton(
