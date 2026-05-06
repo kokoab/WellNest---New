@@ -12,7 +12,7 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final _tokenController = TextEditingController();
+  final _codeController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -21,7 +21,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   void dispose() {
-    _tokenController.dispose();
+    _codeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -29,12 +29,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }
 
   Future<void> _resetPassword() async {
-    final token = _tokenController.text.trim();
+    final code = _codeController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (token.isEmpty ||
+    if (code.isEmpty ||
         email.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty) {
@@ -48,7 +48,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     final result = await AuthService.instance.resetPassword(
-      token: token,
+      code: code,
       email: email,
       password: password,
       passwordConfirmation: confirmPassword,
@@ -100,7 +100,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Use the token from your reset email. With log mail, you will find it in the backend logs.',
+                'Enter the 6-digit code sent to your email address.',
                 style: TextStyle(
                   color: kPrimaryGreen.withValues(alpha: 0.8),
                   fontFamily: 'HelveticaNow',
@@ -110,10 +110,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               AppSpacing.gapV24,
               Semantics(
                 textField: true,
-                label: 'Reset token',
-                hint: 'Enter the reset token',
+                label: 'Reset code',
+                hint: 'Enter the 6-digit code',
                 child: TextFormField(
-                  controller: _tokenController,
+                  controller: _codeController,
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -125,7 +126,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       horizontal: 20,
                       vertical: 16,
                     ),
-                    hintText: 'Reset token',
+                    hintText: '000000',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
                       color: Colors.grey.shade600,
