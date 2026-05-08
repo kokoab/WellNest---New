@@ -61,7 +61,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   List<AdminUser> _users = [];
   bool _loading = true;
   String? _error;
-  String _searchQuery = '';
+
   _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
 
   List<Report> _reports = [];
@@ -475,17 +475,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     }
   }
 
-  List<AdminUser> get _filteredUsers {
-    if (_searchQuery.trim().isEmpty) return _users;
-    final q = _searchQuery.trim().toLowerCase();
-    return _users
-        .where(
-          (u) =>
-              u.email.toLowerCase().contains(q) ||
-              u.name.toLowerCase().contains(q),
-        )
-        .toList();
-  }
+
 
   Future<void> _confirmDeactivate(AdminUser user) async {
     final ok = await _showConfirmDialog(
@@ -808,7 +798,6 @@ class _AdminDashboardState extends State<AdminDashboard>
           exportingInsightsCsv: _exportingInsightsCsv,
           selectedInsightsRange: _insightsRange,
           onInsightsRangeChanged: _handleInsightsRangeChanged,
-          onExportInsights: _exportInsightsCsv,
           rankingsRefreshNonce: _rankingsRefreshNonce,
         );
       case _Section.analytics:
@@ -830,11 +819,9 @@ class _AdminDashboardState extends State<AdminDashboard>
       case _Section.users:
         return _UsersSection(
           theme: theme,
-          users: _filteredUsers,
+          users: _users,
           loading: _loading,
           error: _error,
-          searchQuery: _searchQuery,
-          onSearchChanged: (v) => setState(() => _searchQuery = v),
           selectedRange: _usersRange,
           onRangeChanged: (range) {
             setState(() => _usersRange = range);
@@ -2464,8 +2451,8 @@ class _TopBar extends StatelessWidget {
             Text(
               _title,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
                 color: theme.colorScheme.onSurface,
                 letterSpacing: -0.2,
               ),
@@ -2579,7 +2566,7 @@ class _OverviewSection extends StatelessWidget {
   final bool exportingInsightsCsv;
   final _DateRangeFilter selectedInsightsRange;
   final ValueChanged<_DateRangeFilter> onInsightsRangeChanged;
-  final VoidCallback onExportInsights;
+
   final int rankingsRefreshNonce;
 
   const _OverviewSection({
@@ -2600,7 +2587,7 @@ class _OverviewSection extends StatelessWidget {
     required this.exportingInsightsCsv,
     required this.selectedInsightsRange,
     required this.onInsightsRangeChanged,
-    required this.onExportInsights,
+
     required this.rankingsRefreshNonce,
   });
 
@@ -2814,13 +2801,6 @@ class _OverviewSection extends StatelessWidget {
             _DateRangeDropdown(
               value: selectedInsightsRange,
               onChanged: onInsightsRangeChanged,
-            ),
-            const SizedBox(width: 8),
-            _GreenButton(
-              label: exportingInsightsCsv ? 'Exporting…' : 'Export Insights',
-              icon: Icons.download_rounded,
-              loading: exportingInsightsCsv,
-              onPressed: exportingInsightsCsv ? null : onExportInsights,
             ),
           ],
         ),
@@ -4447,13 +4427,11 @@ class _RecentLogsList extends StatelessWidget {
 }
 
 // ─── Users Section ────────────────────────────────────────────────────────────
-class _UsersSection extends StatelessWidget {
+class _UsersSection extends StatefulWidget {
   final ThemeData theme;
   final List<AdminUser> users;
   final bool loading;
   final String? error;
-  final String searchQuery;
-  final ValueChanged<String> onSearchChanged;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
@@ -4464,15 +4442,13 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onDelete;
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
-  final void Function(AdminUser) onViewRecipes; // ← NEW
+  final void Function(AdminUser) onViewRecipes;
 
   const _UsersSection({
     required this.theme,
     required this.users,
     required this.loading,
     required this.error,
-    required this.searchQuery,
-    required this.onSearchChanged,
     required this.selectedRange,
     required this.onRangeChanged,
     required this.onRefresh,
@@ -4487,7 +4463,48 @@ class _UsersSection extends StatelessWidget {
   });
 
   @override
+  State<_UsersSection> createState() => _UsersSectionState();
+}
+
+class _UsersSectionState extends State<_UsersSection> {
+  String _searchQuery = '';
+  String _searchFilter = 'all';
+  int _currentPage = 1;
+  static const int _rowsPerPage = 10;
+
+  List<AdminUser> get _filteredUsers {
+    if (_searchQuery.trim().isEmpty) return widget.users;
+    final q = _searchQuery.trim().toLowerCase();
+    return widget.users.where((u) {
+      if (_searchFilter == 'all') {
+        return u.email.toLowerCase().contains(q) ||
+               u.name.toLowerCase().contains(q);
+      } else if (_searchFilter == 'firstname') {
+        final parts = u.name.trim().split(' ');
+        if (parts.isEmpty) return false;
+        return parts.first.toLowerCase().contains(q);
+      } else if (_searchFilter == 'lastname') {
+        final parts = u.name.trim().split(' ');
+        if (parts.length < 2) return false;
+        return parts.sublist(1).join(' ').toLowerCase().contains(q);
+      }
+      return false;
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final filtered = _filteredUsers;
+    final totalPages = (filtered.isEmpty) ? 1 : ((filtered.length - 1) / _rowsPerPage).floor() + 1;
+    if (_currentPage > totalPages) _currentPage = totalPages;
+    if (_currentPage < 1) _currentPage = 1;
+
+    final startIndex = (_currentPage - 1) * _rowsPerPage;
+    final endIndex = (startIndex + _rowsPerPage > filtered.length)
+        ? filtered.length
+        : startIndex + _rowsPerPage;
+    final paginatedUsers = filtered.sublist(startIndex, endIndex);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4495,60 +4512,184 @@ class _UsersSection extends StatelessWidget {
           children: [
             Expanded(
               child: _MinimalSectionLabel(
-                theme: theme,
+                theme: widget.theme,
                 label: 'Registered Users',
-                subtitle: loading ? 'Loading…' : '${users.length} users',
+                subtitle: widget.loading ? 'Loading…' : '${widget.users.length} users',
               ),
             ),
-            _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
+            _DateRangeDropdown(value: widget.selectedRange, onChanged: widget.onRangeChanged),
             const SizedBox(width: 6),
-            if (!loading) ...[
+            if (!widget.loading) ...[
               _TopBarIconBtn(
                 icon: Icons.refresh_rounded,
-                onPressed: onRefresh,
+                onPressed: widget.onRefresh,
                 tooltip: 'Refresh',
                 color: kPrimaryGreen,
               ),
               const SizedBox(width: 4),
               _GreenButton(
-                label: exporting ? 'Exporting…' : 'Export',
+                label: widget.exporting ? 'Exporting…' : 'Export CSV',
                 icon: Icons.download_rounded,
-                loading: exporting,
-                onPressed: exporting ? null : onExport,
+                loading: widget.exporting,
+                onPressed: widget.exporting ? null : widget.onExport,
                 compact: true,
               ),
             ],
           ],
         ),
         const SizedBox(height: 14),
-        _SearchBar(
-          theme: theme,
-          onChanged: onSearchChanged,
-          hintText: 'Search by name or email…',
+        Row(
+          children: [
+            Expanded(
+              child: _SearchBar(
+                theme: widget.theme,
+                onChanged: (v) {
+                  setState(() {
+                    _searchQuery = v;
+                    _currentPage = 1;
+                  });
+                },
+                hintText: 'Search by name or email…',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: widget.theme.brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: widget.theme.brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _searchFilter,
+                  icon: Icon(Icons.arrow_drop_down, color: widget.theme.colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: widget.theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  dropdownColor: widget.theme.colorScheme.surface,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All')),
+                    DropdownMenuItem(value: 'firstname', child: Text('First Name')),
+                    DropdownMenuItem(value: 'lastname', child: Text('Last Name')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _searchFilter = v;
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
-        if (loading && users.isEmpty)
+        if (widget.loading && widget.users.isEmpty)
           const _LoadingState()
-        else if (error != null)
-          _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
-        else if (users.isEmpty)
+        else if (widget.error != null)
+          _ErrorState(theme: widget.theme, message: widget.error!, onRetry: widget.onRefresh)
+        else if (filtered.isEmpty)
           _EmptyState(
-            theme: theme,
-            message: searchQuery.isEmpty
+            theme: widget.theme,
+            message: _searchQuery.isEmpty
                 ? 'No users yet'
                 : 'No users match your search',
           )
-        else
+        else ...[
           _UsersTable(
-            theme: theme,
-            users: users,
-            onDeactivate: onDeactivate,
-            onActivate: onActivate,
-            onDelete: onDelete,
-            onViewPosts: onViewPosts,
-            onViewComments: onViewComments,
-            onViewRecipes: onViewRecipes,
+            theme: widget.theme,
+            users: paginatedUsers,
+            onDeactivate: widget.onDeactivate,
+            onActivate: widget.onActivate,
+            onDelete: widget.onDelete,
+            onViewPosts: widget.onViewPosts,
+            onViewComments: widget.onViewComments,
+            onViewRecipes: widget.onViewRecipes,
           ),
+          const SizedBox(height: 16),
+          // Pagination controls
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                'Page $_currentPage of $totalPages',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: widget.theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                onPressed: _currentPage > 1
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+                iconSize: 20,
+                color: widget.theme.colorScheme.onSurface,
+                disabledColor: widget.theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                tooltip: 'Previous Page',
+              ),
+              ...List.generate(totalPages, (index) {
+                final page = index + 1;
+                final isSelected = page == _currentPage;
+                if (totalPages > 7) {
+                  if (page != 1 && page != totalPages && (page < _currentPage - 1 || page > _currentPage + 1)) {
+                    if (page == _currentPage - 2 || page == _currentPage + 2) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: Text('...', style: TextStyle(color: Colors.grey)),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }
+                }
+                return InkWell(
+                  onTap: () => setState(() => _currentPage = page),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? kPrimaryGreen : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$page',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? Colors.white : widget.theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              IconButton(
+                onPressed: _currentPage < totalPages
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+                iconSize: 20,
+                color: widget.theme.colorScheme.onSurface,
+                disabledColor: widget.theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                tooltip: 'Next Page',
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 32),
       ],
     );
@@ -4745,12 +4886,7 @@ class _AuditLogsSection extends StatelessWidget {
 }
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
-const _kRowH = 50.0;
-const _kMinH = 240.0;
-const _kMaxH = 500.0;
-
 Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
-  final height = (rowCount * _kRowH + 48.0).clamp(_kMinH, _kMaxH);
   final isDark = theme.brightness == Brightness.dark;
   return Container(
     width: double.infinity,
@@ -4768,27 +4904,16 @@ Widget _wrapTable(ThemeData theme, int rowCount, Widget child) {
     child: LayoutBuilder(
       builder: (ctx, constraints) {
         final horizontalController = ScrollController();
-        final verticalController = ScrollController();
-        return SizedBox(
-          height: height,
-          child: Scrollbar(
-            controller: verticalController,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: verticalController,
-              child: Scrollbar(
-                controller: horizontalController,
-                notificationPredicate: (notif) => notif.depth == 1,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  controller: horizontalController,
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: child,
-                  ),
-                ),
-              ),
+        return Scrollbar(
+          controller: horizontalController,
+          notificationPredicate: (notif) => notif.depth == 1,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: child,
             ),
           ),
         );
@@ -4832,10 +4957,10 @@ Widget _flexTable({
                 child: Text(
                   h,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
                     color: theme.colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.7,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -4903,7 +5028,7 @@ class _UsersTable extends StatelessWidget {
             Text(
               '${user.id}',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -4916,8 +5041,8 @@ class _UsersTable extends StatelessWidget {
                     user.name.isEmpty ? '—' : user.name,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
@@ -4928,7 +5053,7 @@ class _UsersTable extends StatelessWidget {
               user.email,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -5333,8 +5458,8 @@ class _MinimalSectionLabel extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
             color: theme.colorScheme.onSurface,
             letterSpacing: -0.2,
           ),
@@ -5344,7 +5469,8 @@ class _MinimalSectionLabel extends StatelessWidget {
           Text(
             subtitle!,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -5648,22 +5774,30 @@ class _ActionIconBtn extends StatelessWidget {
     required this.color,
     required this.tooltip,
     required this.onPressed,
-    this.size = 15,
+    this.size = 16,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark 
+        ? Colors.white.withValues(alpha: 0.05) 
+        : Colors.black.withValues(alpha: 0.04);
+        
     return Tooltip(
       message: tooltip,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(6),
         child: Container(
-          width: 28,
-          height: 28,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
+            color: bgColor,
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+            ),
           ),
           child: Icon(icon, size: size, color: color),
         ),
@@ -5698,8 +5832,8 @@ class _UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 26,
-      height: 26,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
         color: _color.withValues(alpha: 0.12),
         shape: BoxShape.circle,
@@ -5708,8 +5842,8 @@ class _UserAvatar extends StatelessWidget {
         child: Text(
           _initials,
           style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
             color: _color,
           ),
         ),
@@ -5748,7 +5882,7 @@ class _StatusPill extends StatelessWidget {
           Text(
             isActive ? 'Active' : 'Inactive',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: isActive ? kPrimaryGreen : kAccentOrange,
             ),
