@@ -253,6 +253,43 @@ class AppGradients {
         ],
         stops: const [0.0, 0.42, 0.76, 1.0],
       );
+
+  /// Blend stop shared with [discoverHeroFadeTo] — use for seams (hero → sheet).
+  static Color discoverHeroBlendTowardSurface(Color surface) =>
+      Color.lerp(AppColors.heroPaleGreen, surface, 0.42) ?? surface;
+
+  /// Overlay on the hero image; tails match [discoverHeroFadeTo] so no pale line.
+  static LinearGradient recipeDetailHeroImageBottomFade(Color surface) {
+    final blend = discoverHeroBlendTowardSurface(surface);
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        AppColors.heroPaleGreen.withValues(alpha: 0),
+        AppColors.heroPaleGreen.withValues(alpha: 0.16),
+        blend.withValues(alpha: 0.52),
+        blend.withValues(alpha: 0.88),
+        surface.withValues(alpha: 0.94),
+      ],
+      stops: const [0.0, 0.3, 0.55, 0.82, 1.0],
+    );
+  }
+
+  /// Strip under the hero; meets the scaffold gradient instead of flat hero green.
+  static LinearGradient recipeDetailHeroToBodyCurve(Color surface) {
+    final blend = discoverHeroBlendTowardSurface(surface);
+    final towardSurface = Color.lerp(blend, surface, 0.55) ?? surface;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        AppColors.heroPaleGreen.withValues(alpha: 0),
+        blend.withValues(alpha: 0.72),
+        towardSurface,
+      ],
+      stops: const [0.0, 0.58, 1.0],
+    );
+  }
 }
 
 /// Standardized curves
