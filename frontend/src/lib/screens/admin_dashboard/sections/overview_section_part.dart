@@ -35,7 +35,6 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
   List<AdminStatPoint> _chatbotInteractionPoints = [];
   bool _analyticsLoading = true;
   String? _analyticsError;
-  bool _exportingInsightsCsv = false;
   int _rankingsRefreshNonce = 0;
 
   @override
@@ -143,53 +142,6 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
     }
   }
 
-  Future<void> _exportInsightsCsv() async {
-    if (_exportingInsightsCsv) return;
-    setState(() => _exportingInsightsCsv = true);
-    try {
-      final filteredUsersResult = await AdminUserService.instance.fetchUsers(
-        range: _insightsRange.apiValue,
-      );
-      final filteredReports = await AdminModerationService.instance
-          .fetchReports(range: _insightsRange.apiValue);
-      final allRecipes = <Recipe>[];
-      for (var page = 1; page <= 5; page++) {
-        final res = await RecipeService.instance.fetchRecipes(
-          page: page,
-          range: _insightsRange.apiValue,
-        );
-        allRecipes.addAll(res.recipes);
-        if (res.recipes.length < 10) break;
-      }
-      allRecipes.sort((a, b) {
-        final aCount = a.ratingsCount ?? 0;
-        final bCount = b.ratingsCount ?? 0;
-        if (aCount != bCount) return bCount.compareTo(aCount);
-        return (b.averageRating ?? 0).compareTo(a.averageRating ?? 0);
-      });
-      final rows = <String>[
-        'Metric,Value',
-        'Range,${_insightsRange.label}',
-        'Total Users,${filteredUsersResult.total}',
-        'Active Users,${filteredUsersResult.activeTotal}',
-        'Total Recipes,${allRecipes.length}',
-        'Open Reports,${filteredReports.length}',
-      ];
-      await _shareCsvRows(
-        rows: rows,
-        fileName: 'Admin Insights Export.csv',
-        subject: 'WellNest Admin Insights Report',
-      );
-      if (!mounted) return;
-      _showAdminSnack(context, 'Insights report exported');
-    } catch (e) {
-      if (!mounted) return;
-      _showAdminErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _exportingInsightsCsv = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -210,13 +162,11 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
       userGrowthPoints: _userGrowthPoints,
       postFrequencyPoints: _postFrequencyPoints,
       chatbotInteractionPoints: _chatbotInteractionPoints,
-      exportingInsightsCsv: _exportingInsightsCsv,
       selectedInsightsRange: _insightsRange,
       onInsightsRangeChanged: (range) {
         setState(() => _insightsRange = range);
         _loadAnalytics();
       },
-      onExportInsights: _exportInsightsCsv,
       rankingsRefreshNonce: _rankingsRefreshNonce,
     );
   }
@@ -242,10 +192,8 @@ class _OverviewSection extends StatelessWidget {
   final List<AdminStatPoint> userGrowthPoints;
   final List<AdminStatPoint> postFrequencyPoints;
   final List<AdminStatPoint> chatbotInteractionPoints;
-  final bool exportingInsightsCsv;
   final _DateRangeFilter selectedInsightsRange;
   final ValueChanged<_DateRangeFilter> onInsightsRangeChanged;
-  final VoidCallback onExportInsights;
   final int rankingsRefreshNonce;
 
   const _OverviewSection({
@@ -265,10 +213,8 @@ class _OverviewSection extends StatelessWidget {
     required this.userGrowthPoints,
     required this.postFrequencyPoints,
     required this.chatbotInteractionPoints,
-    required this.exportingInsightsCsv,
     required this.selectedInsightsRange,
     required this.onInsightsRangeChanged,
-    required this.onExportInsights,
     required this.rankingsRefreshNonce,
   });
 
@@ -293,24 +239,78 @@ class _OverviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Good day, Admin',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-            letterSpacing: -0.4,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          'Here\'s a snapshot of your WellNest community.',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
+        isWide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Good day, Admin',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Here\'s a snapshot of your WellNest community.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _DateRangeDropdown(
+                    value: selectedInsightsRange,
+                    onChanged: onInsightsRangeChanged,
+                  ),
+                  const SizedBox(width: 8),
+                  _AdminCsvExportButton(range: selectedInsightsRange),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Good day, Admin',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Here\'s a snapshot of your WellNest community.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _DateRangeDropdown(
+                        value: selectedInsightsRange,
+                        onChanged: onInsightsRangeChanged,
+                      ),
+                      const SizedBox(width: 8),
+                      _AdminCsvExportButton(range: selectedInsightsRange),
+                    ],
+                  ),
+                ],
+              ),
         const SizedBox(height: 22),
         isWide
             ? Row(
@@ -475,22 +475,6 @@ class _OverviewSection extends StatelessWidget {
           _EmptyState(theme: theme, message: 'No meal planner activity yet.')
         else
           _RecentLogsList(theme: theme, logs: mealPlannerLogs.take(5).toList()),
-        const SizedBox(height: 22),
-        Row(
-          children: [
-            _DateRangeDropdown(
-              value: selectedInsightsRange,
-              onChanged: onInsightsRangeChanged,
-            ),
-            const SizedBox(width: 8),
-            _GreenButton(
-              label: exportingInsightsCsv ? 'Exporting…' : 'Export Insights',
-              icon: Icons.download_rounded,
-              loading: exportingInsightsCsv,
-              onPressed: exportingInsightsCsv ? null : onExportInsights,
-            ),
-          ],
-        ),
         const SizedBox(height: 22),
         _MinimalSectionLabel(
           theme: theme,

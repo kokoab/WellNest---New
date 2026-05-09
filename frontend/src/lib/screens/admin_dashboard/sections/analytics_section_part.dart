@@ -161,40 +161,92 @@ class _AnalyticsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Analytics Dashboard',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-            letterSpacing: -0.4,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Track growth, moderation outcomes, and activity trends.',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _DateRangeDropdown(
-              value: selectedInsightsRange,
-              onChanged: onInsightsRangeChanged,
-            ),
-            const SizedBox(width: 8),
-            _GreenButton(
-              label: analyticsLoading ? 'Refreshing…' : 'Refresh',
-              icon: Icons.refresh_rounded,
-              loading: analyticsLoading,
-              onPressed: analyticsLoading ? null : onRefresh,
-            ),
-          ],
-        ),
+        isWide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Analytics Dashboard',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Track growth, moderation outcomes, and activity trends.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _DateRangeDropdown(
+                    value: selectedInsightsRange,
+                    onChanged: onInsightsRangeChanged,
+                  ),
+                  const SizedBox(width: 8),
+                  _AdminCsvExportButton(range: selectedInsightsRange),
+                  const SizedBox(width: 4),
+                  _TopBarIconBtn(
+                    icon: Icons.refresh_rounded,
+                    onPressed: analyticsLoading ? null : onRefresh,
+                    tooltip: 'Refresh',
+                    color: kPrimaryGreen,
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Analytics Dashboard',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Track growth, moderation outcomes, and activity trends.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _DateRangeDropdown(
+                        value: selectedInsightsRange,
+                        onChanged: onInsightsRangeChanged,
+                      ),
+                      const SizedBox(width: 8),
+                      _AdminCsvExportButton(range: selectedInsightsRange),
+                      const SizedBox(width: 4),
+                      _TopBarIconBtn(
+                        icon: Icons.refresh_rounded,
+                        onPressed: analyticsLoading ? null : onRefresh,
+                        tooltip: 'Refresh',
+                        color: kPrimaryGreen,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
         const SizedBox(height: 16),
         _ChartsSection(
           theme: theme,

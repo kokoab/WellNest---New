@@ -23,6 +23,7 @@ dependencies:
   shimmer: ^3.0.0
   timeago: ^3.7.0
   simple_rich_text: ^2.0.49
+  archive: ^4.0.9
 
 
 dev_dependencies:

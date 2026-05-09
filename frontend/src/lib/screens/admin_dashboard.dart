@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:archive/archive.dart';
 import 'package:my_app/models/activity_log.dart';
 import 'package:my_app/models/admin_user.dart';
 import 'package:my_app/models/recipe.dart';
@@ -45,6 +47,51 @@ enum _DateRangeFilter {
   const _DateRangeFilter(this.apiValue, this.label);
   final String apiValue;
   final String label;
+}
+
+enum _AdminCsvDataset {
+  overview,
+  analytics,
+  users,
+  moderation,
+  auditLogs,
+  recipes,
+}
+
+extension _AdminCsvDatasetMeta on _AdminCsvDataset {
+  String get label {
+    switch (this) {
+      case _AdminCsvDataset.overview:
+        return 'Overview Summary';
+      case _AdminCsvDataset.analytics:
+        return 'Analytics Trends';
+      case _AdminCsvDataset.users:
+        return 'Users';
+      case _AdminCsvDataset.moderation:
+        return 'Moderation Reports';
+      case _AdminCsvDataset.auditLogs:
+        return 'Audit Logs';
+      case _AdminCsvDataset.recipes:
+        return 'Recipes';
+    }
+  }
+
+  String get fileName {
+    switch (this) {
+      case _AdminCsvDataset.overview:
+        return 'overview_summary.csv';
+      case _AdminCsvDataset.analytics:
+        return 'analytics_trends.csv';
+      case _AdminCsvDataset.users:
+        return 'users.csv';
+      case _AdminCsvDataset.moderation:
+        return 'moderation_reports.csv';
+      case _AdminCsvDataset.auditLogs:
+        return 'audit_logs.csv';
+      case _AdminCsvDataset.recipes:
+        return 'recipes.csv';
+    }
+  }
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -266,25 +313,50 @@ String _escapeCsv(String? s) {
   return s;
 }
 
+String _formatCsvDateTime(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return '';
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return raw;
+  return _formatCsvDateTimeFromDate(parsed);
+}
+
+String _formatCsvDateTimeFromDate(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  final month = months[local.month - 1];
+  final hour12 = local.hour == 0
+      ? 12
+      : (local.hour > 12 ? local.hour - 12 : local.hour);
+  final minute = local.minute.toString().padLeft(2, '0');
+  final meridiem = local.hour >= 12 ? 'PM' : 'AM';
+  return '$month ${local.day}, ${local.year}. $hour12:$minute$meridiem';
+}
+
 String _adminErrorMessage(Object error) {
   return error.toString().replaceFirst('Exception: ', '');
 }
 
-void _showAdminErrorSnack(BuildContext context, Object error) {
-  _showAdminSnack(context, _adminErrorMessage(error), isError: true);
+String _toTitleCase(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  return trimmed[0].toUpperCase() + trimmed.substring(1);
 }
 
-Future<void> _shareCsvRows({
-  required List<String> rows,
-  required String fileName,
-  required String subject,
-}) async {
-  final xfile = XFile.fromData(
-    Uint8List.fromList(rows.join('\n').codeUnits),
-    name: fileName,
-    mimeType: 'text/csv',
-  );
-  await Share.shareXFiles([xfile], subject: subject);
+void _showAdminErrorSnack(BuildContext context, Object error) {
+  _showAdminSnack(context, _adminErrorMessage(error), isError: true);
 }
 
 Future<void> _shareCsvBytes({
@@ -298,6 +370,408 @@ Future<void> _shareCsvBytes({
     mimeType: 'text/csv',
   );
   await Share.shareXFiles([xfile], subject: subject);
+}
+
+class _AdminCsvFile {
+  final String name;
+  final List<int> bytes;
+
+  const _AdminCsvFile({required this.name, required this.bytes});
+}
+
+final Set<_AdminCsvDataset> _allAdminCsvDatasets = Set<_AdminCsvDataset>.from(
+  _AdminCsvDataset.values,
+);
+
+Future<void> _exportAdminCsvBundle({
+  required BuildContext context,
+  required _DateRangeFilter range,
+  required Set<_AdminCsvDataset> datasets,
+}) async {
+  if (datasets.isEmpty) {
+    _showAdminSnack(context, 'Select at least one CSV file', isError: true);
+    return;
+  }
+  final sorted = datasets.toList()..sort((a, b) => a.index.compareTo(b.index));
+  final files = await Future.wait<_AdminCsvFile>(
+    sorted.map((dataset) => _buildAdminCsv(dataset: dataset, range: range)),
+  );
+  final archive = Archive();
+  for (final file in files) {
+    archive.addFile(ArchiveFile(file.name, file.bytes.length, file.bytes));
+  }
+  final zipBytes = ZipEncoder().encode(archive);
+  final stamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+  await _shareCsvBytes(
+    bytes: zipBytes,
+    fileName: 'wellnest_admin_exports_$stamp.zip',
+    subject: 'WellNest Admin CSV Export Bundle',
+  );
+}
+
+Future<_AdminCsvFile> _buildAdminCsv({
+  required _AdminCsvDataset dataset,
+  required _DateRangeFilter range,
+}) async {
+  switch (dataset) {
+    case _AdminCsvDataset.overview:
+      return _buildOverviewCsv(range);
+    case _AdminCsvDataset.analytics:
+      return _buildAnalyticsCsv(range);
+    case _AdminCsvDataset.users:
+      return _buildUsersCsv(range);
+    case _AdminCsvDataset.moderation:
+      return _buildModerationCsv(range);
+    case _AdminCsvDataset.auditLogs:
+      return _buildAuditLogsCsv(range);
+    case _AdminCsvDataset.recipes:
+      return _buildRecipesCsv(range);
+  }
+}
+
+Future<_AdminCsvFile> _buildOverviewCsv(_DateRangeFilter range) async {
+  final usersRes = await AdminUserService.instance.fetchUsers(
+    range: range.apiValue,
+    page: 1,
+    perPage: 1,
+  );
+  final reportsRes = await AdminModerationService.instance
+      .fetchReportsPaginated(range: range.apiValue, page: 1, perPage: 1);
+  final recipesRes = await RecipeService.instance.fetchRecipes(
+    page: 1,
+    range: range.apiValue,
+  );
+  final rows = <String>[
+    'Metric,Value',
+    'Date Range,${_escapeCsv(range.label)}',
+    'Total Users,${usersRes.total}',
+    'Active Users,${usersRes.activeTotal}',
+    'Total Recipes,${recipesRes.total}',
+    'Open Reports,${reportsRes.total}',
+  ];
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.overview.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+Future<_AdminCsvFile> _buildAnalyticsCsv(_DateRangeFilter range) async {
+  final results = await Future.wait<List<AdminStatPoint>>([
+    AdminDashboardService.instance.fetchUserGrowth(range: range.apiValue),
+    AdminDashboardService.instance.fetchPostFrequency(range: range.apiValue),
+    AdminDashboardService.instance.fetchChatbotInteractions(
+      range: range.apiValue,
+    ),
+  ]);
+  final rows = <String>['Series,Date and Time,Count'];
+  for (final point in results[0]) {
+    rows.add(
+      'User Growth,${_formatCsvDateTimeFromDate(point.date)},${point.count}',
+    );
+  }
+  for (final point in results[1]) {
+    rows.add(
+      'Post Frequency,${_formatCsvDateTimeFromDate(point.date)},${point.count}',
+    );
+  }
+  for (final point in results[2]) {
+    rows.add(
+      'Chatbot Interactions,${_formatCsvDateTimeFromDate(point.date)},${point.count}',
+    );
+  }
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.analytics.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+Future<_AdminCsvFile> _buildUsersCsv(_DateRangeFilter range) async {
+  final users = <AdminUser>[];
+  var page = 1;
+  var lastPage = 1;
+  do {
+    final res = await AdminUserService.instance.fetchUsers(
+      range: range.apiValue,
+      page: page,
+      perPage: 100,
+    );
+    users.addAll(res.users);
+    lastPage = res.lastPage;
+    page++;
+  } while (page <= lastPage);
+  final rows = <String>['User ID,Name,Email Address,Account Status'];
+  for (final user in users) {
+    rows.add(
+      '${user.id},${_escapeCsv(user.name)},${_escapeCsv(user.email)},${_escapeCsv(user.statusLabel)}',
+    );
+  }
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.users.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+Future<_AdminCsvFile> _buildModerationCsv(_DateRangeFilter range) async {
+  final reports = <Report>[];
+  var page = 1;
+  var lastPage = 1;
+  do {
+    final res = await AdminModerationService.instance.fetchReportsPaginated(
+      range: range.apiValue,
+      page: page,
+      perPage: 100,
+    );
+    reports.addAll(res.reports);
+    lastPage = res.lastPage;
+    page++;
+  } while (page <= lastPage);
+  final rows = <String>[
+    'Report ID,Reporter,Reason,Details,Status,Reported At,Content Type,Content ID,Reported Content',
+  ];
+  for (final report in reports) {
+    rows.add(
+      [
+        report.id,
+        _escapeCsv(report.reporter),
+        _escapeCsv(report.reason),
+        _escapeCsv(report.details),
+        _escapeCsv(_toTitleCase(_normalizeReportStatus(report.status))),
+        _escapeCsv(_formatCsvDateTime(report.createdAt)),
+        _escapeCsv(report.reportable?.type ?? ''),
+        report.reportable?.id ?? 0,
+        _escapeCsv(report.reportableLabel),
+      ].join(','),
+    );
+  }
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.moderation.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+Future<_AdminCsvFile> _buildAuditLogsCsv(_DateRangeFilter range) async {
+  final logs = <ActivityLog>[];
+  var page = 1;
+  var lastPage = 1;
+  do {
+    final res = await AdminAuditLogService.instance.fetchLogs(
+      page: page,
+      range: range.apiValue,
+    );
+    logs.addAll(res.logs);
+    lastPage = res.lastPage;
+    page++;
+  } while (page <= lastPage);
+  final rows = <String>[
+    'Log ID,Date and Time,Category,Action,Description,Actor,Subject Type,Subject ID,Login Type,Email Address,IP Address',
+  ];
+  for (final log in logs) {
+    rows.add(
+      [
+        log.id,
+        _escapeCsv(_formatCsvDateTime(log.createdAt)),
+        _escapeCsv(log.category),
+        _escapeCsv(log.action),
+        _escapeCsv(log.description),
+        _escapeCsv(log.actorName ?? ''),
+        _escapeCsv(log.subjectType ?? ''),
+        log.subjectId ?? '',
+        _escapeCsv(log.loginType ?? ''),
+        _escapeCsv(log.email ?? ''),
+        _escapeCsv(log.ipAddress ?? ''),
+      ].join(','),
+    );
+  }
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.auditLogs.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+Future<_AdminCsvFile> _buildRecipesCsv(_DateRangeFilter range) async {
+  final recipes = <Recipe>[];
+  var page = 1;
+  var lastPage = 1;
+  do {
+    final res = await RecipeService.instance.fetchRecipes(
+      page: page,
+      range: range.apiValue,
+    );
+    recipes.addAll(res.recipes);
+    lastPage = res.lastPage;
+    page++;
+  } while (page <= lastPage);
+  final rows = <String>[
+    'Recipe ID,Title,Description,Category,Author,Preparation Time (Minutes),Average Rating,Total Ratings,Total Views,Created At',
+  ];
+  for (final recipe in recipes) {
+    rows.add(
+      [
+        recipe.id,
+        _escapeCsv(recipe.title),
+        _escapeCsv(recipe.description ?? ''),
+        _escapeCsv(recipe.category?.name ?? ''),
+        _escapeCsv(recipe.userDisplayName),
+        recipe.prepTime,
+        recipe.averageRating?.toStringAsFixed(2) ?? '',
+        recipe.ratingsCount ?? '',
+        recipe.viewsCount ?? '',
+        _escapeCsv(_formatCsvDateTime(recipe.createdAt)),
+      ].join(','),
+    );
+  }
+  return _AdminCsvFile(
+    name: _AdminCsvDataset.recipes.fileName,
+    bytes: utf8.encode(rows.join('\n')),
+  );
+}
+
+class _AdminCsvExportButton extends StatefulWidget {
+  final _DateRangeFilter range;
+
+  const _AdminCsvExportButton({required this.range});
+
+  @override
+  State<_AdminCsvExportButton> createState() => _AdminCsvExportButtonState();
+}
+
+class _AdminCsvExportButtonState extends State<_AdminCsvExportButton> {
+  bool _exporting = false;
+
+  Future<void> _onPressed() async {
+    final selected = await _showAdminCsvDatasetDialog(
+      context,
+      initialSelection: _allAdminCsvDatasets,
+    );
+    if (!mounted || selected == null || selected.isEmpty) return;
+    setState(() => _exporting = true);
+    try {
+      await _exportAdminCsvBundle(
+        context: context,
+        range: widget.range,
+        datasets: selected,
+      );
+      if (!mounted) return;
+      _showAdminSnack(context, 'CSV bundle exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: _exporting ? null : _onPressed,
+      style: FilledButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: kPrimaryGreen,
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 12),
+      ),
+      icon: _exporting
+          ? const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.download_rounded, size: 14, color: Colors.white),
+      label: Text(_exporting ? 'Exporting…' : 'Export CSV'),
+    );
+  }
+}
+
+Future<Set<_AdminCsvDataset>?> _showAdminCsvDatasetDialog(
+  BuildContext context, {
+  required Set<_AdminCsvDataset> initialSelection,
+}) {
+  return showDialog<Set<_AdminCsvDataset>>(
+    context: context,
+    builder: (ctx) {
+      final selected = Set<_AdminCsvDataset>.from(initialSelection);
+      return StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Download CSV files',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('All datasets'),
+                  tristate: true,
+                  value: selected.length == _allAdminCsvDatasets.length
+                      ? true
+                      : (selected.isEmpty ? false : null),
+                  onChanged: (value) {
+                    setState(() {
+                      if (value == true) {
+                        selected
+                          ..clear()
+                          ..addAll(_allAdminCsvDatasets);
+                      } else {
+                        selected.clear();
+                      }
+                    });
+                  },
+                ),
+                const Divider(height: 12),
+                ..._AdminCsvDataset.values.map(
+                  (dataset) => CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: selected.contains(dataset),
+                    title: Text(dataset.label),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          selected.add(dataset);
+                        } else {
+                          selected.remove(dataset);
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selected.isEmpty
+                  ? null
+                  : () => Navigator.pop(
+                      ctx,
+                      Set<_AdminCsvDataset>.from(selected),
+                    ),
+              style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
+              child: const Text('Download ZIP'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 void _showAdminSnack(

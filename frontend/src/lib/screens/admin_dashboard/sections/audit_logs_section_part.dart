@@ -15,7 +15,6 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
   bool _loading = true;
   String? _error;
   _DateRangeFilter _range = _DateRangeFilter.monthly;
-  bool _exportingAuditLogsCsv = false;
   int _page = 1;
   int _lastPage = 1;
   bool _loadingPage = false;
@@ -74,28 +73,6 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
     }
   }
 
-  Future<void> _exportAuditLogsCsv() async {
-    if (_exportingAuditLogsCsv) return;
-    setState(() => _exportingAuditLogsCsv = true);
-    try {
-      final bytes = await AdminAuditLogService.instance.exportCsv(
-        range: _range.apiValue,
-      );
-      await _shareCsvBytes(
-        bytes: bytes,
-        fileName: 'audit_logs_export.csv',
-        subject: 'WellNest Audit Logs Export',
-      );
-      if (!mounted) return;
-      _showAdminSnack(context, 'Audit logs exported');
-    } catch (e) {
-      if (!mounted) return;
-      _showAdminErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _exportingAuditLogsCsv = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -104,14 +81,12 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       logs: _logs,
       loading: _loading,
       error: _error,
-      exporting: _exportingAuditLogsCsv,
       selectedRange: _range,
       onRangeChanged: (range) {
         setState(() => _range = range);
         refresh();
       },
       onRefresh: refresh,
-      onExport: _exportAuditLogsCsv,
       currentPage: _page,
       totalPages: _lastPage,
       loadingPage: _loadingPage,
@@ -128,11 +103,9 @@ class _AuditLogsSection extends StatelessWidget {
   final List<ActivityLog> logs;
   final bool loading;
   final String? error;
-  final bool exporting;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
-  final VoidCallback onExport;
   final int currentPage;
   final int totalPages;
   final bool loadingPage;
@@ -143,11 +116,9 @@ class _AuditLogsSection extends StatelessWidget {
     required this.logs,
     required this.loading,
     required this.error,
-    required this.exporting,
     required this.selectedRange,
     required this.onRangeChanged,
     required this.onRefresh,
-    required this.onExport,
     required this.currentPage,
     required this.totalPages,
     required this.loadingPage,
@@ -170,33 +141,7 @@ class _AuditLogsSection extends StatelessWidget {
             ),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
             const SizedBox(width: 6),
-            OutlinedButton.icon(
-              onPressed: exporting ? null : onExport,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kPrimaryGreen,
-                side: BorderSide(
-                  color: kPrimaryGreen.withValues(alpha: 0.4),
-                  width: 0.5,
-                ),
-                minimumSize: const Size(0, 34),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                textStyle: const TextStyle(fontSize: 12),
-              ),
-              icon: exporting
-                  ? const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: kPrimaryGreen,
-                      ),
-                    )
-                  : const Icon(Icons.download_rounded, size: 14),
-              label: Text(exporting ? 'Exporting…' : 'Export CSV'),
-            ),
+            _AdminCsvExportButton(range: selectedRange),
             const SizedBox(width: 6),
             if (!loading)
               _TopBarIconBtn(

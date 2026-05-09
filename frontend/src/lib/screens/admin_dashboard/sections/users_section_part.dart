@@ -21,7 +21,6 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
   bool _usersLoadingPage = false;
   int _usersQuerySerial = 0;
   int _usersTotalCount = 0;
-  bool _exportingUsersCsv = false;
 
   @override
   void initState() {
@@ -207,31 +206,6 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     }
   }
 
-  Future<void> _exportUsersCsv() async {
-    if (_exportingUsersCsv) return;
-    setState(() => _exportingUsersCsv = true);
-    try {
-      final rows = <String>['id,name,email,status'];
-      for (final u in _users) {
-        rows.add(
-          '${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}',
-        );
-      }
-      await _shareCsvRows(
-        rows: rows,
-        fileName: 'WellNest Users.csv',
-        subject: 'WellNest Users Export',
-      );
-      if (!mounted) return;
-      _showAdminSnack(context, 'Users exported');
-    } catch (e) {
-      if (!mounted) return;
-      _showAdminErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _exportingUsersCsv = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -248,8 +222,6 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
         refresh();
       },
       onRefresh: refresh,
-      onExport: _exportingUsersCsv ? null : _exportUsersCsv,
-      exporting: _exportingUsersCsv,
       onDeactivate: _confirmDeactivate,
       onActivate: _confirmActivate,
       onDelete: _confirmDelete,
@@ -277,8 +249,6 @@ class _UsersSection extends StatelessWidget {
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
-  final VoidCallback? onExport;
-  final bool exporting;
   final void Function(AdminUser) onDeactivate;
   final void Function(AdminUser) onActivate;
   final void Function(AdminUser) onDelete;
@@ -301,8 +271,6 @@ class _UsersSection extends StatelessWidget {
     required this.selectedRange,
     required this.onRangeChanged,
     required this.onRefresh,
-    required this.onExport,
-    required this.exporting,
     required this.onDeactivate,
     required this.onActivate,
     required this.onDelete,
@@ -339,13 +307,7 @@ class _UsersSection extends StatelessWidget {
                 color: kPrimaryGreen,
               ),
               const SizedBox(width: 4),
-              _GreenButton(
-                label: exporting ? 'Exporting…' : 'Export',
-                icon: Icons.download_rounded,
-                loading: exporting,
-                onPressed: exporting ? null : onExport,
-                compact: true,
-              ),
+              _AdminCsvExportButton(range: selectedRange),
             ],
           ],
         ),

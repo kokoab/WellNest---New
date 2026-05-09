@@ -16,7 +16,6 @@ class _ModerationSectionContainerState
   bool _loading = true;
   String? _error;
   _DateRangeFilter _range = _DateRangeFilter.monthly;
-  bool _exportingReportsCsv = false;
   int _page = 1;
   int _lastPage = 1;
   bool _loadingPage = false;
@@ -80,43 +79,6 @@ class _ModerationSectionContainerState
     }
   }
 
-  Future<void> _exportReportsCsv() async {
-    if (_exportingReportsCsv) return;
-    setState(() => _exportingReportsCsv = true);
-    try {
-      final rows = <String>[
-        'id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label',
-      ];
-      for (final r in _reports) {
-        rows.add(
-          [
-            r.id,
-            _escapeCsv(r.reporter),
-            _escapeCsv(r.reason),
-            _escapeCsv(r.details),
-            _escapeCsv(r.status),
-            _escapeCsv(r.createdAt),
-            _escapeCsv(r.reportable?.type ?? ''),
-            r.reportable?.id ?? 0,
-            _escapeCsv(r.reportableLabel),
-          ].join(','),
-        );
-      }
-      await _shareCsvRows(
-        rows: rows,
-        fileName: 'Content Reports Export.csv',
-        subject: 'WellNest Content Reports Export',
-      );
-      if (!mounted) return;
-      _showAdminSnack(context, 'Reports exported');
-    } catch (e) {
-      if (!mounted) return;
-      _showAdminErrorSnack(context, e);
-    } finally {
-      if (mounted) setState(() => _exportingReportsCsv = false);
-    }
-  }
-
   Future<void> _confirmDeleteAllReports() async {
     final ok = await _showAdminConfirmDialog(
       context: context,
@@ -176,8 +138,6 @@ class _ModerationSectionContainerState
         refresh();
       },
       onRefresh: refresh,
-      onExport: _exportingReportsCsv ? null : _exportReportsCsv,
-      exporting: _exportingReportsCsv,
       onDeleteAll: _confirmDeleteAllReports,
       onReportAction: _handleReportAction,
       currentPage: _page,
@@ -199,8 +159,6 @@ class _ModerationSection extends StatelessWidget {
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
-  final VoidCallback? onExport;
-  final bool exporting;
   final VoidCallback onDeleteAll;
   final Future<void> Function(int, String) onReportAction;
   final int currentPage;
@@ -216,8 +174,6 @@ class _ModerationSection extends StatelessWidget {
     required this.selectedRange,
     required this.onRangeChanged,
     required this.onRefresh,
-    required this.onExport,
-    required this.exporting,
     required this.onDeleteAll,
     required this.onReportAction,
     required this.currentPage,
@@ -250,13 +206,7 @@ class _ModerationSection extends StatelessWidget {
                 color: kPrimaryGreen,
               ),
               const SizedBox(width: 4),
-              _GreenButton(
-                label: exporting ? 'Exporting…' : 'Export',
-                icon: Icons.download_rounded,
-                loading: exporting,
-                onPressed: exporting ? null : onExport,
-                compact: true,
-              ),
+              _AdminCsvExportButton(range: selectedRange),
               if (reports.isNotEmpty) ...[
                 const SizedBox(width: 4),
                 IconButton(

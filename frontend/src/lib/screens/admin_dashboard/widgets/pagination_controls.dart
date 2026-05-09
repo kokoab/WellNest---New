@@ -61,17 +61,20 @@ class _PaginationControls extends StatelessWidget {
               const SizedBox(width: 12),
               // Page Info
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: kSurfaceWarmGray.withOpacity(0.3),
+                  color: kPrimaryGreen,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   'Page $currentPage of $totalPages',
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: kPrimaryGreen,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -126,6 +129,7 @@ class _PaginationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (isActive) {
       // Active page button
       return Container(
@@ -149,11 +153,16 @@ class _PaginationButton extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        disabledForegroundColor: kCaptionGray.withOpacity(0.5),
+        foregroundColor: isDark
+            ? Colors.white.withValues(alpha: 0.86)
+            : kPrimaryGreen,
+        disabledForegroundColor: isDark
+            ? Colors.white.withValues(alpha: 0.45)
+            : kPrimaryGreen.withValues(alpha: 0.45),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
