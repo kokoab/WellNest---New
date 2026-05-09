@@ -69,7 +69,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   int _usersPage = 1;
   final int _usersPerPage = 10;
   bool _usersHasMore = true;
-  bool _usersLoadingMore = false;
+  bool _usersLoadingPage = false;
   int _usersQuerySerial = 0;
   int _usersTotalCount = 0;
   int _usersActiveTotalCount = 0;
@@ -196,11 +196,11 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (reset) {
       _usersPage = 1;
       _usersHasMore = true;
-      _usersLoadingMore = false;
     }
     if (!_usersHasMore) return;
     if (!reset) {
-      setState(() => _usersLoadingMore = true);
+      // Load more behavior - no longer used with pagination
+      return;
     } else {
       setState(() {
         _loading = true;
@@ -224,22 +224,53 @@ class _AdminDashboardState extends State<AdminDashboard>
           _loading = false;
         } else {
           _users.addAll(result.users);
-          _usersLoadingMore = false;
         }
         _usersTotalCount = result.total;
         _usersActiveTotalCount = result.activeTotal;
-        if (result.users.length < _usersPerPage) {
-          _usersHasMore = false;
-        } else {
-          _usersPage += 1;
-        }
+        // Keep page at 1 for pagination (don't auto-increment)
+        // Navigation to other pages handled by _handleUsersPageChanged
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
-        _usersLoadingMore = false;
+      });
+    }
+  }
+
+  // Calculate total pages based on total count and per page
+  int _getUsersTotalPages() {
+    if (_usersTotalCount == 0) return 1;
+    return (_usersTotalCount / _usersPerPage).ceil();
+  }
+
+  // Handle pagination page changes
+  Future<void> _handleUsersPageChanged(int page) async {
+    if (!mounted) return;
+    if (page < 1 || page > _getUsersTotalPages()) return;
+    
+    setState(() => _usersLoadingPage = true);
+    try {
+      final result = await AdminUserService.instance.fetchUsers(
+        range: _usersRange.apiValue,
+        search: _searchQuery,
+        page: page,
+        perPage: _usersPerPage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _usersPage = page;
+        _users = result.users;
+        _usersTotalCount = result.total;
+        _usersActiveTotalCount = result.activeTotal;
+        _usersLoadingPage = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _usersLoadingPage = false;
       });
     }
   }
@@ -915,9 +946,10 @@ class _AdminDashboardState extends State<AdminDashboard>
           onViewPosts: _showUserPostsModal,
           onViewComments: _showUserCommentsModal,
           onViewRecipes: _showUserRecipesModal,
-          hasMore: _usersHasMore,
-          isLoadingMore: _usersLoadingMore,
-          onLoadMore: () => _loadUsersPage(reset: false),
+          currentPage: _usersPage,
+          totalPages: _getUsersTotalPages(),
+          loadingPage: _usersLoadingPage,
+          onPageChanged: _handleUsersPageChanged,
         );
       case _Section.moderation:
         return _ModerationSection(
@@ -4536,10 +4568,12 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onDelete;
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
-  final void Function(AdminUser) onViewRecipes; // ← NEW
-  final bool hasMore;
-  final bool isLoadingMore;
-  final VoidCallback onLoadMore;
+  final void Function(AdminUser) onViewRecipes;
+  // Pagination parameters
+  final int currentPage;
+  final int totalPages;
+  final bool loadingPage;
+  final ValueChanged<int> onPageChanged;
 
   const _UsersSection({
     required this.theme,
@@ -4559,9 +4593,10 @@ class _UsersSection extends StatelessWidget {
     required this.onViewPosts,
     required this.onViewComments,
     required this.onViewRecipes,
-    required this.hasMore,
-    required this.isLoadingMore,
-    required this.onLoadMore,
+    required this.currentPage,
+    required this.totalPages,
+    required this.loadingPage,
+    required this.onPageChanged,
   });
 
   @override
@@ -4627,17 +4662,13 @@ class _UsersSection extends StatelessWidget {
             onViewComments: onViewComments,
             onViewRecipes: onViewRecipes,
           ),
-          const SizedBox(height: 12),
-          if (hasMore)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _GreenButton(
-                label: isLoadingMore ? 'Loading…' : 'Load more users',
-                icon: Icons.expand_more_rounded,
-                loading: isLoadingMore,
-                onPressed: isLoadingMore ? null : onLoadMore,
-              ),
-            ),
+          const SizedBox(height: 16),
+          _PaginationControls(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            loading: loadingPage,
+            onPageChanged: onPageChanged,
+          ),
         ],
         const SizedBox(height: 32),
       ],
@@ -5904,6 +5935,167 @@ class _CategoryPill extends StatelessWidget {
           fontWeight: FontWeight.w500,
           color: theme.colorScheme.onSurfaceVariant,
         ),
+      ),
+    );
+  }
+}
+
+// ─── Pagination Controls ──────────────────────────────────────────────────────
+
+class _PaginationControls extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final bool loading;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationControls({
+    required this.currentPage,
+    required this.totalPages,
+    required this.loading,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // First Page Button
+              _PaginationButton(
+                label: 'First',
+                onPressed: currentPage > 1 && !loading
+                    ? () => onPageChanged(1)
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              // Previous Button
+              _PaginationButton(
+                label: 'Prev',
+                onPressed: currentPage > 1 && !loading
+                    ? () => onPageChanged(currentPage - 1)
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              // Page Numbers
+              ..._buildPageNumbers(),
+              const SizedBox(width: 8),
+              // Next Button
+              _PaginationButton(
+                label: 'Next',
+                onPressed: currentPage < totalPages && !loading
+                    ? () => onPageChanged(currentPage + 1)
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              // Last Page Button
+              _PaginationButton(
+                label: 'Last',
+                onPressed: currentPage < totalPages && !loading
+                    ? () => onPageChanged(totalPages)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              // Page Info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: kSurfaceWarmGray.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Page $currentPage of $totalPages',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: kPrimaryGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPageNumbers() {
+    final List<Widget> buttons = [];
+    final int startPage = (currentPage - 2).clamp(1, totalPages);
+    final int endPage = (currentPage + 2).clamp(1, totalPages);
+
+    // Add page numbers (show max 5 pages: [currentPage-2...currentPage+2])
+    for (int i = startPage; i <= endPage; i++) {
+      if (i > 1 && i < startPage) {
+        buttons.add(const Text('...', style: TextStyle(fontSize: 12)));
+        buttons.add(const SizedBox(width: 4));
+      }
+
+      buttons.add(
+        _PaginationButton(
+          label: '$i',
+          isActive: i == currentPage,
+          onPressed: i == currentPage || loading
+              ? null
+              : () => onPageChanged(i),
+        ),
+      );
+
+      if (i < endPage) {
+        buttons.add(const SizedBox(width: 4));
+      }
+    }
+
+    return buttons;
+  }
+}
+
+class _PaginationButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isActive;
+
+  const _PaginationButton({
+    required this.label,
+    this.onPressed,
+    this.isActive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isActive) {
+      // Active page button
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: kPrimaryGreen,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        disabledForegroundColor: kCaptionGray.withOpacity(0.5),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),
     );
   }
