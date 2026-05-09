@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:my_app/config/app_config.dart';
 import 'package:my_app/models/chat_message.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
+import 'package:my_app/services/user_service.dart';
 import 'package:my_app/theme/app_theme.dart';
 
 /// Single conversation: messages list + input. Subscribes to Reverb for live new messages.
@@ -37,6 +39,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   static const int _messagesPerPage = 20;
+  static const double _bubbleRadius = 22;
+  static const double _headerAvatarSize = 36;
+  static const double _bubbleAvatarSize = 38;
+  static const double _chatFontSize = 15;
 
   List<ChatMessage> _messages = [];
   bool _loading = true;
@@ -86,6 +92,13 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       _messagesHasMore = true;
     });
     try {
+      if (_currentUserId == null && AuthService.instance.isLoggedIn) {
+        final me = await UserService.instance.fetchCurrentUser();
+        if (me != null) {
+          AuthService.instance.setUserId(me.id);
+          _currentUserId = me.id;
+        }
+      }
       final data = await _service.fetchMessages(
         widget.conversationId,
         page: 1,
@@ -100,9 +113,6 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
           _messagesPage = currentPage;
           _messagesHasMore = currentPage < lastPage;
           _loading = false;
-          if (_currentUserId == null && list.isNotEmpty) {
-            _currentUserId = list.first.userId;
-          }
         });
       }
     } catch (e) {
@@ -168,8 +178,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
               }
             : null,
       );
-    } catch (_) {
-      // Reverb optional; app still works without it
+    } catch (e, st) {
+      assert(() {
+        debugPrint('Reverb subscribe failed: $e\n$st');
+        return true;
+      }());
     }
   }
 
@@ -222,7 +235,38 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     _send();
   }
 
-  Widget _buildAssistantStreamingBubble(bool isDark) {
+  /// Public URL for the WellNest mark served from Laravel `storage/app/public`.
+  String get _assistantBrandLogoUrl =>
+      '${AppConfig.baseUrl}/storage/profile-photos/logo.jpg';
+
+  Widget _buildAssistantLogoAvatar(BuildContext context, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(color: wellnestOutlineColor(context), width: 1),
+      ),
+      child: ClipOval(
+        child: Image.network(
+          _assistantBrandLogoUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          cacheWidth: (size * 2).toInt(),
+          cacheHeight: (size * 2).toInt(),
+          errorBuilder: (_, _, _) => InitialsAvatar(
+            name: widget.otherUserName,
+            size: size,
+            imageUrl: widget.otherUserProfilePhotoUrl,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantStreamingBubble() {
     final text = _streamingPreview ?? '';
     final display = text.isEmpty ? '…' : text;
     return Padding(
@@ -231,23 +275,28 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          InitialsAvatar(
-            name: widget.otherUserName,
-            size: 28,
-            imageUrl: widget.otherUserProfilePhotoUrl,
-          ),
+          widget.isAssistant
+              ? _buildAssistantLogoAvatar(context, _bubbleAvatarSize)
+              : InitialsAvatar(
+                  name: widget.otherUserName,
+                  size: _bubbleAvatarSize,
+                  imageUrl: widget.otherUserProfilePhotoUrl,
+                ),
           const SizedBox(width: 8),
           Flexible(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.primaryGreen.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(_bubbleRadius),
               ),
               child: Text(
                 display,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: _chatFontSize,
+                ),
               ),
             ),
           ),
@@ -442,57 +491,126 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final outline = wellnestOutlineColor(context);
+    final dividerColor = outline.withValues(alpha: 0.55);
+    final screenW = MediaQuery.sizeOf(context).width;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InitialsAvatar(
-              name: widget.otherUserName,
-              size: 32,
-              imageUrl: widget.otherUserProfilePhotoUrl,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              widget.otherUserName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        centerTitle: false,
-        backgroundColor: AppColors.primaryGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+    final statusTop = MediaQuery.paddingOf(context).top;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: _loadMessages,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: AppGradients.discoverHeroFadeTo(AppColors.backgroundCream),
+          ),
+          child: Column(
+            children: [
+              ColoredBox(
+                color: AppColors.backgroundCream,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: statusTop),
+                    SizedBox(
+                      height: kToolbarHeight,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: screenW - 112,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    widget.isAssistant
+                                        ? _buildAssistantLogoAvatar(
+                                            context,
+                                            _headerAvatarSize,
+                                          )
+                                        : InitialsAvatar(
+                                            name: widget.otherUserName,
+                                            size: _headerAvatarSize,
+                                            imageUrl:
+                                                widget.otherUserProfilePhotoUrl,
+                                          ),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        widget.otherUserName,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          PositionedDirectional(
+                            start: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                size: 26,
+                              ),
+                              color: AppColors.primaryGreen,
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              tooltip: MaterialLocalizations.of(context)
+                                  .backButtonTooltip,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )
-                : _messages.isEmpty &&
-                      !(widget.isAssistant && _streamingPreview != null)
-                ? const Center(child: Text('No messages yet. Say hello!'))
-                : ListView.builder(
+                    Divider(height: 1, thickness: 1, color: dividerColor),
+                  ],
+                ),
+              ),
+              Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: _loadMessages,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _messages.isEmpty &&
+                        !(widget.isAssistant && _streamingPreview != null)
+                  ? const Center(child: Text('No messages yet. Say hello!'))
+                  : ListView.builder(
                     controller: _scrollController,
                     reverse: true,
                     itemCount:
@@ -525,7 +643,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           ? 1
                           : 0;
                       if (streamExtra == 1 && index == 0) {
-                        return _buildAssistantStreamingBubble(isDark);
+                        return _buildAssistantStreamingBubble();
                       }
                       final mi = index - streamExtra;
                       final m = _messages[mi];
@@ -536,10 +654,23 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       final otherPhoto =
                           m.user?.displayProfilePhotoUrl ??
                           widget.otherUserProfilePhotoUrl;
+                      final Color bubbleBg;
+                      final Color bubbleFg;
+                      if (widget.isAssistant) {
+                        bubbleBg = isMe
+                            ? Colors.grey.shade700
+                            : AppColors.primaryGreen.withValues(alpha: 0.9);
+                        bubbleFg = Colors.white;
+                      } else {
+                        bubbleBg = isMe
+                            ? AppColors.primaryGreen.withValues(alpha: 0.9)
+                            : Colors.grey.shade700;
+                        bubbleFg = Colors.white;
+                      }
                       return Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
+                          horizontal: 2,
+                          vertical: 6,
                         ),
                         child: Row(
                           mainAxisAlignment: isMe
@@ -548,11 +679,16 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             if (!isMe) ...[
-                              InitialsAvatar(
-                                name: m.user?.name ?? widget.otherUserName,
-                                size: 28,
-                                imageUrl: otherPhoto,
-                              ),
+                              widget.isAssistant
+                                  ? _buildAssistantLogoAvatar(
+                                      context,
+                                      _bubbleAvatarSize,
+                                    )
+                                  : InitialsAvatar(
+                                      name: m.user?.name ?? widget.otherUserName,
+                                      size: _bubbleAvatarSize,
+                                      imageUrl: otherPhoto,
+                                    ),
                               const SizedBox(width: 8),
                             ],
                             Flexible(
@@ -568,14 +704,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                 decoration: attachmentOnly
                                     ? null
                                     : BoxDecoration(
-                                        color: isMe
-                                            ? AppColors.primaryGreen.withValues(
-                                                alpha: 0.9,
-                                              )
-                                            : (isDark
-                                                  ? Colors.grey.shade700
-                                                  : Colors.grey.shade700),
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: bubbleBg,
+                                        borderRadius:
+                                            BorderRadius.circular(_bubbleRadius),
                                       ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,32 +729,30 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                     if (m.content.trim().isNotEmpty)
                                       Text(
                                         m.content,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
+                                        style: TextStyle(
+                                          color: bubbleFg,
+                                          fontSize: _chatFontSize,
                                         ),
                                       ),
                                   ],
                                 ),
                               ),
                             ),
-                            if (isMe) ...[
-                              const SizedBox(width: 8),
-                              InitialsAvatar(
-                                name: 'Me',
-                                size: 28,
-                                imageUrl: null,
-                              ),
-                            ],
                           ],
                         ),
                       );
                     },
                   ),
+            ),
           ),
-          if (widget.isAssistant)
+          if (widget.isAssistant) ...[
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: outline.withValues(alpha: 0.55),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: SingleChildScrollView(
@@ -636,6 +765,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           child: ActionChip(
                             label: Text(chip),
                             onPressed: _sending ? null : () => _applyChip(chip),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
                             backgroundColor: AppColors.primaryGreen.withValues(
                               alpha: 0.12,
                             ),
@@ -650,9 +782,18 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 ),
               ),
             ),
+          ],
+          Container(
+            height: 1,
+            width: double.infinity,
+            color: dividerColor,
+          ),
           SafeArea(
+            top: false,
+            left: false,
+            right: false,
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -679,12 +820,32 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      style: const TextStyle(fontSize: 17),
-                      decoration: const InputDecoration(
+                      style: const TextStyle(fontSize: 16),
+                      decoration: InputDecoration(
                         hintText: 'Type a message...',
-                        hintStyle: TextStyle(fontSize: 17),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
+                        hintStyle: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.75),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          borderSide: BorderSide(color: outline),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          borderSide: BorderSide(color: outline),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          borderSide: const BorderSide(
+                            color: AppColors.primaryGreen,
+                            width: 1.5,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 14,
                         ),
@@ -721,6 +882,8 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

@@ -46,11 +46,14 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME}
-      - BROADCAST_CONNECTION=log
+      - BROADCAST_CONNECTION=reverb
       - QUEUE_CONNECTION=database
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
+      - REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+      - REVERB_APP_SECRET=laravel_reverb_secret
+      - REVERB_APP_ID=1
     depends_on:
       database:
         condition: service_healthy

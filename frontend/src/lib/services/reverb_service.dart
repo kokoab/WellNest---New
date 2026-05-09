@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -19,6 +20,9 @@ class ReverbService {
   final Map<int, List<VoidCallback>> _notificationListeners = {};
   bool _initialized = false;
 
+  /// In-flight connect so parallel subscribers share one handshake.
+  Future<void>? _connectFuture;
+
   ReverbClient get _client {
     return ReverbClient.instance(
       host: AppConfig.reverbHost,
@@ -35,14 +39,54 @@ class ReverbService {
   ) async {
     final token = AuthService.instance.token;
     if (token == null || token.isEmpty) return {};
-    return {'Authorization': 'Bearer $token'};
+    return {
+      'Authorization': 'Bearer $token',
+      // Prefer JSON errors from Laravel (avoids HTML login pages / empty bodies breaking JSON decode).
+      'Accept': 'application/json',
+    };
   }
 
   /// Connect to Reverb (call once when user is logged in and you need live updates).
+  ///
+  /// [ReverbClient.connect] returns before `pusher:connection_established` runs, so
+  /// [socketId] may still be null. Private channel subscribe requires [socketId]; we wait
+  /// for [ConnectionState.connected] and a non-null socket id before returning.
   Future<void> connect() async {
-    if (_initialized) return;
     if (!AuthService.instance.isLoggedIn) return;
-    await _client.connect();
+    final client = _client;
+    if (_initialized && client.socketId != null) return;
+
+    _connectFuture ??= _connectUntilSocketReady();
+    try {
+      await _connectFuture;
+    } finally {
+      _connectFuture = null;
+    }
+  }
+
+  Future<void> _connectUntilSocketReady() async {
+    final client = _client;
+    if (_initialized && client.socketId != null) return;
+
+    final connected = client.onConnectionStateChange
+        .where(
+          (s) => s == ConnectionState.connected && client.socketId != null,
+        )
+        .first;
+
+    await client.connect();
+
+    if (client.socketId != null) {
+      _initialized = true;
+      return;
+    }
+
+    await connected.timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw TimeoutException(
+        'Reverb: timed out waiting for socket id (check REVERB_PORT / server)',
+      ),
+    );
     _initialized = true;
   }
 
