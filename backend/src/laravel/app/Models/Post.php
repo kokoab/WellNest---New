@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Post extends Model
 {
@@ -26,6 +27,13 @@ class Post extends Model
     public function recipe()
     {
         return $this->belongsTo(Recipe::class);
+    }
+
+    public function images(): MorphMany
+    {
+        return $this->morphMany(Image::class, 'imageable')
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 
     public function votes()

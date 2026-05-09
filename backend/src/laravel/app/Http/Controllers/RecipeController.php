@@ -77,8 +77,8 @@ class RecipeController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
         foreach ($data['data'] as $i => $recipeData) {
             $recipe = $recipes->getCollection()[$i];
-            $latestImage = $recipe->images()->latest('id')->first();
-            $data['data'][$i]['image_url'] = $latestImage ? $baseUrl . '/storage/' . $latestImage->path : null;
+            $cover = $recipe->images->first();
+            $data['data'][$i]['image_url'] = $cover ? $baseUrl . '/storage/' . $cover->path : null;
             $data['data'][$i]['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
             $data['data'][$i]['ratings_count'] = $recipe->ratings()->count();
             $data['data'][$i]['views_count'] = $recipe->views()->count();
@@ -153,8 +153,14 @@ class RecipeController extends Controller
 
         $data = $recipe->toArray();
         $baseUrl = rtrim(config('app.url'), '/');
-        $latestImage = $recipe->images()->latest('id')->first();
-        $data['image_url'] = $latestImage ? $baseUrl . '/storage/' . $latestImage->path : null;
+        $ordered = $recipe->images()->orderBy('sort_order')->orderBy('id')->get();
+        $cover = $ordered->first();
+        $data['image_url'] = $cover ? $baseUrl . '/storage/' . $cover->path : null;
+        $data['images'] = $ordered->map(fn (Image $img) => [
+            'id' => $img->id,
+            'sort_order' => (int) $img->sort_order,
+            'url' => $baseUrl . '/storage/' . $img->path,
+        ])->values()->all();
         $data['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
         $data['ratings_count'] = $recipe->ratings()->count();
         $data['views_count'] = $recipe->views()->count();
@@ -222,7 +228,7 @@ class RecipeController extends Controller
     }
 
     /**
-     * Upload an image for the recipe.
+     * Upload an image for the recipe (append, max 10). First by sort_order is the list thumbnail.
      */
     public function uploadImage(Request $request, Recipe $recipe): JsonResponse
     {
@@ -230,29 +236,80 @@ class RecipeController extends Controller
             return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
         }
 
+        if ($recipe->images()->count() >= 10) {
+            return response()->json(['message' => 'Maximum 10 images per recipe.'], 422);
+        }
+
         $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ]);
 
-        // Replace existing recipe image(s) so "change photo" really swaps the cover.
-        foreach ($recipe->images as $image) {
-            Storage::disk('public')->delete($image->path);
-            $image->delete();
-        }
-
         $file = $request->file('image');
         $path = $file->store('recipes', 'public');
 
-        $recipe->images()->create([
+        $nextOrder = (int) ($recipe->images()->max('sort_order') ?? -1) + 1;
+
+        $image = $recipe->images()->create([
             'path' => $path,
+            'sort_order' => $nextOrder,
         ]);
 
-        $image = $recipe->images()->latest()->first();
-        $imageUrl = rtrim(config('app.url'), '/') . '/storage/' . $image->path;
+        $baseUrl = rtrim(config('app.url'), '/');
+        $imageUrl = $baseUrl . '/storage/' . $image->path;
 
         return response()->json([
             'message' => 'Image uploaded successfully',
-            'image_url' => $imageUrl,
+            'image' => [
+                'id' => $image->id,
+                'sort_order' => (int) $image->sort_order,
+                'image_url' => str_replace('localhost:8000', 'localhost:8080', $imageUrl),
+            ],
         ], 201);
+    }
+
+    /** DELETE /api/recipes/{recipe}/images/{image} */
+    public function deleteImage(Request $request, Recipe $recipe, Image $image): JsonResponse
+    {
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+        }
+
+        if ($image->imageable_id !== $recipe->id || $image->imageable_type !== $recipe->getMorphClass()) {
+            return response()->json(['message' => 'Image not found'], 404);
+        }
+
+        Storage::disk('public')->delete($image->path);
+        $image->delete();
+
+        return response()->json(['message' => 'Image deleted'], 200);
+    }
+
+    /** PUT /api/recipes/{recipe}/images/reorder — body: { "image_ids": [3,1,2] } */
+    public function reorderImages(Request $request, Recipe $recipe): JsonResponse
+    {
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+        }
+
+        $validated = $request->validate([
+            'image_ids' => ['required', 'array', 'max:10'],
+            'image_ids.*' => ['integer', 'exists:images,id'],
+        ]);
+
+        $expected = $recipe->images()->pluck('id')->sort()->values()->all();
+        $got = collect($validated['image_ids'])->sort()->values()->all();
+        if ($expected !== $got || count($validated['image_ids']) !== count($expected)) {
+            return response()->json(['message' => 'image_ids must list each recipe image exactly once'], 422);
+        }
+
+        foreach ($validated['image_ids'] as $index => $id) {
+            Image::query()
+                ->where('id', $id)
+                ->where('imageable_id', $recipe->id)
+                ->where('imageable_type', $recipe->getMorphClass())
+                ->update(['sort_order' => $index]);
+        }
+
+        return response()->json(['message' => 'Order updated'], 200);
     }
 }

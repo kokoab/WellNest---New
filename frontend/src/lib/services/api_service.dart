@@ -37,7 +37,8 @@ class ApiService {
     throw Exception(err?['message'] as String? ?? 'Failed to create post');
   }
 
-  Future<void> uploadPostImage(int postId, XFile imageFile) async {
+  /// Upload one image; returns server-assigned id (for reorder/delete).
+  Future<int> uploadPostImage(int postId, XFile imageFile) async {
     final bytes = await imageFile.readAsBytes();
     final name = imageFile.name.isNotEmpty ? imageFile.name : 'image.jpg';
     final request = http.MultipartRequest(
@@ -75,6 +76,32 @@ class ApiService {
         message ?? 'Failed to upload image (HTTP ${response.statusCode})',
       );
     }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final img = data['image'] as Map<String, dynamic>?;
+    final id = img?['id'] as int?;
+    if (id != null) return id;
+    throw Exception('Invalid upload response');
+  }
+
+  Future<void> deletePostImage(int postId, int imageId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/posts/$postId/images/$imageId'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) return;
+    final err = jsonDecode(response.body) as Map<String, dynamic>?;
+    throw Exception(err?['message'] as String? ?? 'Failed to delete image');
+  }
+
+  Future<void> reorderPostImages(int postId, List<int> imageIds) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/posts/$postId/images/reorder'),
+      headers: _headers,
+      body: jsonEncode({'image_ids': imageIds}),
+    );
+    if (response.statusCode == 200) return;
+    final err = jsonDecode(response.body) as Map<String, dynamic>?;
+    throw Exception(err?['message'] as String? ?? 'Failed to reorder images');
   }
 
   Future<PostListResponse> fetchPostsPaginated({

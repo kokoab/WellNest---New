@@ -106,7 +106,7 @@ class RecipeService {
 
   /// POST /api/recipes/{id}/images — multipart image upload (auth required).
   /// Uses bytes so it works on web (XFile path is blob URL there).
-  Future<void> uploadRecipeImage(int recipeId, XFile imageFile) async {
+  Future<int> uploadRecipeImage(int recipeId, XFile imageFile) async {
     final bytes = await imageFile.readAsBytes();
     final name = imageFile.name.isNotEmpty ? imageFile.name : 'image.jpg';
     final request = http.MultipartRequest(
@@ -122,7 +122,32 @@ class RecipeService {
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
-    if (response.statusCode == 201) return;
+    if (response.statusCode == 201) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final img = data['image'] as Map<String, dynamic>?;
+      final id = img?['id'] as int?;
+      if (id != null) return id;
+      throw Exception('Invalid upload response');
+    }
+    _throwFromResponse(response);
+  }
+
+  Future<void> deleteRecipeImage(int recipeId, int imageId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/recipes/$recipeId/images/$imageId'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) return;
+    _throwFromResponse(response);
+  }
+
+  Future<void> reorderRecipeImages(int recipeId, List<int> imageIds) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/recipes/$recipeId/images/reorder'),
+      headers: _headers,
+      body: jsonEncode({'image_ids': imageIds}),
+    );
+    if (response.statusCode == 200) return;
     _throwFromResponse(response);
   }
 

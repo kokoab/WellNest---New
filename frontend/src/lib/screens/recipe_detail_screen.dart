@@ -37,6 +37,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   int? _pendingStars;
   bool _submittingRating = false;
   final TextEditingController _reviewController = TextEditingController();
+  final PageController _galleryPageController = PageController();
+  int _galleryIndex = 0;
   int? _currentUserId;
   bool get _isOwner =>
       _recipe != null &&
@@ -45,6 +47,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   void dispose() {
+    _galleryPageController.dispose();
     _reviewController.dispose();
     super.dispose();
   }
@@ -102,6 +105,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
       if (!mounted) return;
       setState(() {
+        _galleryIndex = 0;
         _recipe = recipe;
         _ratings = results[0] as RecipeRatingsResponse?;
         _userRating = results[1] as RecipeRating?;
@@ -561,21 +565,74 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildRecipeImage() {
     const double imageHeight = 240;
-    if (_recipe!.displayImageUrl != null &&
-        _recipe!.displayImageUrl!.isNotEmpty) {
+    final urls = _recipe!.galleryDisplayUrls;
+    if (urls.isEmpty) {
+      return _buildImagePlaceholder(imageHeight);
+    }
+    if (urls.length == 1) {
       return Container(
         height: imageHeight,
         width: double.infinity,
         color: AppColors.imagePlaceholderGreen,
         child: Image.network(
-          _recipe!.displayImageUrl!,
+          urls.first,
           fit: BoxFit.cover,
           alignment: Alignment.center,
           errorBuilder: (_, __, ___) => _buildImagePlaceholder(imageHeight),
         ),
       );
     }
-    return _buildImagePlaceholder(imageHeight);
+    return SizedBox(
+      height: imageHeight,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _galleryPageController,
+            itemCount: urls.length,
+            onPageChanged: (i) => setState(() => _galleryIndex = i),
+            itemBuilder: (context, i) {
+              return Image.network(
+                urls[i],
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) =>
+                    _buildImagePlaceholder(imageHeight),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 10,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_galleryIndex + 1} / ${urls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildImagePlaceholder(double height) {

@@ -5,6 +5,7 @@ import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
+import 'package:my_app/widgets/post_photo_collage.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
@@ -36,7 +37,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void initState() {
     super.initState();
     _post = widget.post;
+    _refreshPost();
     _loadComments();
+  }
+
+  Future<void> _refreshPost() async {
+    try {
+      final fresh = await PostService.instance.fetchPost(widget.post.id);
+      if (mounted) setState(() => _post = fresh);
+    } catch (_) {
+      // Keep navigation payload if offline / error.
+    }
   }
 
   @override
@@ -261,28 +272,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ),
                           ),
                         ),
-                        if (_post.displayImageUrl != null &&
-                            _post.displayImageUrl!.isNotEmpty) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              _post.displayImageUrl!,
-                              height: 240,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.center,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    color: AppColors.imagePlaceholderGreen,
-                                    height: 240,
-                                    child: Icon(
-                                      Icons.restaurant_menu,
-                                      size: 64,
-                                      color: wellGreen,
-                                    ),
-                                  ),
-                            ),
-                          ),
+                        if (_post.galleryDisplayUrls.isNotEmpty) ...[
+                          PostPhotoCollage(urls: _post.galleryDisplayUrls),
                           const SizedBox(height: AppSpacing.md),
                         ],
                         // Action bar

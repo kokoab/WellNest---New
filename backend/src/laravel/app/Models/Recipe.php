@@ -50,7 +50,9 @@ class Recipe extends Model
     }
     public function images()
     {
-        return $this->morphMany(Image::class, 'imageable');
+        return $this->morphMany(Image::class, 'imageable')
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
     public function votes()
     {

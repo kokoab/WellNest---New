@@ -1111,9 +1111,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
   static const int _maxImageBytes = 5 * 1024 * 1024; // Backend limit (5MB)
+  static const int _kMaxPostImages = 10;
 
   final TextEditingController _controller = TextEditingController();
-  XFile? _selectedImage;
+  final List<XFile> _pickedImages = [];
   Recipe? _selectedRecipe;
   bool _posting = false;
 
@@ -1159,15 +1160,17 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
+    final remain = _kMaxPostImages - _pickedImages.length;
+    if (remain <= 0) return;
     final picker = ImagePicker();
-    final x = await picker.pickImage(
-      source: ImageSource.gallery,
+    final list = await picker.pickMultiImage(
       imageQuality: 85,
       maxWidth: 1920,
       maxHeight: 1920,
     );
-    if (x != null && mounted) setState(() => _selectedImage = x);
+    if (!mounted) return;
+    setState(() => _pickedImages.addAll(list.take(remain)));
   }
 
   Future<void> _submit() async {
@@ -1176,10 +1179,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     if (_posting) return;
     setState(() => _posting = true);
     try {
-      if (_selectedImage != null) {
-        final length = await _selectedImage!.length();
+      for (final f in _pickedImages) {
+        final length = await f.length();
         if (length > _maxImageBytes) {
-          throw Exception('Image is too large. Please choose one under 5MB.');
+          throw Exception('Each image must be under 5MB.');
         }
       }
 
@@ -1187,8 +1190,12 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
         content: content,
         recipeId: _selectedRecipe?.id,
       );
-      if (_selectedImage != null) {
-        await widget.apiService.uploadPostImage(post.id, _selectedImage!);
+      final ids = <int>[];
+      for (final f in _pickedImages) {
+        ids.add(await widget.apiService.uploadPostImage(post.id, f));
+      }
+      if (ids.length > 1) {
+        await widget.apiService.reorderPostImages(post.id, ids);
       }
       if (!mounted) return;
       Navigator.pop(context);
@@ -1213,48 +1220,49 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Create Post',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: wellGreen,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Create Post',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: wellGreen,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _posting ? null : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: nestOrange),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _controller,
+                maxLines: 4,
+                autofocus: true,
+                enabled: !_posting,
+                decoration: InputDecoration(
+                  hintText: "What's on your mind?",
+                  hintStyle: TextStyle(
+                    color: wellGreen.withOpacity(0.5),
+                    fontSize: 17,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-                IconButton(
-                  onPressed: _posting ? null : () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: nestOrange),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _controller,
-              maxLines: 4,
-              autofocus: true,
-              enabled: !_posting,
-              decoration: InputDecoration(
-                hintText: "What's on your mind?",
-                hintStyle: TextStyle(
-                  color: wellGreen.withOpacity(0.5),
-                  fontSize: 17,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
               ),
-            ),
-            if (_selectedRecipe != null) ...[
+              if (_selectedRecipe != null) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1298,50 +1306,76 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
               ),
             ],
-            if (_selectedImage != null) ...[
+              if (_pickedImages.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ReorderableListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex--;
+                      final x = _pickedImages.removeAt(oldIndex);
+                      _pickedImages.insert(newIndex, x);
+                    });
+                  },
+                  children: [
+                    for (var i = 0; i < _pickedImages.length; i++)
+                      ReorderableDelayedDragStartListener(
+                        key: ValueKey('${_pickedImages[i].path}_$i'),
+                        index: i,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: _buildImagePreview(_pickedImages[i]),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  onPressed: _posting
+                                      ? null
+                                      : () => setState(
+                                            () => _pickedImages.removeAt(i),
+                                          ),
+                                  icon: const Icon(Icons.close, color: Colors.white),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.black54,
+                                    padding: const EdgeInsets.all(4),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
-              Stack(
-                clipBehavior: Clip.none,
+              Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: _buildImagePreview(_selectedImage!),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      onPressed: _posting
-                          ? null
-                          : () => setState(() => _selectedImage = null),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                        padding: const EdgeInsets.all(4),
+                  TextButton.icon(
+                    onPressed: (_posting || _pickedImages.length >= _kMaxPostImages)
+                        ? null
+                        : _pickImages,
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      color: nestOrange,
+                      size: 24,
+                    ),
+                    label: const Text(
+                      'Add photos',
+                      style: TextStyle(
+                        color: nestOrange,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _posting ? null : _pickImage,
-                  icon: const Icon(
-                    Icons.photo_library_outlined,
-                    color: nestOrange,
-                    size: 24,
-                  ),
-                  label: const Text(
-                    'Add Photo',
-                    style: TextStyle(
-                      color: nestOrange,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
                 if (AuthService.instance.isLoggedIn)
                   TextButton.icon(
                     onPressed: _posting ? null : _pickRecipeFromSaved,
@@ -1390,6 +1424,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                     ),
             ),
           ],
+        ),
         ),
       ),
     );

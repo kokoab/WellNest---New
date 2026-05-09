@@ -1,5 +1,28 @@
 import '../utils/media_url.dart';
 
+/// One recipe photo from the API (ordered gallery).
+class RecipeImageRef {
+  final int id;
+  final int sortOrder;
+  final String url;
+
+  RecipeImageRef({
+    required this.id,
+    required this.sortOrder,
+    required this.url,
+  });
+
+  factory RecipeImageRef.fromJson(Map<String, dynamic> json) {
+    return RecipeImageRef(
+      id: json['id'] as int,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      url: json['url'] as String? ?? json['image_url'] as String? ?? '',
+    );
+  }
+
+  String? get displayUrl => resolveStorageDisplayUrl(url.isEmpty ? null : url);
+}
+
 /// Recipe model matching backend API (with category, user, ingredients, image).
 class Recipe {
   final int id;
@@ -15,6 +38,7 @@ class Recipe {
   final UserInfo? user;
   final List<RecipeIngredientInfo>? ingredients;
   final String? imageUrl;
+  final List<RecipeImageRef> galleryImages;
   final double? averageRating;
   final int? ratingsCount;
   final int? viewsCount;
@@ -33,6 +57,7 @@ class Recipe {
     this.user,
     this.ingredients,
     this.imageUrl,
+    this.galleryImages = const [],
     this.averageRating,
     this.ratingsCount,
     this.viewsCount,
@@ -69,6 +94,14 @@ class Recipe {
         );
       }).toList();
     }
+    List<RecipeImageRef> gallery = const [];
+    final rawImgs = json['images'] as List<dynamic>?;
+    if (rawImgs != null && rawImgs.isNotEmpty) {
+      gallery = rawImgs
+          .map((e) => RecipeImageRef.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
     return Recipe(
       id: json['id'] as int,
       userId: json['user_id'] as int?,
@@ -83,6 +116,7 @@ class Recipe {
       user: u,
       ingredients: ingredients,
       imageUrl: json['image_url'] as String?,
+      galleryImages: gallery,
       averageRating: (json['average_rating'] as num?)?.toDouble(),
       ratingsCount: json['ratings_count'] as int?,
       viewsCount: (json['views_count'] as num?)?.toInt(),
@@ -104,6 +138,20 @@ class Recipe {
 
   /// Image URL for display. Uses frontend base URL to fix Docker internal host issues.
   String? get displayImageUrl => resolveStorageDisplayUrl(imageUrl);
+
+  /// Ordered gallery URLs for detail screens (falls back to single [imageUrl]).
+  List<String> get galleryDisplayUrls {
+    if (galleryImages.isNotEmpty) {
+      return galleryImages
+          .map((e) => e.displayUrl)
+          .whereType<String>()
+          .where((u) => u.isNotEmpty)
+          .toList();
+    }
+    final u = displayImageUrl;
+    if (u != null && u.isNotEmpty) return [u];
+    return [];
+  }
 }
 
 class CategoryInfo {

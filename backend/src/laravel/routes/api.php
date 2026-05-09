@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\VoteController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\AuthController;
-use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoryController;
@@ -42,20 +41,7 @@ Route::get('/hello', function () {
 
 // Public: feed posts (no auth required)
 Route::get('posts', [PostController::class, 'index']);
-Route::get('posts/{post}', function (Post $post) {
-    $post->load('user:id,first_name,last_name,profile_photo_url');
-    return response()->json([
-        'id' => $post->id,
-        'content' => $post->content,
-        'image_url' => $post->image_url ?? '',
-        'recipe_id' => $post->recipe_id,
-        'created_at' => $post->created_at?->toIso8601String(),
-        'user' => [
-            'name' => $post->user->name ?? '',
-            'profile_photo_url' => $post->user->profile_photo_url ?? null,
-        ],
-    ]);
-});
+Route::get('posts/{post}', [PostController::class, 'show']);
 
 // Public: list comments for a post (no auth required)
 Route::get('posts/{post}/comments', [PostCommentController::class, 'index']);
@@ -82,6 +68,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::put('recipes/{recipe}', [RecipeController::class, 'update']);
     Route::delete('recipes/{recipe}', [RecipeController::class, 'delete']);
     Route::post('recipes/{recipe}/images', [RecipeController::class, 'uploadImage']);
+    Route::delete('recipes/{recipe}/images/{image}', [RecipeController::class, 'deleteImage']);
+    Route::put('recipes/{recipe}/images/reorder', [RecipeController::class, 'reorderImages']);
     Route::post('recipes/{recipe}/like', [VoteController::class, 'likeRecipe']);
     Route::delete('recipes/{recipe}/like', [VoteController::class, 'unlikeRecipe']);
     Route::post('recipes/{recipe}/report', [ReportController::class, 'reportRecipe']);
@@ -90,6 +78,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
 
     Route::post('posts', [PostController::class, 'store']);
     Route::post('posts/{post}/images', [PostController::class, 'uploadImage']);
+    Route::delete('posts/{post}/images/{image}', [PostController::class, 'deleteImage']);
+    Route::put('posts/{post}/images/reorder', [PostController::class, 'reorderImages']);
     Route::get('posts/{post}/likes', [VoteController::class, 'getPostLikes']); // ← new
     Route::post('posts/{post}/like', [VoteController::class, 'likePost']);
     Route::delete('posts/{post}/like', [VoteController::class, 'unlikePost']);

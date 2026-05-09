@@ -17,11 +17,13 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
+  static const int _kMaxPostImages = 10;
+
   final ApiService _apiService = ApiService();
   final TextEditingController _controller = TextEditingController();
   CurrentUser? _currentUser;
   Recipe? _selectedRecipe;
-  XFile? _selectedImage;
+  final List<XFile> _pickedImages = [];
   bool _loadingUser = true;
   bool _posting = false;
 
@@ -51,17 +53,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
+    final remain = _kMaxPostImages - _pickedImages.length;
+    if (remain <= 0) return;
     final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
+    final images = await picker.pickMultiImage(
       imageQuality: 85,
       maxWidth: 1920,
       maxHeight: 1920,
     );
-    if (image != null && mounted) {
-      setState(() => _selectedImage = image);
-    }
+    if (!mounted) return;
+    setState(() {
+      _pickedImages.addAll(images.take(remain));
+    });
   }
 
   Future<void> _pickRecipeFromSaved() async {
@@ -124,8 +128,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         content: content,
         recipeId: _selectedRecipe?.id,
       );
-      if (_selectedImage != null) {
-        await _apiService.uploadPostImage(post.id, _selectedImage!);
+      final ids = <int>[];
+      for (final file in _pickedImages) {
+        ids.add(await _apiService.uploadPostImage(post.id, file));
+      }
+      if (ids.length > 1) {
+        await _apiService.reorderPostImages(post.id, ids);
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -198,9 +206,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: _posting ? null : _pickImage,
+                    onPressed: (_posting || _pickedImages.length >= _kMaxPostImages)
+                        ? null
+                        : _pickImages,
                     icon: const Icon(Icons.add_a_photo_outlined),
-                    label: const Text('Add photo'),
+                    label: const Text('Add photos'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _posting ? null : _pickRecipeFromSaved,
@@ -209,32 +219,83 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ],
               ),
-              if (_selectedImage != null) ...[
+              if (_pickedImages.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.file(
-                    File(_selectedImage!.path),
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 180,
-                      color: const Color(0xFFEFF3EF),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.image_rounded),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: _posting
-                        ? null
-                        : () => setState(() => _selectedImage = null),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text('Remove photo'),
-                  ),
+                ReorderableListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex--;
+                      final item = _pickedImages.removeAt(oldIndex);
+                      _pickedImages.insert(newIndex, item);
+                    });
+                  },
+                  children: [
+                    for (var i = 0; i < _pickedImages.length; i++)
+                      ReorderableDelayedDragStartListener(
+                        key: ValueKey(_pickedImages[i].path + '_$i'),
+                        index: i,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.file(
+                                  File(_pickedImages[i].path),
+                                  height: 140,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 140,
+                                    color: const Color(0xFFEFF3EF),
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.image_rounded),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black54,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.close, size: 20),
+                                onPressed: _posting
+                                    ? null
+                                    : () => setState(
+                                          () => _pickedImages.removeAt(i),
+                                        ),
+                              ),
+                              if (i == 0)
+                                Positioned(
+                                  left: 10,
+                                  bottom: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'Cover',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
               if (_selectedRecipe != null) ...[

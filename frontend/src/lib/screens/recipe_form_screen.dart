@@ -55,9 +55,14 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   bool _saving = false;
   String? _submitError;
   String? _loadError;
-  XFile? _pickedImage;
   bool _pickingImage = false;
+  bool _hydratingImages = false;
   final ImagePicker _picker = ImagePicker();
+
+  static const int _kMaxRecipeImages = 10;
+
+  /// Ordered slots: existing server image or new local file (first = list thumbnail).
+  final List<_RecipeImgSlot> _imageSlots = [];
 
   bool get _isEditing => widget.recipe != null;
 
@@ -81,6 +86,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       _ingredients.add({'name': '', 'quantity': '1', 'unit': ''});
     }
     _loadCategories();
+    if (_isEditing && widget.recipe != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateRecipeImages());
+    }
   }
 
   @override
@@ -131,25 +139,82 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     return null;
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _hydrateRecipeImages() async {
+    if (!_isEditing || widget.recipe == null) return;
+    setState(() => _hydratingImages = true);
+    try {
+      final full = await RecipeService.instance.fetchRecipe(widget.recipe!.id);
+      if (!mounted) return;
+      setState(() {
+        _imageSlots.clear();
+        for (final img in full.galleryImages) {
+          _imageSlots.add(
+            _RecipeImgSlot.network(serverId: img.id, url: img.url),
+          );
+        }
+        _hydratingImages = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _hydratingImages = false);
+    }
+  }
+
+  Future<void> _pickImages() async {
     if (_pickingImage) return;
+    final remain = _kMaxRecipeImages - _imageSlots.length;
+    if (remain <= 0) return;
     setState(() => _pickingImage = true);
     try {
-      final XFile? picked = await _picker.pickImage(
-        source: ImageSource.gallery,
+      final picked = await _picker.pickMultiImage(
         maxWidth: 1920,
         imageQuality: 85,
       );
-      if (picked != null && mounted) setState(() => _pickedImage = picked);
+      if (!mounted) return;
+      setState(() {
+        for (final f in picked.take(remain)) {
+          _imageSlots.add(_RecipeImgSlot.local(f));
+        }
+      });
     } catch (e) {
       if (mounted && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not pick image: $e'), backgroundColor: Theme.of(context).colorScheme.secondary),
+          SnackBar(
+            content: Text('Could not pick images: $e'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _pickingImage = false);
     }
+  }
+
+  Future<void> _removeImageSlot(int index) async {
+    final slot = _imageSlots[index];
+    if (slot.serverId != null && _isEditing && widget.recipe != null) {
+      try {
+        await RecipeService.instance.deleteRecipeImage(
+          widget.recipe!.id,
+          slot.serverId!,
+        );
+      } catch (e) {
+        if (mounted && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e')),
+          );
+        }
+        return;
+      }
+    }
+    setState(() => _imageSlots.removeAt(index));
+  }
+
+  void _onReorderImages(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final item = _imageSlots.removeAt(oldIndex);
+      _imageSlots.insert(newIndex, item);
+    });
   }
 
   Future<void> _submit() async {
@@ -174,16 +239,27 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     setState(() => _saving = true);
     try {
       if (_isEditing) {
+        final rid = widget.recipe!.id;
         await RecipeService.instance.updateRecipe(
-          widget.recipe!.id,
+          rid,
           categoryId: _selectedCategoryId!,
           title: title,
           instructions: instructions,
           prepTime: prepTime,
           ingredients: ingredients,
         );
-        if (_pickedImage != null) {
-          await RecipeService.instance.uploadRecipeImage(widget.recipe!.id, _pickedImage!);
+        final ids = <int>[];
+        for (final slot in _imageSlots) {
+          if (slot.serverId != null) {
+            ids.add(slot.serverId!);
+          } else if (slot.file != null) {
+            final nid =
+                await RecipeService.instance.uploadRecipeImage(rid, slot.file!);
+            ids.add(nid);
+          }
+        }
+        if (ids.isNotEmpty) {
+          await RecipeService.instance.reorderRecipeImages(rid, ids);
         }
       } else {
         final recipeId = await RecipeService.instance.createRecipe(
@@ -193,8 +269,18 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           prepTime: prepTime,
           ingredients: ingredients,
         );
-        if (_pickedImage != null) {
-          await RecipeService.instance.uploadRecipeImage(recipeId, _pickedImage!);
+        final ids = <int>[];
+        for (final slot in _imageSlots) {
+          if (slot.file != null) {
+            final nid = await RecipeService.instance.uploadRecipeImage(
+              recipeId,
+              slot.file!,
+            );
+            ids.add(nid);
+          }
+        }
+        if (ids.length > 1) {
+          await RecipeService.instance.reorderRecipeImages(recipeId, ids);
         }
       }
       if (!mounted || !context.mounted) return;
@@ -294,59 +380,132 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recipe photo',
+          'Photos (first is the thumbnail — drag to reorder, max $_kMaxRecipeImages)',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
         ),
         const SizedBox(height: 8),
-        if (_pickedImage != null) ...[
-          FutureBuilder<dynamic>(
-            future: _pickedImage!.readAsBytes(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData && snapshot.data != null) {
-                return Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadii.sm),
-                      child: Image.memory(
-                        snapshot.data! as Uint8List,
-                        height: 160,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                      ),
-                      onPressed: () => setState(() => _pickedImage = null),
-                    ),
-                  ],
-                );
-              }
-              return SizedBox(
-                height: 160,
-                child: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
-              );
-            },
+        if (_hydratingImages)
+          SizedBox(
+            height: 48,
+            child: Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
+            ),
+          )
+        else if (_imageSlots.isNotEmpty) ...[
+          ReorderableListView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            onReorder: _onReorderImages,
+            children: [
+              for (var i = 0; i < _imageSlots.length; i++)
+                _buildRecipeImageTile(i, colorScheme),
+            ],
           ),
           const SizedBox(height: 8),
         ],
         OutlinedButton.icon(
-          onPressed: _pickingImage ? null : _pickImage,
+          onPressed: (_pickingImage ||
+                  _imageSlots.length >= _kMaxRecipeImages ||
+                  _hydratingImages)
+              ? null
+              : _pickImages,
           icon: _pickingImage
               ? SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: colorScheme.primary,
+                    strokeWidth: 2,
+                  ),
                 )
               : const Icon(Icons.add_photo_alternate_outlined),
-          label: Text(_pickedImage == null ? 'Add photo' : 'Change photo'),
+          label: Text(
+            _imageSlots.isEmpty ? 'Add photos' : 'Add more photos',
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRecipeImageTile(int index, ColorScheme colorScheme) {
+    final slot = _imageSlots[index];
+    final child = Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      height: 120,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (slot.file != null)
+            FutureBuilder<Uint8List>(
+              future: slot.file!.readAsBytes(),
+              builder: (context, snap) {
+                if (snap.hasData) {
+                  return Image.memory(
+                    snap.data!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  );
+                }
+                return Container(color: colorScheme.surfaceContainerHighest);
+              },
+            )
+          else if (slot.url != null)
+            Image.network(
+              slot.url!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: colorScheme.surfaceContainerHighest,
+                alignment: Alignment.center,
+                child: const Icon(Icons.broken_image_outlined),
+              ),
+            ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black54,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.close, size: 20),
+              onPressed: _saving ? null : () => _removeImageSlot(index),
+            ),
+          ),
+          if (index == 0)
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Cover',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(
+        '${slot.serverId ?? 'n'}_${slot.file?.path ?? ''}_${slot.url ?? ''}_$index',
+      ),
+      index: index,
+      child: child,
     );
   }
 
@@ -534,4 +693,14 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             ),
     );
   }
+}
+
+class _RecipeImgSlot {
+  _RecipeImgSlot.network({required this.serverId, required this.url}) : file = null;
+
+  _RecipeImgSlot.local(this.file) : serverId = null, url = null;
+
+  final int? serverId;
+  final XFile? file;
+  final String? url;
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
+import '../models/post.dart';
 import '../utils/media_url.dart';
 import 'auth_service.dart';
 
@@ -66,6 +67,19 @@ class PostService {
     'Accept': 'application/json',
     ...AuthService.instance.authHeaders,
   };
+
+  /// GET /api/posts/{id} — includes gallery `images` when present.
+  Future<Post> fetchPost(int id) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/posts/$id'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return Post.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>?;
+    throw Exception(err?['message'] as String? ?? 'Failed to load post');
+  }
 
   Future<PostCommentsResponse> fetchCommentsPaginated(
     int postId, {
