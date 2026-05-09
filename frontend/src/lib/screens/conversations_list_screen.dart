@@ -174,6 +174,14 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     }
   }
 
+  /// Matches `UserDashboard._recipeSearchOutline` — single outline on the field only.
+  OutlineInputBorder _messagesSearchOutline(BuildContext context) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(24),
+      borderSide: BorderSide(color: wellnestOutlineColor(context), width: 1),
+    );
+  }
+
   Future<void> _startChatWith(UserSearchResult user) async {
     _searchController.clear();
     setState(() => _searchResults = []);
@@ -211,6 +219,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundCream,
       appBar: AppBar(
         title: Text(
           'Messages',
@@ -218,13 +227,16 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             color: colorScheme.onSurface,
           ),
         ),
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: AppColors.backgroundCream,
         foregroundColor: colorScheme.onSurface,
         iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
         centerTitle: false,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -236,21 +248,41 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
+              style: textTheme.bodyLarge,
               decoration: InputDecoration(
                 hintText: 'Search users to message...',
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: TextStyle(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.55),
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: AppColors.primaryGreen.withValues(alpha: 0.75),
+                  size: 22,
+                ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: Icon(
+                          Icons.clear,
+                          color: Colors.grey.shade600,
+                          size: 20,
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchResults = []);
                         },
                       )
                     : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: _messagesSearchOutline(context),
+                enabledBorder: _messagesSearchOutline(context),
+                focusedBorder: _messagesSearchOutline(context),
+                disabledBorder: _messagesSearchOutline(context),
+                errorBorder: _messagesSearchOutline(context),
+                focusedErrorBorder: _messagesSearchOutline(context),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
                 ),
               ),
             ),
