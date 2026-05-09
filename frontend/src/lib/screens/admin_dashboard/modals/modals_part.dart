@@ -177,134 +177,235 @@ class _ModalEmpty extends StatelessWidget {
 }
 
 // ─── Posts Modal Content ──────────────────────────────────────────────────────
-class _PostsModalContent extends StatelessWidget {
-  final List<Post> posts;
-  const _PostsModalContent({required this.posts});
+class _PostsModalContent extends StatefulWidget {
+  final int userId;
+  const _PostsModalContent({required this.userId});
+
+  @override
+  State<_PostsModalContent> createState() => _PostsModalContentState();
+}
+
+class _PostsModalContentState extends State<_PostsModalContent> {
+  static const int _perPage = 10;
+  final List<Post> _posts = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _page = 1;
+      _hasMore = true;
+    });
+    try {
+      final response = await ApiService().fetchPostsPaginated(
+        userId: widget.userId,
+        page: 1,
+        perPage: _perPage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _posts
+          ..clear()
+          ..addAll(response.posts);
+        _page = response.currentPage;
+        _hasMore = response.currentPage < response.lastPage;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final response = await ApiService().fetchPostsPaginated(
+        userId: widget.userId,
+        page: _page + 1,
+        perPage: _perPage,
+      );
+      if (!mounted) return;
+      final existing = _posts.map((p) => p.id).toSet();
+      final incoming = response.posts
+          .where((p) => !existing.contains(p.id))
+          .toList();
+      setState(() {
+        _posts.addAll(incoming);
+        _page = response.currentPage;
+        _hasMore = response.currentPage < response.lastPage;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    if (_loading) return const _ModalLoading();
+    if (_error != null) return _ModalError(message: _error!);
+    if (_posts.isEmpty) {
+      return const _ModalEmpty(
+        message: 'This user has not created any posts yet.',
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: List.generate(posts.length, (i) {
-        final post = posts[i];
-        final cardBg = isDark
-            ? const Color(0xFF252525)
-            : const Color(0xFFF9F9F9);
-        final borderColor = isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : Colors.black.withValues(alpha: 0.06);
-        return Padding(
-          padding: EdgeInsets.only(bottom: i == posts.length - 1 ? 0 : 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor, width: 0.5),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post.content.isEmpty ? 'No text content' : post.content,
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.onSurface,
-                    height: 1.5,
+      children: [
+        ...List.generate(_posts.length, (i) {
+          final post = _posts[i];
+          final cardBg = isDark
+              ? const Color(0xFF252525)
+              : const Color(0xFFF9F9F9);
+          final borderColor = isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.06);
+          return Padding(
+            padding: EdgeInsets.only(bottom: i == _posts.length - 1 ? 0 : 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor, width: 0.5),
+              ),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post.content.isEmpty ? 'No text content' : post.content,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurface,
+                      height: 1.5,
+                    ),
                   ),
-                ),
-                if (post.displayImageUrl != null) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      post.displayImageUrl!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: 160,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.04)
-                              : Colors.black.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Image unavailable',
-                              style: TextStyle(
-                                fontSize: 11,
+                  if (post.displayImageUrl != null) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        post.displayImageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 160,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.04)
+                                : Colors.black.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image_outlined,
+                                size: 16,
                                 color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.5),
+                                    .withValues(alpha: 0.4),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                'Image unavailable',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${post.commentsCount}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.favorite_border_rounded,
-                      size: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${post.likesCount}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      post.createdAt != null
-                          ? post.createdAt!.split('T').first
-                          : 'Unknown',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${post.commentsCount}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.favorite_border_rounded,
+                        size: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${post.likesCount}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        post.createdAt != null
+                            ? post.createdAt!.split('T').first
+                            : 'Unknown',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        if (_hasMore) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: OutlinedButton.icon(
+              onPressed: _loadingMore ? null : _loadMore,
+              icon: _loadingMore
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.expand_more_rounded),
+              label: Text(_loadingMore ? 'Loading…' : 'Load more posts'),
             ),
           ),
-        );
-      }),
+        ],
+      ],
     );
   }
 }
@@ -318,7 +419,7 @@ class _CommentsModalContent extends StatefulWidget {
 }
 
 class _CommentsModalContentState extends State<_CommentsModalContent> {
-  final Map<int, Future<List<PostComment>>> _commentFutures = {};
+  final Map<int, Future<PostCommentsResponse>> _commentFutures = {};
   int? _expandedPostId;
 
   @override
@@ -326,14 +427,18 @@ class _CommentsModalContentState extends State<_CommentsModalContent> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return FutureBuilder<List<Post>>(
-      future: ApiService().fetchPosts(userId: widget.user.id),
+    return FutureBuilder<PostListResponse>(
+      future: ApiService().fetchPostsPaginated(
+        userId: widget.user.id,
+        page: 1,
+        perPage: 20,
+      ),
       builder: (ctx, snapshot) {
         if (snapshot.connectionState != ConnectionState.done)
           return const _ModalLoading();
         if (snapshot.hasError)
           return _ModalError(message: snapshot.error.toString());
-        final posts = snapshot.data ?? [];
+        final posts = snapshot.data?.posts ?? [];
         if (posts.isEmpty)
           return const _ModalEmpty(
             message: 'This user has no posts to show comments for.',
@@ -370,7 +475,11 @@ class _CommentsModalContentState extends State<_CommentsModalContent> {
                         } else {
                           _expandedPostId = post.id;
                           _commentFutures[post.id] ??= PostService.instance
-                              .fetchComments(post.id);
+                              .fetchCommentsPaginated(
+                                post.id,
+                                page: 1,
+                                perPage: 20,
+                              );
                         }
                       }),
                       borderRadius: isExpanded
@@ -432,7 +541,7 @@ class _CommentsModalContentState extends State<_CommentsModalContent> {
                     // Expanded comments
                     if (isExpanded) ...[
                       Divider(height: 0.5, color: borderColor),
-                      FutureBuilder<List<PostComment>>(
+                      FutureBuilder<PostCommentsResponse>(
                         future: _commentFutures[post.id],
                         builder: (ctx, cs) {
                           if (cs.connectionState != ConnectionState.done)
@@ -456,7 +565,7 @@ class _CommentsModalContentState extends State<_CommentsModalContent> {
                                 ),
                               ),
                             );
-                          final comments = cs.data ?? [];
+                          final comments = cs.data?.comments ?? [];
                           if (comments.isEmpty)
                             return const Padding(
                               padding: EdgeInsets.all(20),
@@ -538,8 +647,12 @@ class _CommentsModalContentState extends State<_CommentsModalContent> {
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             height: 100,
-                                            errorBuilder: (_, __, ___) =>
-                                                Container(
+                                            errorBuilder:
+                                                (
+                                                  context,
+                                                  error,
+                                                  stackTrace,
+                                                ) => Container(
                                                   height: 40,
                                                   color: isDark
                                                       ? Colors.white.withValues(
@@ -593,55 +706,127 @@ class _RecipesModalContent extends StatefulWidget {
 
 class _RecipesModalContentState extends State<_RecipesModalContent> {
   bool _cardView = true; // toggle: card vs list
+  final List<Recipe> _recipes = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _page = 1;
+      _hasMore = true;
+    });
+    try {
+      final response = await RecipeService.instance.fetchRecipes(
+        userId: widget.userId,
+        page: 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _recipes
+          ..clear()
+          ..addAll(response.recipes);
+        _page = response.currentPage;
+        _hasMore = response.currentPage < response.lastPage;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final response = await RecipeService.instance.fetchRecipes(
+        userId: widget.userId,
+        page: _page + 1,
+      );
+      if (!mounted) return;
+      final existing = _recipes.map((r) => r.id).toSet();
+      final incoming = response.recipes
+          .where((r) => !existing.contains(r.id))
+          .toList();
+      setState(() {
+        _recipes.addAll(incoming);
+        _page = response.currentPage;
+        _hasMore = response.currentPage < response.lastPage;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    if (_loading) return const _ModalLoading();
+    if (_error != null) return _ModalError(message: _error!);
+    if (_recipes.isEmpty) {
+      return const _ModalEmpty(
+        message: 'This user has not created any recipes yet.',
+      );
+    }
 
-    return FutureBuilder<List<Recipe>>(
-      future: RecipeService.instance.fetchRecipes(userId: widget.userId).then((res) => res.recipes),
-      builder: (ctx, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done)
-          return const _ModalLoading();
-        if (snapshot.hasError)
-          return _ModalError(message: snapshot.error.toString());
-        final recipes = snapshot.data ?? [];
-        if (recipes.isEmpty)
-          return const _ModalEmpty(
-            message: 'This user has not created any recipes yet.',
-          );
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            // Toolbar: count + view toggle
-            Row(
-              children: [
-                Text(
-                  '${recipes.length} recipe${recipes.length == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                _ViewToggle(
-                  isCard: _cardView,
-                  onChanged: (v) => setState(() => _cardView = v),
-                ),
-              ],
+            Text(
+              '${_recipes.length} recipe${_recipes.length == 1 ? '' : 's'}',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            const SizedBox(height: 14),
-
-            // Card grid view
-            if (_cardView)
-              _RecipeCardGrid(recipes: recipes, isDark: isDark, theme: theme)
-            else
-              _RecipeListView(recipes: recipes, isDark: isDark, theme: theme),
+            const Spacer(),
+            _ViewToggle(
+              isCard: _cardView,
+              onChanged: (v) => setState(() => _cardView = v),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        if (_cardView)
+          _RecipeCardGrid(recipes: _recipes, isDark: isDark, theme: theme)
+        else
+          _RecipeListView(recipes: _recipes, isDark: isDark, theme: theme),
+        if (_hasMore) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: OutlinedButton.icon(
+              onPressed: _loadingMore ? null : _loadMore,
+              icon: _loadingMore
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.expand_more_rounded),
+              label: Text(_loadingMore ? 'Loading…' : 'Load more recipes'),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -782,7 +967,7 @@ class _RecipeCardGrid extends StatelessWidget {
                               imageUrl,
                               height: 140,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              errorBuilder: (context, error, stackTrace) =>
                                   _RecipeImagePlaceholder(
                                     isDark: isDark,
                                     theme: theme,
@@ -872,7 +1057,7 @@ class _RecipeCardGrid extends StatelessWidget {
                                 ),
                               ],
                               const Spacer(),
-                              if (recipe.prepTime != null) ...[
+                              if (recipe.prepTime > 0) ...[
                                 Icon(
                                   Icons.schedule_rounded,
                                   size: 12,
@@ -953,7 +1138,7 @@ class _RecipeListView extends StatelessWidget {
                         ? Image.network(
                             imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                            errorBuilder: (context, error, stackTrace) =>
                                 _RecipeImagePlaceholder(
                                   isDark: isDark,
                                   theme: theme,
@@ -997,7 +1182,7 @@ class _RecipeListView extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                             ],
-                            if (recipe.prepTime != null)
+                            if (recipe.prepTime > 0)
                               Text(
                                 '${recipe.prepTime} min',
                                 style: TextStyle(
@@ -1100,4 +1285,3 @@ class _RecipeImagePlaceholder extends StatelessWidget {
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-

@@ -188,102 +188,178 @@ class _FeedPageState extends State<FeedPage> {
           await _loadUser();
         },
         color: wellGreen,
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SliverToBoxAdapter(
-              child: RepaintBoundary(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppSpacing.gapV8,
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
-                        ),
-                        child: WellnestHeader(),
+        child: Stack(
+          children: [
+            CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
                       ),
-                      AppSpacing.gapV16,
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          0,
-                          0,
-                          0,
-                          AppSpacing.md,
-                        ),
-                        child: GeorgiaProDisplaySquish(
-                          child: Text(
-                            'Feed',
-                            style: georgiaProTextStyle(
-                              fontSize: 28,
-                              color: AppColors.primaryGreen,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppSpacing.gapV8,
+                          const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                            ),
+                            child: WellnestHeader(),
+                          ),
+                          AppSpacing.gapV16,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              0,
+                              0,
+                              0,
+                              AppSpacing.md,
+                            ),
+                            child: GeorgiaProDisplaySquish(
+                              child: Text(
+                                'Feed',
+                                style: georgiaProTextStyle(
+                                  fontSize: 28,
+                                  color: AppColors.primaryGreen,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          if (AuthService.instance.isLoggedIn) ...[
+                            _buildFeedScopeToggle(colorScheme),
+                            const SizedBox(height: 16),
+                            _buildCreatePostBox(),
+                            const SizedBox(height: 20),
+                          ],
+                        ],
                       ),
-                      if (AuthService.instance.isLoggedIn) ...[
-                        _buildFeedScopeToggle(colorScheme),
-                        const SizedBox(height: 16),
-                        _buildCreatePostBox(),
-                        const SizedBox(height: 20),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (posts.isEmpty && !AuthService.instance.isLoggedIn)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text('No posts yet. Sign in to create one!'),
-                  ),
-                ),
-              )
-            else if (posts.isEmpty && _feedScope == _FeedScope.following)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 40,
-                    horizontal: 24,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Follow people to see their posts here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
-              )
-            else if (posts.isEmpty)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: Text('No posts yet. Share something!')),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        RepaintBoundary(child: _buildFeedCard(posts[index])),
-                    childCount: posts.length,
+                if (posts.isEmpty && !AuthService.instance.isLoggedIn)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text('No posts yet. Sign in to create one!'),
+                      ),
+                    ),
+                  )
+                else if (posts.isEmpty && _feedScope == _FeedScope.following)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 40,
+                        horizontal: 24,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Follow people to see their posts here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (posts.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text('No posts yet. Share something!'),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => RepaintBoundary(
+                          child: _buildFeedCard(posts[index]),
+                        ),
+                        childCount: posts.length,
+                      ),
+                    ),
+                  ),
+                if (_isLoadingMore)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: wellGreen,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (!_hasMore && posts.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 14),
+                      child: Center(
+                        child: Text(
+                          'You are all caught up.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
+            ),
+            if (_isLoadingMore)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 14,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Loading more...',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),

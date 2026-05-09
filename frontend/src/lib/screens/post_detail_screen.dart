@@ -27,6 +27,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _liked = false;
   List<PostComment> _comments = [];
   bool _commentsLoaded = false;
+  bool _loadingMoreComments = false;
+  bool _commentsHasMore = true;
+  int _commentsPage = 1;
+  static const int _commentsPerPage = 20;
   final TextEditingController _commentController = TextEditingController();
 
   @override
@@ -44,15 +48,47 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   Future<void> _loadComments() async {
     try {
-      final comments = await PostService.instance.fetchComments(_post.id);
+      final response = await PostService.instance.fetchCommentsPaginated(
+        _post.id,
+        page: 1,
+        perPage: _commentsPerPage,
+      );
       if (mounted) {
         setState(() {
-        _comments = comments;
-        _commentsLoaded = true;
-      });
+          _comments = response.comments;
+          _commentsPage = response.currentPage;
+          _commentsHasMore = response.currentPage < response.lastPage;
+          _commentsLoaded = true;
+        });
       }
     } catch (_) {
       if (mounted) setState(() => _commentsLoaded = true);
+    }
+  }
+
+  Future<void> _loadMoreComments() async {
+    if (_loadingMoreComments || !_commentsHasMore) return;
+    setState(() => _loadingMoreComments = true);
+    try {
+      final response = await PostService.instance.fetchCommentsPaginated(
+        _post.id,
+        page: _commentsPage + 1,
+        perPage: _commentsPerPage,
+      );
+      if (!mounted) return;
+      final existing = _comments.map((c) => c.id).toSet();
+      final incoming = response.comments
+          .where((c) => !existing.contains(c.id))
+          .toList();
+      setState(() {
+        _comments.addAll(incoming);
+        _commentsPage = response.currentPage;
+        _commentsHasMore = response.currentPage < response.lastPage;
+        _loadingMoreComments = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMoreComments = false);
     }
   }
 
@@ -65,7 +101,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         _commentController.clear();
         setState(() => _comments = [..._comments, comment]);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comment added'), backgroundColor: wellGreen),
+          const SnackBar(
+            content: Text('Comment added'),
+            backgroundColor: wellGreen,
+          ),
         );
       }
     } catch (e) {
@@ -82,7 +121,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Post', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        title: const Text(
+          'Post',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
         backgroundColor: wellGreen,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white, size: 26),
@@ -138,32 +180,60 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             if (AuthService.instance.isLoggedIn)
                               PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
-                                icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: Colors.grey[600],
+                                ),
                                 onSelected: (v) async {
                                   if (v == 'report') {
                                     final ok = await showDialog<bool>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         title: const Text('Report Post'),
-                                        content: const Text('Report this post to moderators?'),
+                                        content: const Text(
+                                          'Report this post to moderators?',
+                                        ),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Report')),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text('Report'),
+                                          ),
                                         ],
                                       ),
                                     );
                                     if (ok == true) {
                                       try {
-                                        await ReportService.instance.reportPost(_post.id);
+                                        await ReportService.instance.reportPost(
+                                          _post.id,
+                                        );
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Report submitted')),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Report submitted'),
+                                            ),
                                           );
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                e.toString().replaceFirst(
+                                                  'Exception: ',
+                                                  '',
+                                                ),
+                                              ),
+                                            ),
                                           );
                                         }
                                       }
@@ -171,14 +241,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   }
                                 },
                                 itemBuilder: (context) => [
-                                  const PopupMenuItem(value: 'report', child: Text('Report')),
+                                  const PopupMenuItem(
+                                    value: 'report',
+                                    child: Text('Report'),
+                                  ),
                                 ],
                               ),
                           ],
                         ),
                         // Main post content
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
                           child: Text(
                             _post.content,
                             style: const TextStyle(
@@ -189,7 +264,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ),
                           ),
                         ),
-                        if (_post.displayImageUrl != null && _post.displayImageUrl!.isNotEmpty) ...[
+                        if (_post.displayImageUrl != null &&
+                            _post.displayImageUrl!.isNotEmpty) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: Image.network(
@@ -198,11 +274,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               width: double.infinity,
                               fit: BoxFit.cover,
                               alignment: Alignment.center,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: AppColors.imagePlaceholderGreen,
-                                height: 240,
-                                child: Icon(Icons.restaurant_menu, size: 64, color: wellGreen),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: AppColors.imagePlaceholderGreen,
+                                    height: 240,
+                                    child: Icon(
+                                      Icons.restaurant_menu,
+                                      size: 64,
+                                      color: wellGreen,
+                                    ),
+                                  ),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -215,28 +296,41 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 onPressed: () async {
                                   try {
                                     if (_liked) {
-                                      await VoteService.instance.unlikePost(_post.id);
-                                      if (mounted) setState(() => _liked = false);
+                                      await VoteService.instance.unlikePost(
+                                        _post.id,
+                                      );
+                                      if (mounted)
+                                        setState(() => _liked = false);
                                     } else {
-                                      await VoteService.instance.likePost(_post.id);
-                                      if (mounted) setState(() => _liked = true);
+                                      await VoteService.instance.likePost(
+                                        _post.id,
+                                      );
+                                      if (mounted)
+                                        setState(() => _liked = true);
                                     }
                                   } catch (e) {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(content: Text(e.toString())),
                                       );
                                     }
                                   }
                                 },
                                 icon: Icon(
-                                  _liked ? Icons.favorite : Icons.favorite_border,
+                                  _liked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
                                   color: nestOrange,
                                   size: 22,
                                 ),
                                 label: Text(
                                   _liked ? 'Liked' : 'Like',
-                                  style: const TextStyle(color: nestOrange, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    color: nestOrange,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 style: TextButton.styleFrom(
                                   foregroundColor: nestOrange,
@@ -252,12 +346,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     context,
                                     MaterialPageRoute(
                                       fullscreenDialog: true,
-                                      builder: (context) => RecipeDetailScreen(recipeId: _post.recipeId!),
+                                      builder: (context) => RecipeDetailScreen(
+                                        recipeId: _post.recipeId!,
+                                      ),
                                     ),
                                   ),
                                   borderRadius: BorderRadius.circular(20),
                                   child: const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
                                     child: Text(
                                       'View Recipe',
                                       style: TextStyle(
@@ -277,12 +376,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 ),
                 // Divider between post and comments
                 const SliverToBoxAdapter(
-                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEAE6DF)),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFEAE6DF),
+                  ),
                 ),
                 // Comments header
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                    ),
                     child: Text(
                       'Comments (${_comments.length})',
                       style: TextStyle(
@@ -314,61 +422,90 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   )
                 else
                   SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final c = _comments[index];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.sm,
-                                vertical: AppSpacing.md,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  InitialsAvatar(
-                                    name: c.userName,
-                                    size: 32,
-                                    imageUrl: c.displayProfilePhotoUrl,
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          c.userName,
-                                          style: const TextStyle(
-                                            fontFamily: 'HelveticaNow',
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: kBodyTextDark,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          c.comment,
-                                          style: const TextStyle(
-                                            fontFamily: 'HelveticaNow',
-                                            fontSize: 14,
-                                            color: kBodyTextDark,
-                                            height: 1.35,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final c = _comments[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: AppSpacing.md,
                             ),
-                            if (index < _comments.length - 1)
-                              Divider(height: 1, thickness: 0.5, color: Colors.grey[300]),
-                          ],
-                        );
-                      },
-                      childCount: _comments.length,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                InitialsAvatar(
+                                  name: c.userName,
+                                  size: 32,
+                                  imageUrl: c.displayProfilePhotoUrl,
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.userName,
+                                        style: const TextStyle(
+                                          fontFamily: 'HelveticaNow',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: kBodyTextDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        c.comment,
+                                        style: const TextStyle(
+                                          fontFamily: 'HelveticaNow',
+                                          fontSize: 14,
+                                          color: kBodyTextDark,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (index < _comments.length - 1)
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Colors.grey[300],
+                            ),
+                        ],
+                      );
+                    }, childCount: _comments.length),
+                  ),
+                if (_commentsHasMore)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 24),
+                      child: Center(
+                        child: OutlinedButton.icon(
+                          onPressed: _loadingMoreComments
+                              ? null
+                              : _loadMoreComments,
+                          icon: _loadingMoreComments
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.expand_more_rounded),
+                          label: Text(
+                            _loadingMoreComments
+                                ? 'Loading…'
+                                : 'Load more comments',
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -380,12 +517,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               top: false,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),
@@ -399,14 +541,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         controller: _commentController,
                         decoration: InputDecoration(
                           hintText: 'Add a comment...',
-                          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
+                          hintStyle: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 15,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF0F0F0),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(30),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -419,7 +567,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         customBorder: const CircleBorder(),
                         child: const Padding(
                           padding: EdgeInsets.all(12),
-                          child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                          child: Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                       ),
                     ),

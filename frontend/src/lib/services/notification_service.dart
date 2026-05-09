@@ -28,8 +28,12 @@ class NotificationCounts {
 
     int toInt(dynamic v) => (v as num?)?.toInt() ?? 0;
 
-    final message = toInt(counts['message_unread'] ?? counts[NotificationCategory.message]);
-    final activity = toInt(counts['activity_unread'] ?? counts[NotificationCategory.activity]);
+    final message = toInt(
+      counts['message_unread'] ?? counts[NotificationCategory.message],
+    );
+    final activity = toInt(
+      counts['activity_unread'] ?? counts[NotificationCategory.activity],
+    );
     final all = toInt(counts['all_unread'] ?? body['count']);
 
     return NotificationCounts(
@@ -64,25 +68,66 @@ class NotificationService {
       AuthService.instance.authHeaders.isNotEmpty ||
       AdminAuthService.instance.authHeaders.isNotEmpty;
 
-  Future<List<AppNotification>> fetchNotifications({
+  Future<NotificationListResponse> fetchNotificationsPaginated({
     int page = 1,
     int perPage = 20,
     bool unreadOnly = false,
     String? category,
   }) async {
-    if (!_hasAuth) return [];
+    if (!_hasAuth) {
+      return NotificationListResponse(
+        notifications: const [],
+        currentPage: page,
+        lastPage: page,
+        total: 0,
+        perPage: perPage,
+      );
+    }
     final params = <String, String>{
       'page': '$page',
       'per_page': '$perPage',
       if (unreadOnly) 'unread_only': 'true',
       if (category != null && category.isNotEmpty) 'category': category,
     };
-    final uri = Uri.parse('$_baseUrl/notifications').replace(queryParameters: params);
+    final uri = Uri.parse(
+      '$_baseUrl/notifications',
+    ).replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
-    if (response.statusCode != 200) return [];
+    if (response.statusCode != 200) {
+      return NotificationListResponse(
+        notifications: const [],
+        currentPage: page,
+        lastPage: page,
+        total: 0,
+        perPage: perPage,
+      );
+    }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final list = (data['data'] as List<dynamic>?) ?? [];
-    return list.map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList();
+    return NotificationListResponse(
+      notifications: list
+          .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      currentPage: (data['current_page'] as num?)?.toInt() ?? page,
+      lastPage: (data['last_page'] as num?)?.toInt() ?? page,
+      total: (data['total'] as num?)?.toInt() ?? list.length,
+      perPage: (data['per_page'] as num?)?.toInt() ?? perPage,
+    );
+  }
+
+  Future<List<AppNotification>> fetchNotifications({
+    int page = 1,
+    int perPage = 20,
+    bool unreadOnly = false,
+    String? category,
+  }) async {
+    final res = await fetchNotificationsPaginated(
+      page: page,
+      perPage: perPage,
+      unreadOnly: unreadOnly,
+      category: category,
+    );
+    return res.notifications;
   }
 
   Future<NotificationCounts> getUnreadCounts({String? category}) async {
@@ -97,16 +142,17 @@ class NotificationService {
       if (category != null && category.isNotEmpty) 'category': category,
     };
 
-    final uri = Uri.parse('$_baseUrl/notifications/unread-count').replace(
-      queryParameters: params.isEmpty ? null : params,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/notifications/unread-count',
+    ).replace(queryParameters: params.isEmpty ? null : params);
 
-    final response = await http.get(
-      uri,
-      headers: _headers,
-    );
+    final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
-      return const NotificationCounts(allUnread: 0, messageUnread: 0, activityUnread: 0);
+      return const NotificationCounts(
+        allUnread: 0,
+        messageUnread: 0,
+        activityUnread: 0,
+      );
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -135,4 +181,20 @@ class NotificationService {
       headers: _headers,
     );
   }
+}
+
+class NotificationListResponse {
+  final List<AppNotification> notifications;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+  final int perPage;
+
+  const NotificationListResponse({
+    required this.notifications,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+    required this.perPage,
+  });
 }

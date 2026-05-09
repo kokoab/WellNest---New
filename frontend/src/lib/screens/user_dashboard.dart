@@ -386,187 +386,230 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           await Future.wait([_load(), _loadTopRanked()]);
         },
         color: wellGreen,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: RepaintBoundary(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.sm,
-                    AppSpacing.md,
-                    0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const WellnestHeader(),
-                      AppSpacing.gapV8,
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by name or ingredients...',
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: kPrimaryGreen,
-                            size: 22,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(
-                                    Icons.clear,
-                                    color: Colors.grey.shade600,
-                                    size: 20,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                    _loadRecipes();
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {});
-                          _searchDebounce?.cancel();
-                          _searchDebounce = Timer(
-                            const Duration(milliseconds: 400),
-                            () {
-                              if (!mounted) return;
-                              setState(() => _searchQuery = value.trim());
-                              _loadRecipes();
-                            },
-                          );
-                        },
+        child: Stack(
+          children: [
+            CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                        AppSpacing.md,
+                        0,
                       ),
-                      const SizedBox(height: 12),
-                      if (_categories.isNotEmpty) ...[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Category',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const WellnestHeader(),
+                          AppSpacing.gapV8,
+                          TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Search by name or ingredients...',
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: kPrimaryGreen,
+                                size: 22,
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: SizedBox(
-                                height: 36,
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  children: [
-                                    _FilterChip(
-                                      label: 'All',
-                                      selected: _selectedCategoryId == null,
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedCategoryId = null;
-                                          _searchQuery = _searchController.text
-                                              .trim();
-                                        });
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: Colors.grey.shade600,
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
                                         _loadRecipes();
                                       },
-                                    ),
-                                    ..._categories.map(
-                                      (c) => _FilterChip(
-                                        label: c.name,
-                                        selected: _selectedCategoryId == c.id,
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedCategoryId = c.id;
-                                            _searchQuery = _searchController
-                                                .text
-                                                .trim();
-                                          });
-                                          _loadRecipes();
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.sm,
                               ),
                             ),
+                            onChanged: (value) {
+                              setState(() {});
+                              _searchDebounce?.cancel();
+                              _searchDebounce = Timer(
+                                const Duration(milliseconds: 400),
+                                () {
+                                  if (!mounted) return;
+                                  setState(() => _searchQuery = value.trim());
+                                  _loadRecipes();
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          if (_categories.isNotEmpty) ...[
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Category',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 36,
+                                    child: ListView(
+                                      scrollDirection: Axis.horizontal,
+                                      children: [
+                                        _FilterChip(
+                                          label: 'All',
+                                          selected: _selectedCategoryId == null,
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedCategoryId = null;
+                                              _searchQuery = _searchController
+                                                  .text
+                                                  .trim();
+                                            });
+                                            _loadRecipes();
+                                          },
+                                        ),
+                                        ..._categories.map(
+                                          (c) => _FilterChip(
+                                            label: c.name,
+                                            selected:
+                                                _selectedCategoryId == c.id,
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedCategoryId = c.id;
+                                                _searchQuery = _searchController
+                                                    .text
+                                                    .trim();
+                                              });
+                                              _loadRecipes();
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_hasActiveFilters) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: _clearAllFilters,
+                                  icon: Icon(
+                                    Icons.filter_list_off,
+                                    size: 18,
+                                    color: nestOrange,
+                                  ),
+                                  label: Text(
+                                    'Clear filters',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: nestOrange,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
                           ],
-                        ),
-                        if (_hasActiveFilters) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _clearAllFilters,
-                              icon: Icon(
-                                Icons.filter_list_off,
-                                size: 18,
-                                color: nestOrange,
-                              ),
-                              label: Text(
-                                'Clear filters',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: nestOrange,
-                                ),
+                          // Only show these sections if the search box is empty
+                          if (_searchController.text.isEmpty) ...[
+                            if (_categories.isNotEmpty)
+                              const SizedBox(height: 10),
+                            _buildTopRankedSection(),
+                            const SizedBox(height: 16),
+                            _buildMealPlannerSection(),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Discover',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF097333),
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                          ] else ...[
+                            // When searching, hide the above and show a "Search Results" title instead
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Search Results',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF097333),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                         ],
-                        const SizedBox(height: 8),
-                      ],
-                      // Only show these sections if the search box is empty
-                      if (_searchController.text.isEmpty) ...[
-                        if (_categories.isNotEmpty) const SizedBox(height: 10),
-                        _buildTopRankedSection(),
-                        const SizedBox(height: 16),
-                        _buildMealPlannerSection(),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Discover',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF097333),
+                      ),
+                    ),
+                  ),
+                ),
+                ..._buildDiscoverGridSlivers(
+                  crossAxisCount: crossAxisCount,
+                  padding: padding,
+                  gap: gap,
+                ),
+              ],
+            ),
+            if (_recipesLoadingMore)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 14,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                      ] else ...[
-                        // When searching, hide the above and show a "Search Results" title instead
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Search Results',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF097333),
-                          ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Loading more...',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
                         ),
-                        const SizedBox(height: 8),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            ..._buildDiscoverGridSlivers(
-              crossAxisCount: crossAxisCount,
-              padding: padding,
-              gap: gap,
-            ),
           ],
         ),
       ),
@@ -757,7 +800,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 ? const SizedBox(
                     width: 28,
                     height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF097333)),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF097333),
+                    ),
                   )
                 : const SizedBox(height: 100),
           ),

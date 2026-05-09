@@ -11,12 +11,14 @@ class AdminRecipeRankingScreen extends StatefulWidget {
 }
 
 class _AdminRecipeRankingScreenState extends State<AdminRecipeRankingScreen> {
+  static const int _pageSize = 30;
   List<RecipeRankingItem> _rows = [];
   bool _loading = true;
   String? _error;
   String _window = '7d';
   int _sortIndex = 0;
   bool _ascending = false;
+  int _visibleCount = _pageSize;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _AdminRecipeRankingScreenState extends State<AdminRecipeRankingScreen> {
       if (!mounted) return;
       setState(() {
         _rows = rows;
+        _visibleCount = _pageSize;
         _loading = false;
       });
     } catch (e) {
@@ -120,7 +123,7 @@ class _AdminRecipeRankingScreenState extends State<AdminRecipeRankingScreen> {
                   onSort: (_, __) => _sort(5, (r) => r.score),
                 ),
               ],
-              rows: List.generate(_rows.length, (i) {
+              rows: List.generate(_rows.take(_visibleCount).length, (i) {
                 final r = _rows[i];
                 return DataRow(
                   cells: [
@@ -136,6 +139,20 @@ class _AdminRecipeRankingScreenState extends State<AdminRecipeRankingScreen> {
             ),
           ),
         ),
+        if (_visibleCount < _rows.length)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _visibleCount = (_visibleCount + _pageSize).clamp(
+                  0,
+                  _rows.length,
+                );
+              }),
+              icon: const Icon(Icons.expand_more_rounded),
+              label: const Text('Load more'),
+            ),
+          ),
       ],
     );
   }

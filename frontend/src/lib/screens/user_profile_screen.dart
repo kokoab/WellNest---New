@@ -27,6 +27,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   CurrentUser? _currentUser;
   List<Recipe> _recipes = [];
   List<Post> _posts = [];
+  int _recipesPage = 1;
+  int _recipesLastPage = 1;
+  int _recipesTotal = 0;
+  bool _recipesLoadingMore = false;
+  int _postsPage = 1;
+  int _postsLastPage = 1;
+  int _postsTotal = 0;
+  bool _postsLoadingMore = false;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -53,17 +61,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           UserService.instance.fetchCurrentUser()
         else
           Future.value(null),
-        RecipeService.instance.fetchRecipes(userId: widget.userId),
-        ApiService().fetchPosts(userId: widget.userId),
+        RecipeService.instance.fetchRecipes(userId: widget.userId, page: 1),
+        ApiService().fetchPostsPaginated(
+          userId: widget.userId,
+          page: 1,
+          perPage: 10,
+        ),
       ]);
 
       if (!mounted) return;
 
+      final recipesRes = results[2] as RecipeListResponse;
+      final postsRes = results[3] as PostListResponse;
       setState(() {
         _profile = results[0] as PublicUserProfile;
         _currentUser = results.length > 1 ? results[1] as CurrentUser? : null;
-        _recipes = (results[2] as RecipeListResponse).recipes;
-        _posts = results[3] as List<Post>;
+        _recipes = recipesRes.recipes;
+        _recipesPage = recipesRes.currentPage;
+        _recipesLastPage = recipesRes.lastPage;
+        _recipesTotal = recipesRes.total;
+        _posts = postsRes.posts;
+        _postsPage = postsRes.currentPage;
+        _postsLastPage = postsRes.lastPage;
+        _postsTotal = postsRes.total;
         _loading = false;
       });
     } catch (e) {
@@ -72,6 +92,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMoreRecipes() async {
+    if (_recipesLoadingMore || _recipesPage >= _recipesLastPage) return;
+    setState(() => _recipesLoadingMore = true);
+    try {
+      final res = await RecipeService.instance.fetchRecipes(
+        userId: widget.userId,
+        page: _recipesPage + 1,
+      );
+      if (!mounted) return;
+      final existing = _recipes.map((r) => r.id).toSet();
+      final incoming = res.recipes
+          .where((r) => !existing.contains(r.id))
+          .toList();
+      setState(() {
+        _recipes.addAll(incoming);
+        _recipesPage = res.currentPage;
+        _recipesLastPage = res.lastPage;
+        _recipesTotal = res.total;
+        _recipesLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _recipesLoadingMore = false);
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (_postsLoadingMore || _postsPage >= _postsLastPage) return;
+    setState(() => _postsLoadingMore = true);
+    try {
+      final res = await ApiService().fetchPostsPaginated(
+        userId: widget.userId,
+        page: _postsPage + 1,
+        perPage: 10,
+      );
+      if (!mounted) return;
+      final existing = _posts.map((p) => p.id).toSet();
+      final incoming = res.posts
+          .where((p) => !existing.contains(p.id))
+          .toList();
+      setState(() {
+        _posts.addAll(incoming);
+        _postsPage = res.currentPage;
+        _postsLastPage = res.lastPage;
+        _postsTotal = res.total;
+        _postsLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _postsLoadingMore = false);
     }
   }
 
@@ -164,9 +237,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: nestOrange.withOpacity(0.10),
+                color: nestOrange.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: nestOrange.withOpacity(0.4)),
+                border: Border.all(color: nestOrange.withValues(alpha: 0.4)),
               ),
               child: Column(
                 children: [
@@ -197,9 +270,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildStat('${_recipes.length}', 'Recipes'),
+              _buildStat('$_recipesTotal', 'Recipes'),
               const SizedBox(width: 24),
-              _buildStat('${_posts.length}', 'Posts'),
+              _buildStat('$_postsTotal', 'Posts'),
               const SizedBox(width: 24),
               _buildStat('${profile.followersCount}', 'Followers'),
               const SizedBox(width: 24),
@@ -263,6 +336,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               ),
             ),
+          if (_recipesPage < _recipesLastPage) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _recipesLoadingMore ? null : _loadMoreRecipes,
+              icon: _recipesLoadingMore
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.expand_more_rounded),
+              label: Text(
+                _recipesLoadingMore ? 'Loading…' : 'Load more recipes',
+              ),
+            ),
+          ],
           const SizedBox(height: 28),
           const Align(
             alignment: Alignment.centerLeft,
@@ -283,6 +372,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             )
           else
             ..._posts.map(_buildPostCard),
+          if (_postsPage < _postsLastPage) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _postsLoadingMore ? null : _loadMorePosts,
+              icon: _postsLoadingMore
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.expand_more_rounded),
+              label: Text(_postsLoadingMore ? 'Loading…' : 'Load more posts'),
+            ),
+          ],
         ],
       ),
     );
@@ -353,7 +456,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         alignment: Alignment.center,
                         width: double.infinity,
                         cacheWidth: 600,
-                        errorBuilder: (_, __, ___) => _placeholderImage(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _placeholderImage(),
                       )
                     : _placeholderImage(),
               ),

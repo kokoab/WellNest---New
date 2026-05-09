@@ -23,10 +23,15 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   final ConversationService _service = ConversationService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _conversationsScrollController = ScrollController();
+  static const int _conversationsPerPage = 20;
 
   List<ConversationListItem> _conversations = [];
   List<UserSearchResult> _searchResults = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
   bool _searching = false;
   String? _error;
   Timer? _searchDebounce;
@@ -34,13 +39,25 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   @override
   void initState() {
     super.initState();
+    _conversationsScrollController.addListener(_onConversationsScroll);
     _load();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onConversationsScroll() {
+    if (_loading || _loadingMore || !_hasMore) return;
+    if (_searchController.text.trim().isNotEmpty) return;
+    final pos = _conversationsScrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 240) {
+      _loadMore();
+    }
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _conversationsScrollController.removeListener(_onConversationsScroll);
+    _conversationsScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _searchDebounce?.cancel();
@@ -104,13 +121,20 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _page = 1;
+      _hasMore = true;
     });
     try {
       await _service.ensureAssistantConversation();
-      final list = await _service.fetchConversations();
+      final response = await _service.fetchConversationsPaginated(
+        page: 1,
+        perPage: _conversationsPerPage,
+      );
       if (mounted) {
         setState(() {
-          _conversations = list;
+          _conversations = response.conversations;
+          _page = response.currentPage;
+          _hasMore = response.currentPage < response.lastPage;
           _loading = false;
         });
       }
@@ -121,6 +145,32 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final response = await _service.fetchConversationsPaginated(
+        page: nextPage,
+        perPage: _conversationsPerPage,
+      );
+      if (!mounted) return;
+      final existingIds = _conversations.map((c) => c.id).toSet();
+      final incoming = response.conversations
+          .where((c) => !existingIds.contains(c.id))
+          .toList();
+      setState(() {
+        _conversations.addAll(incoming);
+        _page = response.currentPage;
+        _hasMore = response.currentPage < response.lastPage;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
     }
   }
 
@@ -237,9 +287,24 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
+                      controller: _conversationsScrollController,
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _conversations.length,
+                      itemCount: _conversations.length + (_loadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (_loadingMore && index == _conversations.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         final c = _conversations[index];
                         final timeStr = c.lastMessage?.createdAt != null
                             ? formatPostTime(c.lastMessage!.createdAt)
@@ -255,7 +320,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                   builder: (context) => ConversationChatScreen(
                                     conversationId: c.id,
                                     otherUserName: c.otherUser.name,
-                                    otherUserProfilePhotoUrl: c.otherUser.displayProfilePhotoUrl,
+                                    otherUserProfilePhotoUrl:
+                                        c.otherUser.displayProfilePhotoUrl,
                                     isAssistant: c.isAssistant,
                                   ),
                                 ),
@@ -274,7 +340,8 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                   InitialsAvatar(
                                     name: c.otherUser.name,
                                     size: 52,
-                                    imageUrl: c.otherUser.displayProfilePhotoUrl,
+                                    imageUrl:
+                                        c.otherUser.displayProfilePhotoUrl,
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
@@ -295,9 +362,11 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                             Expanded(
                                               child: Text(
                                                 c.otherUser.name,
-                                                style: textTheme.titleSmall?.copyWith(
-                                                  color: colorScheme.onSurface,
-                                                ),
+                                                style: textTheme.titleSmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          colorScheme.onSurface,
+                                                    ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
