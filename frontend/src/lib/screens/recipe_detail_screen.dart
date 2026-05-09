@@ -309,7 +309,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       MaterialPageRoute<void>(
         builder: (ctx) => RecipeCookModeScreen(recipe: _recipe!),
       ),
-    );
+    ).then((_) {
+      if (mounted) _load();
+    });
   }
 
   Widget _buildGlassBackButton() {
@@ -337,20 +339,26 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   Widget _buildRatingSummaryPill() {
     final avg = _ratings?.averageRating ?? _recipe?.averageRating ?? 0.0;
     final count = _ratings?.ratingsCount ?? _recipe?.ratingsCount ?? 0;
+    const labelStyle = TextStyle(
+      fontFamily: 'HelveticaNow',
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: wellGreen,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Icon(Icons.star_rounded, color: Color(0xFFF9BD21), size: 20),
         const SizedBox(width: 6),
-        Text(
-          '${avg.toStringAsFixed(1)} • $count',
-          style: const TextStyle(
-            fontFamily: 'HelveticaNow',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: wellGreen,
-          ),
+        Text('${avg.toStringAsFixed(1)} • ', style: labelStyle),
+        Icon(
+          Icons.person_outline_rounded,
+          size: 16,
+          color: wellGreen.withValues(alpha: 0.9),
         ),
+        const SizedBox(width: 3),
+        Text('$count', style: labelStyle),
       ],
     );
   }
@@ -972,12 +980,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 children: [
                   _starRowForValue(avg, size: 20),
                   const SizedBox(height: 4),
-                  Text(
-                    '$count Ratings',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$count Ratings',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

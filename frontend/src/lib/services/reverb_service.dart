@@ -74,7 +74,8 @@ class ReverbService {
 
     if (_notificationChannels.containsKey(userId)) return;
 
-    final channelName = 'notifications.$userId';
+    // Laravel registers `notifications.{id}`; private wire format requires `private-` prefix.
+    final channelName = 'private-notifications.$userId';
     final channel = _client.subscribeToPrivateChannel(channelName);
 
     void handleUpdate(String eventName, dynamic data) {
