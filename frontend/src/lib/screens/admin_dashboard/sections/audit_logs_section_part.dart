@@ -1,5 +1,97 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+class _AuditLogsSectionContainer extends StatefulWidget {
+  final ThemeData theme;
+  const _AuditLogsSectionContainer({super.key, required this.theme});
+
+  @override
+  State<_AuditLogsSectionContainer> createState() =>
+      _AuditLogsSectionContainerState();
+}
+
+class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
+    with AutomaticKeepAliveClientMixin {
+  List<ActivityLog> _logs = [];
+  bool _loading = true;
+  String? _error;
+  _DateRangeFilter _range = _DateRangeFilter.monthly;
+  bool _exportingAuditLogsCsv = false;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final res = await AdminAuditLogService.instance.fetchLogs(
+        page: 1,
+        range: _range.apiValue,
+      );
+      if (!mounted) return;
+      setState(() {
+        _logs = res.logs;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _exportAuditLogsCsv() async {
+    if (_exportingAuditLogsCsv) return;
+    setState(() => _exportingAuditLogsCsv = true);
+    try {
+      final bytes = await AdminAuditLogService.instance.exportCsv(
+        range: _range.apiValue,
+      );
+      await _shareCsvBytes(
+        bytes: bytes,
+        fileName: 'audit_logs_export.csv',
+        subject: 'WellNest Audit Logs Export',
+      );
+      if (!mounted) return;
+      _showAdminSnack(context, 'Audit logs exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _exportingAuditLogsCsv = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _AuditLogsSection(
+      theme: widget.theme,
+      logs: _logs,
+      loading: _loading,
+      error: _error,
+      exporting: _exportingAuditLogsCsv,
+      selectedRange: _range,
+      onRangeChanged: (range) {
+        setState(() => _range = range);
+        refresh();
+      },
+      onRefresh: refresh,
+      onExport: _exportAuditLogsCsv,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
 class _AuditLogsSection extends StatelessWidget {
   final ThemeData theme;
   final List<ActivityLog> logs;
@@ -192,22 +284,34 @@ class _AuditLogsTable extends StatelessWidget {
                 width: 40,
                 child: Text(
                   '${log.id}',
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               SizedBox(
                 width: 88,
                 child: Text(
                   _formatHumanDate(log.createdAt),
-                  style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              SizedBox(width: 90, child: _CategoryPill(theme: theme, label: log.category)),
+              SizedBox(
+                width: 90,
+                child: _CategoryPill(theme: theme, label: log.category),
+              ),
               SizedBox(
                 width: 120,
                 child: Text(
                   log.action,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               Expanded(
@@ -215,7 +319,10 @@ class _AuditLogsTable extends StatelessWidget {
                   log.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -225,7 +332,10 @@ class _AuditLogsTable extends StatelessWidget {
                   log.actorName ?? '—',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
             ],
@@ -237,4 +347,3 @@ class _AuditLogsTable extends StatelessWidget {
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-

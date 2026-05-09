@@ -1,5 +1,130 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+class _AnalyticsSectionContainer extends StatefulWidget {
+  final ThemeData theme;
+  final bool isWide;
+  const _AnalyticsSectionContainer({
+    super.key,
+    required this.theme,
+    required this.isWide,
+  });
+
+  @override
+  State<_AnalyticsSectionContainer> createState() =>
+      _AnalyticsSectionContainerState();
+}
+
+class _AnalyticsSectionContainerState extends State<_AnalyticsSectionContainer>
+    with AutomaticKeepAliveClientMixin {
+  List<AdminUser> _users = [];
+  List<Report> _reports = [];
+  List<ActivityLog> _auditLogs = [];
+  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
+  List<AdminStatPoint> _userGrowthPoints = [];
+  List<AdminStatPoint> _postFrequencyPoints = [];
+  List<AdminStatPoint> _chatbotInteractionPoints = [];
+  bool _analyticsLoading = true;
+  String? _analyticsError;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    await Future.wait<void>([
+      _loadAnalytics(),
+      _loadReports(),
+      _loadAuditLogs(),
+      _loadUsers(),
+    ]);
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final result = await AdminUserService.instance.fetchUsers();
+      if (!mounted) return;
+      setState(() => _users = result.users);
+    } catch (_) {}
+  }
+
+  Future<void> _loadReports() async {
+    try {
+      final reports = await AdminModerationService.instance.fetchReports(
+        range: _insightsRange.apiValue,
+      );
+      if (!mounted) return;
+      setState(() => _reports = reports);
+    } catch (_) {}
+  }
+
+  Future<void> _loadAuditLogs() async {
+    try {
+      final logs = await AdminAuditLogService.instance.fetchLogs(
+        page: 1,
+        range: _insightsRange.apiValue,
+      );
+      if (!mounted) return;
+      setState(() => _auditLogs = logs.logs);
+    } catch (_) {}
+  }
+
+  Future<void> _loadAnalytics() async {
+    setState(() {
+      _analyticsLoading = true;
+      _analyticsError = null;
+    });
+    try {
+      final range = _insightsRange.apiValue;
+      final results = await Future.wait<List<AdminStatPoint>>([
+        AdminDashboardService.instance.fetchUserGrowth(range: range),
+        AdminDashboardService.instance.fetchPostFrequency(range: range),
+        AdminDashboardService.instance.fetchChatbotInteractions(range: range),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _userGrowthPoints = results[0];
+        _postFrequencyPoints = results[1];
+        _chatbotInteractionPoints = results[2];
+        _analyticsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _analyticsError = _adminErrorMessage(e);
+        _analyticsLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _AnalyticsSection(
+      theme: widget.theme,
+      isWide: widget.isWide,
+      users: _users,
+      reports: _reports,
+      auditLogs: _auditLogs,
+      analyticsLoading: _analyticsLoading,
+      analyticsError: _analyticsError,
+      userGrowthPoints: _userGrowthPoints,
+      postFrequencyPoints: _postFrequencyPoints,
+      chatbotInteractionPoints: _chatbotInteractionPoints,
+      selectedInsightsRange: _insightsRange,
+      onInsightsRangeChanged: (range) {
+        setState(() => _insightsRange = range);
+        refresh();
+      },
+      onRefresh: _loadAnalytics,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
 class _AnalyticsSection extends StatelessWidget {
   final ThemeData theme;
   final bool isWide;
@@ -101,4 +226,3 @@ class _AnalyticsSection extends StatelessWidget {
 }
 
 // ─── Charts Section ───────────────────────────────────────────────────────────
-

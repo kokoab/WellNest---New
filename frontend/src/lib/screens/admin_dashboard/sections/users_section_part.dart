@@ -1,5 +1,288 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+class _UsersSectionContainer extends StatefulWidget {
+  final ThemeData theme;
+  const _UsersSectionContainer({super.key, required this.theme});
+
+  @override
+  State<_UsersSectionContainer> createState() => _UsersSectionContainerState();
+}
+
+class _UsersSectionContainerState extends State<_UsersSectionContainer>
+    with AutomaticKeepAliveClientMixin {
+  List<AdminUser> _users = [];
+  bool _loading = true;
+  String? _error;
+  String _searchQuery = '';
+  _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
+  Timer? _usersSearchDebounce;
+  int _usersPage = 1;
+  final int _usersPerPage = 10;
+  bool _usersLoadingPage = false;
+  int _usersQuerySerial = 0;
+  int _usersTotalCount = 0;
+  bool _exportingUsersCsv = false;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  @override
+  void dispose() {
+    _usersSearchDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> refresh() => _loadUsersPage(reset: true);
+
+  int _getUsersTotalPages() {
+    if (_usersTotalCount == 0) return 1;
+    return (_usersTotalCount / _usersPerPage).ceil();
+  }
+
+  void _handleUsersSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _usersSearchDebounce?.cancel();
+    _usersSearchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _loadUsersPage(reset: true);
+    });
+  }
+
+  Future<void> _loadUsersPage({bool reset = false}) async {
+    final querySerial = ++_usersQuerySerial;
+    if (reset) {
+      _usersPage = 1;
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final result = await AdminUserService.instance.fetchUsers(
+        range: _usersRange.apiValue,
+        search: _searchQuery,
+        page: _usersPage,
+        perPage: _usersPerPage,
+      );
+      if (!mounted || querySerial != _usersQuerySerial) return;
+      setState(() {
+        _users = result.users;
+        _usersTotalCount = result.total;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _handleUsersPageChanged(int page) async {
+    if (page < 1 || page > _getUsersTotalPages()) return;
+    setState(() => _usersLoadingPage = true);
+    try {
+      final result = await AdminUserService.instance.fetchUsers(
+        range: _usersRange.apiValue,
+        search: _searchQuery,
+        page: page,
+        perPage: _usersPerPage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _usersPage = page;
+        _users = result.users;
+        _usersTotalCount = result.total;
+        _usersLoadingPage = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _usersLoadingPage = false;
+      });
+    }
+  }
+
+  Future<void> _showUserPostsModal(AdminUser user) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: 'Posts by ${user.name}',
+        icon: Icons.article_outlined,
+        iconColor: kPrimaryGreen,
+        child: FutureBuilder<List<Post>>(
+          future: ApiService().fetchPosts(userId: user.id),
+          builder: (ctx, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const _ModalLoading();
+            }
+            if (snapshot.hasError)
+              return _ModalError(message: snapshot.error.toString());
+            final posts = snapshot.data ?? [];
+            if (posts.isEmpty) {
+              return const _ModalEmpty(
+                message: 'This user has not created any posts yet.',
+              );
+            }
+            return _PostsModalContent(posts: posts);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showUserCommentsModal(AdminUser user) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: "Comments on ${user.name}'s posts",
+        icon: Icons.comment_outlined,
+        iconColor: kAccentOrange,
+        child: _CommentsModalContent(user: user),
+      ),
+    );
+  }
+
+  Future<void> _showUserRecipesModal(AdminUser user) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) => _WebModal(
+        title: 'Recipes by ${user.name}',
+        icon: Icons.restaurant_menu_outlined,
+        iconColor: const Color(0xFFE6930A),
+        child: _RecipesModalContent(userId: user.id),
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(int userId, String status) async {
+    try {
+      await AdminUserService.instance.updateUserStatus(userId, status);
+      if (!mounted) return;
+      _showAdminSnack(
+        context,
+        status == 'active' ? 'Account activated' : 'Account deactivated',
+      );
+      await refresh();
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    }
+  }
+
+  Future<void> _confirmDeactivate(AdminUser user) async {
+    final ok = await _showAdminConfirmDialog(
+      context: context,
+      title: 'Deactivate account?',
+      content:
+          'Deactivate "${user.name}" (${user.email})? They will not be able to sign in until reactivated.',
+      actionLabel: 'Deactivate',
+      actionColor: kAccentOrange,
+    );
+    if (ok == true) await _updateStatus(user.id, 'inactive');
+  }
+
+  Future<void> _confirmActivate(AdminUser user) async {
+    final ok = await _showAdminConfirmDialog(
+      context: context,
+      title: 'Activate account?',
+      content:
+          'Reactivate "${user.name}" (${user.email})? They will be able to sign in again.',
+      actionLabel: 'Activate',
+      actionColor: kPrimaryGreen,
+    );
+    if (ok == true) await _updateStatus(user.id, 'active');
+  }
+
+  Future<void> _confirmDelete(AdminUser user) async {
+    final ok = await _showAdminConfirmDialog(
+      context: context,
+      title: 'Delete account permanently?',
+      content:
+          'Permanently delete "${user.name}" (${user.email})? This cannot be undone.',
+      actionLabel: 'Delete',
+      actionColor: Colors.red,
+    );
+    if (ok != true) return;
+    try {
+      await AdminUserService.instance.deleteUser(user.id);
+      if (!mounted) return;
+      _showAdminSnack(context, 'Account deleted');
+      await refresh();
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    }
+  }
+
+  Future<void> _exportUsersCsv() async {
+    if (_exportingUsersCsv) return;
+    setState(() => _exportingUsersCsv = true);
+    try {
+      final rows = <String>['id,name,email,status'];
+      for (final u in _users) {
+        rows.add(
+          '${u.id},${_escapeCsv(u.name)},${_escapeCsv(u.email)},${_escapeCsv(u.status)}',
+        );
+      }
+      await _shareCsvRows(
+        rows: rows,
+        fileName: 'WellNest Users.csv',
+        subject: 'WellNest Users Export',
+      );
+      if (!mounted) return;
+      _showAdminSnack(context, 'Users exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _exportingUsersCsv = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _UsersSection(
+      theme: widget.theme,
+      users: _users,
+      loading: _loading,
+      error: _error,
+      searchQuery: _searchQuery,
+      onSearchChanged: _handleUsersSearchChanged,
+      selectedRange: _usersRange,
+      onRangeChanged: (range) {
+        setState(() => _usersRange = range);
+        refresh();
+      },
+      onRefresh: refresh,
+      onExport: _exportingUsersCsv ? null : _exportUsersCsv,
+      exporting: _exportingUsersCsv,
+      onDeactivate: _confirmDeactivate,
+      onActivate: _confirmActivate,
+      onDelete: _confirmDelete,
+      onViewPosts: _showUserPostsModal,
+      onViewComments: _showUserCommentsModal,
+      onViewRecipes: _showUserRecipesModal,
+      currentPage: _usersPage,
+      totalPages: _getUsersTotalPages(),
+      loadingPage: _usersLoadingPage,
+      onPageChanged: _handleUsersPageChanged,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
 class _UsersSection extends StatelessWidget {
   final ThemeData theme;
   final List<AdminUser> users;
@@ -164,100 +447,99 @@ class _UsersTable extends StatelessWidget {
           3: FlexColumnWidth(screenWidth * 0.15),
           4: FlexColumnWidth(screenWidth * 0.29),
         },
-          headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
-          rows: users.asMap().entries.map((e) {
-            final user = e.value;
-            return _tableRow(theme, [
-              Text(
-                '${user.id}',
+        headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+        rows: users.asMap().entries.map((e) {
+          final user = e.value;
+          return _tableRow(theme, [
+            Text(
+              '${user.id}',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Row(
+              children: [
+                _UserAvatar(name: user.name),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    user.name.isEmpty ? '—' : user.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+              width: screenWidth * 0.28,
+              child: Text(
+                user.email,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              Row(
+            ),
+            _StatusPill(isActive: user.isActive),
+            SizedBox(
+              width: screenWidth * 0.29,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _UserAvatar(name: user.name),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      user.name.isEmpty ? '—' : user.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface,
-                      ),
+                  if (user.isActive)
+                    _ActionIconBtn(
+                      icon: Icons.person_off_outlined,
+                      color: kAccentOrange,
+                      tooltip: 'Deactivate',
+                      onPressed: () => onDeactivate(user),
+                    )
+                  else
+                    _ActionIconBtn(
+                      icon: Icons.person_add_outlined,
+                      color: kPrimaryGreen,
+                      tooltip: 'Activate',
+                      onPressed: () => onActivate(user),
                     ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.article_outlined,
+                    color: kPrimaryGreen,
+                    tooltip: 'Posts',
+                    onPressed: () => onViewPosts(user),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.comment_outlined,
+                    color: kAccentOrange,
+                    tooltip: 'Comments',
+                    onPressed: () => onViewComments(user),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.restaurant_menu_outlined,
+                    color: const Color(0xFFE6930A),
+                    tooltip: 'Recipes',
+                    onPressed: () => onViewRecipes(user),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.delete_outline_rounded,
+                    color: Colors.red,
+                    tooltip: 'Delete',
+                    onPressed: () => onDelete(user),
                   ),
                 ],
               ),
-              SizedBox(
-                width: screenWidth * 0.28,
-                child: Text(
-                  user.email,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              _StatusPill(isActive: user.isActive),
-              SizedBox(
-                width: screenWidth * 0.29,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (user.isActive)
-                      _ActionIconBtn(
-                        icon: Icons.person_off_outlined,
-                        color: kAccentOrange,
-                        tooltip: 'Deactivate',
-                        onPressed: () => onDeactivate(user),
-                      )
-                    else
-                      _ActionIconBtn(
-                        icon: Icons.person_add_outlined,
-                        color: kPrimaryGreen,
-                        tooltip: 'Activate',
-                        onPressed: () => onActivate(user),
-                      ),
-                    const SizedBox(width: 4),
-                    _ActionIconBtn(
-                      icon: Icons.article_outlined,
-                      color: kPrimaryGreen,
-                      tooltip: 'Posts',
-                      onPressed: () => onViewPosts(user),
-                    ),
-                    const SizedBox(width: 4),
-                    _ActionIconBtn(
-                      icon: Icons.comment_outlined,
-                      color: kAccentOrange,
-                      tooltip: 'Comments',
-                      onPressed: () => onViewComments(user),
-                    ),
-                    const SizedBox(width: 4),
-                    _ActionIconBtn(
-                      icon: Icons.restaurant_menu_outlined,
-                      color: const Color(0xFFE6930A),
-                      tooltip: 'Recipes',
-                      onPressed: () => onViewRecipes(user),
-                    ),
-                    const SizedBox(width: 4),
-                    _ActionIconBtn(
-                      icon: Icons.delete_outline_rounded,
-                      color: Colors.red,
-                      tooltip: 'Delete',
-                      onPressed: () => onDelete(user),
-                    ),
-                  ],
-                ),
-              ),
-            ], null);
-          }).toList(),
-        ),
-      );
+            ),
+          ], null);
+        }).toList(),
+      ),
+    );
   }
 }
-

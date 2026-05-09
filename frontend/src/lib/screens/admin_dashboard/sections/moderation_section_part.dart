@@ -1,5 +1,159 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+class _ModerationSectionContainer extends StatefulWidget {
+  final ThemeData theme;
+  const _ModerationSectionContainer({super.key, required this.theme});
+
+  @override
+  State<_ModerationSectionContainer> createState() =>
+      _ModerationSectionContainerState();
+}
+
+class _ModerationSectionContainerState
+    extends State<_ModerationSectionContainer>
+    with AutomaticKeepAliveClientMixin {
+  List<Report> _reports = [];
+  bool _loading = true;
+  String? _error;
+  _DateRangeFilter _range = _DateRangeFilter.monthly;
+  bool _exportingReportsCsv = false;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final reports = await AdminModerationService.instance.fetchReports(
+        range: _range.apiValue,
+      );
+      if (!mounted) return;
+      setState(() {
+        _reports = reports;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _exportReportsCsv() async {
+    if (_exportingReportsCsv) return;
+    setState(() => _exportingReportsCsv = true);
+    try {
+      final rows = <String>[
+        'id,reporter,reason,details,status,created_at,reportable_type,reportable_id,reportable_label',
+      ];
+      for (final r in _reports) {
+        rows.add(
+          [
+            r.id,
+            _escapeCsv(r.reporter),
+            _escapeCsv(r.reason),
+            _escapeCsv(r.details),
+            _escapeCsv(r.status),
+            _escapeCsv(r.createdAt),
+            _escapeCsv(r.reportable?.type ?? ''),
+            r.reportable?.id ?? 0,
+            _escapeCsv(r.reportableLabel),
+          ].join(','),
+        );
+      }
+      await _shareCsvRows(
+        rows: rows,
+        fileName: 'Content Reports Export.csv',
+        subject: 'WellNest Content Reports Export',
+      );
+      if (!mounted) return;
+      _showAdminSnack(context, 'Reports exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _exportingReportsCsv = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAllReports() async {
+    final ok = await _showAdminConfirmDialog(
+      context: context,
+      title: 'Delete all reports?',
+      content: 'Permanently delete all pending reports? This cannot be undone.',
+      actionLabel: 'Delete All',
+      actionColor: Colors.red,
+    );
+    if (ok != true) return;
+    try {
+      await AdminModerationService.instance.deleteAllReports();
+      if (!mounted) return;
+      _showAdminSnack(context, 'All reports deleted');
+      await refresh();
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    }
+  }
+
+  Future<void> _handleReportAction(int reportId, String action) async {
+    try {
+      switch (action) {
+        case 'dismiss':
+          await AdminModerationService.instance.dismiss(reportId);
+          break;
+        case 'approve':
+          await AdminModerationService.instance.approve(reportId);
+          break;
+        case 'remove-content':
+          await AdminModerationService.instance.removeContent(reportId);
+          break;
+        case 'suspend-user':
+          await AdminModerationService.instance.suspendUser(reportId);
+          break;
+      }
+      if (!mounted) return;
+      _showAdminSnack(context, 'Report updated');
+      await refresh();
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _ModerationSection(
+      theme: widget.theme,
+      reports: _reports,
+      loading: _loading,
+      error: _error,
+      selectedRange: _range,
+      onRangeChanged: (range) {
+        setState(() => _range = range);
+        refresh();
+      },
+      onRefresh: refresh,
+      onExport: _exportingReportsCsv ? null : _exportReportsCsv,
+      exporting: _exportingReportsCsv,
+      onDeleteAll: _confirmDeleteAllReports,
+      onReportAction: _handleReportAction,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
 class _ModerationSection extends StatelessWidget {
   final ThemeData theme;
   final List<Report> reports;
@@ -146,13 +300,19 @@ class _ReportsTable extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: 90, child: _TypePill(type: r.reportable?.type ?? 'unknown')),
+              SizedBox(
+                width: 90,
+                child: _TypePill(type: r.reportable?.type ?? 'unknown'),
+              ),
               Expanded(
                 child: Text(
                   r.reportableLabel,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -161,7 +321,10 @@ class _ReportsTable extends StatelessWidget {
                   r.reason ?? '—',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -217,4 +380,3 @@ class _ReportsTable extends StatelessWidget {
     );
   }
 }
-

@@ -1,5 +1,230 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+class _OverviewSectionContainer extends StatefulWidget {
+  final ThemeData theme;
+  final bool isWide;
+  const _OverviewSectionContainer({
+    super.key,
+    required this.theme,
+    required this.isWide,
+  });
+
+  @override
+  State<_OverviewSectionContainer> createState() =>
+      _OverviewSectionContainerState();
+}
+
+class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
+    with AutomaticKeepAliveClientMixin {
+  List<AdminUser> _users = [];
+  int _usersTotalCount = 0;
+  int _usersActiveTotalCount = 0;
+  bool _usersLoading = true;
+
+  List<Report> _reports = [];
+  bool _reportsLoading = true;
+
+  int _recipeTotal = 0;
+  bool _recipeTotalLoading = true;
+
+  List<ActivityLog> _auditLogs = [];
+
+  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
+  List<AdminStatPoint> _userGrowthPoints = [];
+  List<AdminStatPoint> _postFrequencyPoints = [];
+  List<AdminStatPoint> _chatbotInteractionPoints = [];
+  bool _analyticsLoading = true;
+  String? _analyticsError;
+  bool _exportingInsightsCsv = false;
+  int _rankingsRefreshNonce = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    await Future.wait<void>([
+      _loadUsersSummary(),
+      _loadReports(),
+      _loadRecipeTotal(),
+      _loadAuditLogs(),
+      _loadAnalytics(),
+    ]);
+    if (!mounted) return;
+    setState(() => _rankingsRefreshNonce++);
+  }
+
+  Future<void> _loadUsersSummary() async {
+    setState(() => _usersLoading = true);
+    try {
+      final result = await AdminUserService.instance.fetchUsers();
+      if (!mounted) return;
+      setState(() {
+        _users = result.users;
+        _usersTotalCount = result.total;
+        _usersActiveTotalCount = result.activeTotal;
+        _usersLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _usersLoading = false);
+    }
+  }
+
+  Future<void> _loadReports() async {
+    setState(() => _reportsLoading = true);
+    try {
+      final reports = await AdminModerationService.instance.fetchReports();
+      if (!mounted) return;
+      setState(() {
+        _reports = reports;
+        _reportsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _reportsLoading = false);
+    }
+  }
+
+  Future<void> _loadRecipeTotal() async {
+    setState(() => _recipeTotalLoading = true);
+    try {
+      final res = await RecipeService.instance.fetchRecipes(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _recipeTotal = res.total;
+        _recipeTotalLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _recipeTotalLoading = false);
+    }
+  }
+
+  Future<void> _loadAuditLogs() async {
+    try {
+      final res = await AdminAuditLogService.instance.fetchLogs(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _auditLogs = res.logs;
+      });
+    } catch (_) {
+      // keep existing logs on failure
+    }
+  }
+
+  Future<void> _loadAnalytics() async {
+    setState(() {
+      _analyticsLoading = true;
+      _analyticsError = null;
+    });
+    try {
+      final range = _insightsRange.apiValue;
+      final results = await Future.wait<List<AdminStatPoint>>([
+        AdminDashboardService.instance.fetchUserGrowth(range: range),
+        AdminDashboardService.instance.fetchPostFrequency(range: range),
+        AdminDashboardService.instance.fetchChatbotInteractions(range: range),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _userGrowthPoints = results[0];
+        _postFrequencyPoints = results[1];
+        _chatbotInteractionPoints = results[2];
+        _analyticsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _analyticsLoading = false;
+        _analyticsError = _adminErrorMessage(e);
+      });
+    }
+  }
+
+  Future<void> _exportInsightsCsv() async {
+    if (_exportingInsightsCsv) return;
+    setState(() => _exportingInsightsCsv = true);
+    try {
+      final filteredUsersResult = await AdminUserService.instance.fetchUsers(
+        range: _insightsRange.apiValue,
+      );
+      final filteredReports = await AdminModerationService.instance
+          .fetchReports(range: _insightsRange.apiValue);
+      final allRecipes = <Recipe>[];
+      for (var page = 1; page <= 5; page++) {
+        final res = await RecipeService.instance.fetchRecipes(
+          page: page,
+          range: _insightsRange.apiValue,
+        );
+        allRecipes.addAll(res.recipes);
+        if (res.recipes.length < 10) break;
+      }
+      allRecipes.sort((a, b) {
+        final aCount = a.ratingsCount ?? 0;
+        final bCount = b.ratingsCount ?? 0;
+        if (aCount != bCount) return bCount.compareTo(aCount);
+        return (b.averageRating ?? 0).compareTo(a.averageRating ?? 0);
+      });
+      final rows = <String>[
+        'Metric,Value',
+        'Range,${_insightsRange.label}',
+        'Total Users,${filteredUsersResult.total}',
+        'Active Users,${filteredUsersResult.activeTotal}',
+        'Total Recipes,${allRecipes.length}',
+        'Open Reports,${filteredReports.length}',
+      ];
+      await _shareCsvRows(
+        rows: rows,
+        fileName: 'Admin Insights Export.csv',
+        subject: 'WellNest Admin Insights Report',
+      );
+      if (!mounted) return;
+      _showAdminSnack(context, 'Insights report exported');
+    } catch (e) {
+      if (!mounted) return;
+      _showAdminErrorSnack(context, e);
+    } finally {
+      if (mounted) setState(() => _exportingInsightsCsv = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _OverviewSection(
+      theme: widget.theme,
+      isWide: widget.isWide,
+      users: _users,
+      totalUsers: _usersTotalCount,
+      activeUsers: _usersActiveTotalCount,
+      loading: _usersLoading,
+      reports: _reports,
+      reportsLoading: _reportsLoading,
+      recipeTotal: _recipeTotal,
+      recipeTotalLoading: _recipeTotalLoading,
+      auditLogs: _auditLogs,
+      analyticsLoading: _analyticsLoading,
+      analyticsError: _analyticsError,
+      userGrowthPoints: _userGrowthPoints,
+      postFrequencyPoints: _postFrequencyPoints,
+      chatbotInteractionPoints: _chatbotInteractionPoints,
+      exportingInsightsCsv: _exportingInsightsCsv,
+      selectedInsightsRange: _insightsRange,
+      onInsightsRangeChanged: (range) {
+        setState(() => _insightsRange = range);
+        _loadAnalytics();
+      },
+      onExportInsights: _exportInsightsCsv,
+      rankingsRefreshNonce: _rankingsRefreshNonce,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
 class _OverviewSection extends StatelessWidget {
   final ThemeData theme;
   final bool isWide;
@@ -293,4 +518,3 @@ class _OverviewSection extends StatelessWidget {
     );
   }
 }
-
