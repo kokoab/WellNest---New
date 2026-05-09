@@ -2,9 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 
+/// Solid [BottomAppBar] with center notch for a docked FAB ([CircularNotchedRectangle]).
+/// Pair [fab] + [fabLocation] with the root [Scaffold].
 class CustomBottomNav extends StatelessWidget {
+  /// Standard FAB diameter + notch clearance.
+  static const double fabClearanceWidth = 56;
+
+  static const FloatingActionButtonLocation fabLocation =
+      FloatingActionButtonLocation.centerDocked;
+
+  static Widget fab({required VoidCallback onPressed}) {
+    return FloatingActionButton(
+      onPressed: onPressed,
+      tooltip: 'Create',
+      child: const Icon(Icons.add_rounded, size: 28),
+    );
+  }
+
   final int currentIndex;
-  final Function(int) onTap;
+  final ValueChanged<int> onTap;
 
   const CustomBottomNav({
     super.key,
@@ -15,30 +31,58 @@ class CustomBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return Container(
-      height: 64,
-      margin: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.md, bottom: 20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+    final scheme = theme.colorScheme;
+
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8,
+      elevation: theme.bottomAppBarTheme.elevation ?? 8,
+      shadowColor:
+          theme.bottomAppBarTheme.shadowColor ??
+          Colors.black.withValues(alpha: 0.08),
+      surfaceTintColor: Colors.transparent,
+      color: scheme.brightness == Brightness.dark
+          ? scheme.surface
+          : Colors.white,
+      padding: EdgeInsets.zero,
+      height: theme.bottomAppBarTheme.height ?? 64,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Expanded(child: _NavItem(icon: Icons.grid_view_rounded, label: 'Discover', active: currentIndex == 0, onTap: () => onTap(0))),
-            Expanded(child: _NavItem(icon: Icons.dynamic_feed_rounded, label: 'Feed', active: currentIndex == 1, onTap: () => onTap(1))),
-            Expanded(child: _NavItem(icon: Icons.bookmark_rounded, label: 'Saved recipes', active: currentIndex == 2, onTap: () => onTap(2))),
-            Expanded(child: _NavItem(icon: Icons.person_rounded, label: 'Profile', active: currentIndex == 3, onTap: () => onTap(3))),
+            Expanded(
+              child: _DockNavItem(
+                icon: Icons.grid_view_rounded,
+                label: 'Discover',
+                selected: currentIndex == 0,
+                onTap: () => onTap(0),
+              ),
+            ),
+            Expanded(
+              child: _DockNavItem(
+                icon: Icons.dynamic_feed_rounded,
+                label: 'Feed',
+                selected: currentIndex == 1,
+                onTap: () => onTap(1),
+              ),
+            ),
+            const SizedBox(width: fabClearanceWidth),
+            Expanded(
+              child: _DockNavItem(
+                icon: Icons.bookmark_rounded,
+                label: 'Saved',
+                selected: currentIndex == 2,
+                onTap: () => onTap(2),
+              ),
+            ),
+            Expanded(
+              child: _DockNavItem(
+                icon: Icons.person_rounded,
+                label: 'Profile',
+                selected: currentIndex == 3,
+                onTap: () => onTap(3),
+              ),
+            ),
           ],
         ),
       ),
@@ -46,45 +90,52 @@ class CustomBottomNav extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _DockNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final bool active;
+  final bool selected;
   final VoidCallback onTap;
 
-  const _NavItem({
+  const _DockNavItem({
     required this.icon,
     required this.label,
-    required this.active,
+    required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = AppColors.primaryGreen;
-    final inactiveColor = AppColors.primaryGreen.withValues(alpha: 0.5);
+    final active = AppColors.primaryGreen;
+    final inactive = AppColors.primaryGreen.withValues(alpha: 0.42);
+    final color = selected ? active : inactive;
+
     return Semantics(
       button: true,
       label: label,
-      selected: active,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.all(Radius.circular(24)),
-            ),
-            child: Icon(
-              icon,
-              size: 26,
-              color: active ? activeColor : inactiveColor,
-            ),
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 24, color: color),
+              AppSpacing.gapV4,
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: kFontHelveticaNow,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ),
       ),

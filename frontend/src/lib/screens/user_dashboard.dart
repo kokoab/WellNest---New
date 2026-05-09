@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:my_app/theme/app_spacing.dart';
@@ -21,9 +23,11 @@ import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
+import 'package:my_app/screens/create_post_screen.dart';
 import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/widgets/georgia_pro_display_squish.dart';
+import 'package:my_app/widgets/wellnest_discover_hero.dart';
+import 'package:my_app/widgets/wellnest_recipe_card.dart';
 import 'package:my_app/widgets/weekly_meal_planner_strip.dart';
 import 'feed_page.dart';
 import 'recipe_ranking_screen.dart';
@@ -36,6 +40,8 @@ class UserDashboard extends StatefulWidget {
 }
 
 class _UserDashboardState extends State<UserDashboard> {
+  static const Color wellGreen = Color(0xFF097333);
+
   int _currentIndex = 0;
   int _feedRefreshKey = 0;
   int _savedRefreshKey = 0;
@@ -60,76 +66,208 @@ class _UserDashboardState extends State<UserDashboard> {
     ];
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody:
-          true, // Allows the floating nav bar to look transparent at the edges
-      body: IndexedStack(index: _currentIndex, children: pages),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'wellnest_assistant_fab',
-            onPressed: () async {
-              final svc = ConversationService();
-              try {
-                final conv = await svc.ensureAssistantConversation();
-                if (!context.mounted) return;
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => ConversationChatScreen(
-                      conversationId: conv.id,
-                      otherUserName: conv.otherUser.name,
-                      otherUserProfilePhotoUrl:
-                          conv.otherUser.displayProfilePhotoUrl,
-                      isAssistant: true,
-                    ),
-                  ),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(e.toString().replaceFirst('Exception: ', '')),
-                  ),
-                );
-              }
-            },
-            backgroundColor: AppColors.primaryGreen,
-            foregroundColor: Colors.white,
-            child: const Icon(Icons.chat_bubble_outline),
-          ),
-          if (_currentIndex == 0) ...[
-            const SizedBox(height: 12),
-            FloatingActionButton(
-              heroTag: 'recipe_add_fab',
-              onPressed: () async {
-                final result = await RecipeFormScreen.showAsModal(context);
-                if (result == true && mounted) {
-                  await _recipeGridViewKey.currentState?._load();
-                }
-              },
-              backgroundColor: AppColors.accentOrange,
-              foregroundColor: Colors.white,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add),
-            ),
-          ],
-        ],
+      extendBody: true,
+      floatingActionButton: CustomBottomNav.fab(onPressed: _showQuickActionsSheet),
+      floatingActionButtonLocation: CustomBottomNav.fabLocation,
+      body: MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
+        child: IndexedStack(index: _currentIndex, children: pages),
       ),
-      bottomNavigationBar: RepaintBoundary(
-        child: CustomBottomNav(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            if (index == _currentIndex && index == 0) {
-              _recipeGridViewKey.currentState?.scrollToTop();
-              return;
-            }
-            setState(() {
-              _currentIndex = index;
-              if (index == 1) _feedRefreshKey++;
-              if (index == 2) _savedRefreshKey++;
-            });
-          },
+      bottomNavigationBar: MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: RepaintBoundary(
+            child: CustomBottomNav(
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                if (index == _currentIndex && index == 0) {
+                  _recipeGridViewKey.currentState?.scrollToTop();
+                  return;
+                }
+                setState(() {
+                  _currentIndex = index;
+                  if (index == 1) _feedRefreshKey++;
+                  if (index == 2) _savedRefreshKey++;
+                });
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showQuickActionsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.66),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.1,
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _QuickActionTile(
+                      icon: Icons.post_add_rounded,
+                      label: 'Create new post',
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        if (!mounted) return;
+                        final created = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => const CreatePostScreen(),
+                          ),
+                        );
+                        if (created == true && mounted) {
+                          setState(() {
+                            _currentIndex = 1;
+                            _feedRefreshKey++;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Post created!'),
+                              backgroundColor: wellGreen,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 0.7,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      indent: 16,
+                      endIndent: 16,
+                    ),
+                    _QuickActionTile(
+                      icon: Icons.restaurant_menu_rounded,
+                      label: 'Create new recipe',
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        if (!mounted) return;
+                        final result =
+                            await RecipeFormScreen.showAsModal(context);
+                        if (result == true && mounted) {
+                          setState(() => _currentIndex = 0);
+                          await _recipeGridViewKey.currentState?._load();
+                        }
+                      },
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 0.7,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      indent: 16,
+                      endIndent: 16,
+                    ),
+                    _QuickActionTile(
+                      icon: Icons.auto_awesome_rounded,
+                      label: 'Chat with WellNest AI',
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        if (!mounted) return;
+                        final svc = ConversationService();
+                        try {
+                          final conv = await svc.ensureAssistantConversation();
+                          if (!mounted) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => ConversationChatScreen(
+                                conversationId: conv.id,
+                                otherUserName: conv.otherUser.name,
+                                otherUserProfilePhotoUrl:
+                                    conv.otherUser.displayProfilePhotoUrl,
+                                isAssistant: true,
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                e.toString().replaceFirst('Exception: ', ''),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm2,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.primaryGreen, size: 26),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.bodyText,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.grey.shade400,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -560,6 +698,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     final mobileSearchActive = width <= 600 && _mobileSearchActive;
 
     return SafeArea(
+      top: false,
       bottom: false,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 460),
@@ -612,28 +751,32 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         slivers: [
                           SliverToBoxAdapter(
                             child: RepaintBoundary(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  AppSpacing.md,
-                                  AppSpacing.sm,
-                                  AppSpacing.md,
-                                  0,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const WellnestHeader(),
-                                    AppSpacing.gapV8,
-                                    width <= 600
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  WellnestDiscoverHero(
+                                    searchSlot: width <= 600
                                         ? _buildMobileSearchTrigger()
                                         : _buildRecipeSearchField(
                                             searchOnlyMode: false,
                                           ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      AppSpacing.md,
+                                      AppSpacing.md,
+                                      AppSpacing.md,
+                                      0,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                     if (_searchFocusNode.hasFocus) ...[
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: AppSpacing.sm2),
                                       _buildSearchDiscoveryPanel(),
                                     ],
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: AppSpacing.sm2),
                                     if (_categories.isNotEmpty) ...[
                                       Row(
                                         crossAxisAlignment:
@@ -752,7 +895,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       const SizedBox(height: 8),
                                     ],
                                   ],
-                                ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -844,11 +989,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildMobileSearchView() {
+    final topPad = MediaQuery.paddingOf(context).top + AppSpacing.sm;
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.sm,
-        AppSpacing.sm,
+        topPad,
         AppSpacing.md,
         AppSpacing.md,
       ),
@@ -1304,7 +1450,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               child: GeorgiaProDisplaySquish(
                 child: Text(
                   'Top Ranked Recipes',
-                  style: georgiaProTextStyle(fontSize: 28, color: wellGreen),
+                  style: georgiaProTextStyle(fontSize: 21, color: wellGreen),
                 ),
               ),
             ),
@@ -1821,16 +1967,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildRecipeCard(Recipe recipe, int index) {
-    final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
-    const horizontalPadding = AppSpacing.md;
-    const gap = 12.0;
-    final cardWidth =
-        (width - 2 * horizontalPadding - (crossAxisCount - 1) * gap) /
-        crossAxisCount;
     final aspectRatios = [0.85, 1.05, 1.25, 1.0, 1.2];
     final aspect = aspectRatios[index % aspectRatios.length];
-    final ratingsCount = recipe.ratingsCount ?? 0;
 
     return AnimatedPressScale(
       onTap: () async {
@@ -1844,175 +1982,16 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         if (mounted) _load();
       },
       semanticLabel: 'View recipe, ${recipe.title}',
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            const BoxShadow(
-              color: Color(0x14097333),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: _buildCollapsedCard(recipe, cardWidth, aspect, ratingsCount),
+      child: WellnestRecipeCard(
+        recipe: recipe,
+        heroTag: 'recipe_${recipe.id}_image',
+        aspectRatio: 1 / aspect,
+        bookmarkSaving: _recipeSaving.contains(recipe.id),
+        isBookmarked: _recipeSaved[recipe.id] ?? false,
+        onBookmarkTap: AuthService.instance.isLoggedIn
+            ? () => _toggleRecipeSaved(recipe)
+            : null,
       ),
-    );
-  }
-
-  Widget _buildCollapsedCard(
-    Recipe recipe,
-    double cardWidth,
-    double aspect,
-    int ratingsCount,
-  ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Image on top - AspectRatio ensures proper sizing without overflow
-        AspectRatio(
-          aspectRatio: 1 / aspect,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              recipe.displayImageUrl != null &&
-                      recipe.displayImageUrl!.isNotEmpty
-                  ? Image.network(
-                      recipe.displayImageUrl!,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                      cacheWidth: 600,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: AppColors.imagePlaceholderGreen,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: wellGreen,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (_, _, _) =>
-                          _buildRecipeImagePlaceholder(context),
-                    )
-                  : _buildRecipeImagePlaceholder(context),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton.filledTonal(
-                  onPressed: _recipeSaving.contains(recipe.id)
-                      ? null
-                      : () => _toggleRecipeSaved(recipe),
-                  icon: _recipeSaving.contains(recipe.id)
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          (_recipeSaved[recipe.id] ?? false)
-                              ? Icons.bookmark
-                              : Icons.bookmark_border,
-                          color: (_recipeSaved[recipe.id] ?? false)
-                              ? nestOrange
-                              : wellGreen,
-                        ),
-                  tooltip: (_recipeSaved[recipe.id] ?? false)
-                      ? 'Remove favorite'
-                      : 'Save favorite',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.9),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Text block below (Pinterest caption style)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GeorgiaProDisplaySquish(
-                child: Text(
-                  recipe.title,
-                  style: georgiaProTextStyle(
-                    fontSize: 14,
-                    color: kPrimaryGreen,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              AppSpacing.gapV4,
-              if (recipe.category != null) ...[
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xs / 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0x1A097333),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        recipe.category!.name,
-                        style: const TextStyle(
-                          color: kPrimaryGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                AppSpacing.gapV4,
-              ],
-              Row(
-                children: [
-                  Icon(Icons.schedule, size: 12, color: Colors.grey.shade600),
-                  AppSpacing.gapH4,
-                  Text(
-                    '${recipe.prepTime} min',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.star, size: 12, color: accentYellow),
-                  AppSpacing.gapH4,
-                  Text(
-                    (recipe.averageRating ?? 0).toStringAsFixed(1),
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                  AppSpacing.gapH4,
-                  Text(
-                    '${recipe.viewsCount ?? 0}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
@@ -25,6 +27,7 @@ class RecipeDetailScreen extends StatefulWidget {
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
+  static const double _kImageExpandedHeight = 280;
 
   Recipe? _recipe;
   bool _loading = true;
@@ -38,7 +41,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   int? _pendingStars;
   bool _submittingRating = false;
   final TextEditingController _reviewController = TextEditingController();
+  final ScrollController _detailScrollController = ScrollController();
+  final GlobalKey _instructionsAnchorKey = GlobalKey();
+  final Set<int> _checkedIngredients = <int>{};
   int? _currentUserId;
+  bool _appBarCollapsed = false;
   bool get _isOwner =>
       _recipe != null &&
       _currentUserId != null &&
@@ -46,6 +53,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   void dispose() {
+    _detailScrollController.removeListener(_onDetailScroll);
+    _detailScrollController.dispose();
     _reviewController.dispose();
     super.dispose();
   }
@@ -53,7 +62,35 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _detailScrollController.addListener(_onDetailScroll);
     _load();
+  }
+
+  void _onDetailScroll() {
+    final collapsed = _computeAppBarCollapsed();
+    if (collapsed != _appBarCollapsed && mounted) {
+      setState(() => _appBarCollapsed = collapsed);
+    }
+  }
+
+  bool _computeAppBarCollapsed() {
+    if (!_detailScrollController.hasClients) return false;
+    final range = _kImageExpandedHeight - kToolbarHeight;
+    if (range <= 0) return false;
+    return _detailScrollController.offset >= range - 8;
+  }
+
+  void _scrollToInstructions() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _instructionsAnchorKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        alignment: 0.04,
+      );
+    });
   }
 
   Future<void> _load() async {
@@ -206,387 +243,661 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final recipe = _recipe;
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Recipe',
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          if (_recipe != null && AuthService.instance.isLoggedIn)
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
-              onSelected: (v) async {
-                if (v == 'edit') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RecipeFormScreen(recipe: _recipe),
-                    ),
-                  ).then((_) => _load());
-                } else if (v == 'report' && AuthService.instance.isLoggedIn) {
-                  await _reportRecipe();
-                } else if (v == 'delete') {
-                  await _deleteRecipe();
-                }
-              },
-              itemBuilder: (context) => [
-                if (_isOwner)
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                if (_isOwner)
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                if (AuthService.instance.isLoggedIn)
-                  const PopupMenuItem(value: 'report', child: Text('Report')),
-              ],
-            ),
-        ],
-      ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: wellGreen))
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: nestOrange),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _load,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                      child: const Text('Retry'),
-                    ),
-                  ],
+          ? CustomScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
-              ),
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(color: wellGreen),
+                  ),
+                ),
+              ],
             )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildRecipeImage(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          : _error != null
+          ? CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                SliverFillRemaining(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: nestOrange),
+                        ),
+                        AppSpacing.gapV16,
+                        FilledButton(
+                          onPressed: _load,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: wellGreen,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : CustomScrollView(
+              controller: _detailScrollController,
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: _kImageExpandedHeight,
+                  pinned: true,
+                  stretch: true,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  backgroundColor: _appBarCollapsed
+                      ? theme.scaffoldBackgroundColor
+                      : Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  foregroundColor: _appBarCollapsed
+                      ? colorScheme.onSurface
+                      : Colors.white,
+                  iconTheme: IconThemeData(
+                    color: _appBarCollapsed
+                        ? colorScheme.onSurface
+                        : Colors.white,
+                  ),
+                  actionsIconTheme: IconThemeData(
+                    color: _appBarCollapsed
+                        ? colorScheme.onSurface
+                        : Colors.white,
+                  ),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: _appBarCollapsed
+                      ? Text(
+                          recipe!.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                        )
+                      : null,
+                  actions: [
+                    if (recipe != null && AuthService.instance.isLoggedIn)
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          Icons.more_vert_rounded,
+                          color: _appBarCollapsed
+                              ? colorScheme.onSurface
+                              : Colors.white,
+                        ),
+                        onSelected: (v) async {
+                          if (v == 'edit') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    RecipeFormScreen(recipe: _recipe),
+                              ),
+                            ).then((_) => _load());
+                          } else if (v == 'report' &&
+                              AuthService.instance.isLoggedIn) {
+                            await _reportRecipe();
+                          } else if (v == 'delete') {
+                            await _deleteRecipe();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          if (_isOwner)
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          if (_isOwner)
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit'),
+                            ),
+                          if (AuthService.instance.isLoggedIn)
+                            const PopupMenuItem(
+                              value: 'report',
+                              child: Text('Report'),
+                            ),
+                        ],
+                      ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    stretchModes: const [StretchMode.zoomBackground],
+                    background: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Hero(
+                          tag: 'recipe_${recipe!.id}_image',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: _buildExpandedRecipeImageFill(),
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          height: 120,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.55),
+                                    Colors.black.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 100,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.45),
+                                    Colors.black.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.xl,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Step 1: Title & Author
                         GeorgiaProDisplaySquish(
                           child: Text(
-                            _recipe!.title,
+                            recipe.title,
                             style: georgiaProTextStyle(
-                              fontSize: 26,
+                              fontSize: 28,
                               color: wellGreen,
                             ),
                           ),
                         ),
-                        if (_recipe!.description != null &&
-                            _recipe!.description!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 10),
+                        if (recipe.description != null &&
+                            recipe.description!.trim().isNotEmpty) ...[
+                          AppSpacing.gapV12,
                           Text(
-                            _recipe!.description!.trim(),
+                            recipe.description!.trim(),
                             style: TextStyle(
-                              fontFamily: 'HelveticaNow',
+                              fontFamily: kFontHelveticaNow,
                               fontSize: 16,
-                              height: 1.45,
+                              height: 1.5,
                               color: Colors.grey.shade800,
                             ),
                           ),
                         ],
-                        const SizedBox(height: 6),
+                        AppSpacing.gapV8,
                         GestureDetector(
-                          onTap: _recipe!.userId != null
+                          onTap: recipe.userId != null
                               ? () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => UserProfileScreen(
-                                      userId: _recipe!.userId!,
+                                      userId: recipe.userId!,
                                     ),
                                   ),
                                 )
                               : null,
                           child: Text(
-                            _recipe!.user != null
-                                ? 'By ${_recipe!.userDisplayName}'
+                            recipe.user != null
+                                ? 'By ${recipe.userDisplayName}'
                                 : 'By Unknown',
                             style: TextStyle(
-                              fontFamily: 'HelveticaNow',
-                              color: Colors.grey.shade600,
+                              fontFamily: kFontHelveticaNow,
+                              color: AppColors.captionText,
                               fontSize: 14,
-                              decoration: _recipe!.userId != null
+                              decoration: recipe.userId != null
                                   ? TextDecoration.underline
                                   : TextDecoration.none,
+                              decorationColor: AppColors.captionText,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        // Tags & Ratings Row (horizontal)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            _buildMetaRow(),
-                            const Spacer(),
-                            const Icon(
-                              Icons.star,
-                              color: Color(0xFFF9BD21),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${(_ratings?.averageRating ?? _recipe?.averageRating ?? 0.0).toStringAsFixed(1)} (${_ratings?.ratingsCount ?? _recipe?.ratingsCount ?? 0})',
-                              style: TextStyle(
-                                fontFamily: 'HelveticaNow',
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
+                        AppSpacing.gapV16,
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildMetaStrip(),
+                              AppSpacing.gapH16,
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber.shade700,
+                                    size: 18,
+                                  ),
+                                  AppSpacing.gapH4,
+                                  Text(
+                                    '${(_ratings?.averageRating ?? recipe.averageRating ?? 0.0).toStringAsFixed(1)} (${_ratings?.ratingsCount ?? recipe.ratingsCount ?? 0})',
+                                    style: TextStyle(
+                                      fontFamily: kFontHelveticaNow,
+                                      fontSize: 14,
+                                      color: AppColors.captionText,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        // Step 3: Action Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed:
-                                    AuthService.instance.isLoggedIn && !_liking
-                                    ? () async {
-                                        setState(() => _liking = true);
-                                        try {
-                                          if (_liked) {
-                                            await VoteService.instance
-                                                .unlikeRecipe(_recipe!.id);
-                                            if (mounted) {
-                                              setState(() => _liked = false);
-                                            }
-                                          } else {
-                                            await VoteService.instance
-                                                .likeRecipe(_recipe!.id);
-                                            if (mounted) {
-                                              setState(() => _liked = true);
-                                            }
-                                          }
-                                        } catch (e) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  e.toString().replaceFirst(
-                                                    'Exception: ',
-                                                    '',
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _liking = false);
-                                          }
-                                        }
-                                      }
-                                    : null,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: nestOrange,
-                                  side: const BorderSide(color: nestOrange),
-                                ),
-                                child: _liking
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: nestOrange,
-                                        ),
-                                      )
-                                    : Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            _liked
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            size: 20,
-                                            color: _liked
-                                                ? Colors.pink
-                                                : nestOrange,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            _liked ? 'Liked' : 'Like',
-                                            style: const TextStyle(
-                                              color: nestOrange,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-                            AppSpacing.gapH16,
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed:
-                                    AuthService.instance.isLoggedIn && !_saving
-                                    ? () async {
-                                        setState(() => _saving = true);
-                                        try {
-                                          if (_saved) {
-                                            await SavedRecipeService.instance
-                                                .unsaveRecipe(_recipe!.id);
-                                            if (mounted) {
-                                              setState(() => _saved = false);
-                                            }
-                                          } else {
-                                            await SavedRecipeService.instance
-                                                .saveRecipe(_recipe!.id);
-                                            if (mounted) {
-                                              setState(() => _saved = true);
-                                            }
-                                          }
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  _saved
-                                                      ? 'Saved to favorites'
-                                                      : 'Removed from favorites',
-                                                ),
-                                                backgroundColor: wellGreen,
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  e.toString().replaceFirst(
-                                                    'Exception: ',
-                                                    '',
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _saving = false);
-                                          }
-                                        }
-                                      }
-                                    : null,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: wellGreen,
-                                  side: const BorderSide(color: wellGreen),
-                                ),
-                                child: _saving
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: wellGreen,
-                                        ),
-                                      )
-                                    : Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            _saved
-                                                ? Icons.bookmark
-                                                : Icons.bookmark_border,
-                                            size: 20,
-                                            color: wellGreen,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            _saved ? 'Saved' : 'Save',
-                                            style: const TextStyle(
-                                              color: wellGreen,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        // Step 4: Flat content sections
-                        Divider(height: 1, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        _buildSectionTitle('Reviews'),
-                        const SizedBox(height: 12),
-                        _buildInteractiveRating(),
+                        AppSpacing.gapV24,
+                        Divider(height: 1, color: Colors.grey.shade300),
+                        AppSpacing.gapV16,
+                        _buildReviewsExpansion(theme),
                         AppSpacing.gapV8,
-                        _buildReviewsList(),
-                        const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        _buildSectionTitle('Ingredients'),
-                        const SizedBox(height: 12),
-                        _buildIngredientsList(),
-                        const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        _buildSectionTitle('Instructions'),
-                        const SizedBox(height: 12),
-                        _buildInstructions(),
+                        _buildIngredientsExpansion(theme),
+                        AppSpacing.gapV24,
+                        Divider(height: 1, color: Colors.grey.shade300),
+                        AppSpacing.gapV16,
+                        KeyedSubtree(
+                          key: _instructionsAnchorKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionTitle('Instructions'),
+                              AppSpacing.gapV12,
+                              _buildInstructions(),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+      bottomNavigationBar:
+          (!_loading && _error == null && recipe != null)
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 28,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm2,
+                          vertical: AppSpacing.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton.filledTonal(
+                              onPressed:
+                                  AuthService.instance.isLoggedIn && !_liking
+                                  ? _handleLikeTap
+                                  : null,
+                              style: IconButton.styleFrom(
+                                backgroundColor:
+                                    nestOrange.withValues(alpha: 0.14),
+                                foregroundColor: nestOrange,
+                              ),
+                              icon: _liking
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: nestOrange,
+                                      ),
+                                    )
+                                  : Icon(
+                                      _liked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                    ),
+                              tooltip: _liked ? 'Unlike' : 'Like',
+                            ),
+                            IconButton.filledTonal(
+                              onPressed:
+                                  AuthService.instance.isLoggedIn && !_saving
+                                  ? _handleSaveTap
+                                  : null,
+                              style: IconButton.styleFrom(
+                                backgroundColor:
+                                    wellGreen.withValues(alpha: 0.12),
+                                foregroundColor: wellGreen,
+                              ),
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: wellGreen,
+                                      ),
+                                    )
+                                  : Icon(
+                                      _saved
+                                          ? Icons.bookmark_rounded
+                                          : Icons.bookmark_border_rounded,
+                                    ),
+                              tooltip: _saved
+                                  ? 'Remove from saved'
+                                  : 'Save recipe',
+                            ),
+                            AppSpacing.gapH12,
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: _scrollToInstructions,
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                  backgroundColor: wellGreen,
+                                ),
+                                child: const Text('Start cooking'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 
-  Widget _buildRecipeImage() {
-    const double imageHeight = 240;
+  Widget _buildExpandedRecipeImageFill() {
     if (_recipe!.displayImageUrl != null &&
         _recipe!.displayImageUrl!.isNotEmpty) {
-      return Container(
-        height: imageHeight,
+      return Image.network(
+        _recipe!.displayImageUrl!,
+        fit: BoxFit.cover,
         width: double.infinity,
-        color: AppColors.imagePlaceholderGreen,
-        child: Image.network(
-          _recipe!.displayImageUrl!,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          errorBuilder: (_, __, ___) => _buildImagePlaceholder(imageHeight),
-        ),
+        height: double.infinity,
+        alignment: Alignment.center,
+        errorBuilder: (_, _, _) => _buildExpandedPlaceholderFill(),
       );
     }
-    return _buildImagePlaceholder(imageHeight);
+    return _buildExpandedPlaceholderFill();
   }
 
-  Widget _buildImagePlaceholder(double height) {
-    return Container(
-      height: height,
-      width: double.infinity,
+  Widget _buildExpandedPlaceholderFill() {
+    return ColoredBox(
       color: AppColors.imagePlaceholderGreen,
-      child: Icon(Icons.restaurant_menu, size: 80, color: wellGreen),
+      child: Center(child: Icon(Icons.restaurant_menu, size: 72, color: wellGreen)),
+    );
+  }
+
+  Future<void> _handleLikeTap() async {
+    setState(() => _liking = true);
+    try {
+      if (_liked) {
+        await VoteService.instance.unlikeRecipe(_recipe!.id);
+        if (mounted) setState(() => _liked = false);
+      } else {
+        await VoteService.instance.likeRecipe(_recipe!.id);
+        if (mounted) setState(() => _liked = true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _liking = false);
+    }
+  }
+
+  Future<void> _handleSaveTap() async {
+    setState(() => _saving = true);
+    try {
+      if (_saved) {
+        await SavedRecipeService.instance.unsaveRecipe(_recipe!.id);
+        if (mounted) setState(() => _saved = false);
+      } else {
+        await SavedRecipeService.instance.saveRecipe(_recipe!.id);
+        if (mounted) setState(() => _saved = true);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _saved ? 'Saved to favorites' : 'Removed from favorites',
+            ),
+            backgroundColor: wellGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _buildReviewsExpansion(ThemeData theme) {
+    final count = _ratings?.ratings.length ?? 0;
+
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        maintainState: true,
+        initiallyExpanded: false,
+        tilePadding: EdgeInsets.zero,
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        collapsedIconColor: AppColors.captionText,
+        iconColor: wellGreen,
+        title: Text(
+          'Reviews',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: wellGreen,
+            letterSpacing: 0.3,
+            fontFamily: kFontHelveticaNow,
+          ),
+        ),
+        subtitle: Text(
+          count == 0
+              ? 'No reviews yet'
+              : '$count review${count == 1 ? '' : 's'}',
+          style: TextStyle(
+            fontFamily: kFontHelveticaNow,
+            fontSize: 13,
+            color: AppColors.captionText,
+          ),
+        ),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInteractiveRating(),
+                AppSpacing.gapV8,
+                _buildReviewsList(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIngredientsExpansion(ThemeData theme) {
+    final ingredients = _recipe!.ingredients ?? [];
+    final n = ingredients.length;
+
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        maintainState: true,
+        initiallyExpanded: false,
+        tilePadding: EdgeInsets.zero,
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        collapsedIconColor: AppColors.captionText,
+        iconColor: wellGreen,
+        title: Text(
+          'Ingredients',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: wellGreen,
+            letterSpacing: 0.3,
+            fontFamily: kFontHelveticaNow,
+          ),
+        ),
+        subtitle: Text(
+          n == 0 ? 'None listed' : '$n items',
+          style: TextStyle(
+            fontFamily: kFontHelveticaNow,
+            fontSize: 13,
+            color: AppColors.captionText,
+          ),
+        ),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: _buildIngredientsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaStrip() {
+    final muted = AppColors.captionText;
+    final style = TextStyle(
+      fontFamily: kFontHelveticaNow,
+      fontSize: 14,
+      height: 1.35,
+      color: muted,
+    );
+    final recipe = _recipe!;
+    final ingredientsCount = recipe.ingredients?.length ?? 0;
+    final views = recipe.viewsCount ?? 0;
+
+    final parts = <Widget>[
+      _metaInline(Icons.schedule_outlined, '${recipe.prepTime} mins', style),
+      if (recipe.category != null)
+        _metaInline(
+          Icons.restaurant_menu_outlined,
+          recipe.category!.name,
+          style,
+        ),
+      if (ingredientsCount > 0)
+        _metaInline(
+          Icons.inventory_2_outlined,
+          '$ingredientsCount ingredients',
+          style,
+        ),
+      _metaInline(Icons.visibility_outlined, '$views views', style),
+    ];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                '|',
+                style: style.copyWith(color: muted.withValues(alpha: 0.35)),
+              ),
+            ),
+          parts[i],
+        ],
+      ],
+    );
+  }
+
+  Widget _metaInline(IconData icon, String label, TextStyle style) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 17,
+          color: AppColors.captionText.withValues(alpha: 0.88),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: style),
+      ],
     );
   }
 
@@ -636,26 +947,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           ),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildMetaRow() {
-    final hasCategory = _recipe!.category != null;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _MetaChip(
-          icon: Icons.schedule_rounded,
-          label: '${_recipe!.prepTime} min',
-        ),
-        if (hasCategory) ...[
-          const SizedBox(width: 8),
-          _MetaChip(
-            icon: Icons.category_rounded,
-            label: _recipe!.category!.name,
-          ),
-        ],
-      ],
     );
   }
 
@@ -824,7 +1115,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildIngredientsList() {
     final theme = Theme.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = theme.colorScheme;
     final ingredients = _recipe!.ingredients;
     if (ingredients == null || ingredients.isEmpty) {
       return Padding(
@@ -832,7 +1123,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Text(
           'No ingredients listed.',
           style: TextStyle(
-            fontFamily: 'HelveticaNow',
+            fontFamily: kFontHelveticaNow,
             color: Colors.grey.shade600,
             fontSize: 15,
           ),
@@ -843,35 +1134,49 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: ingredients.map((ing) {
+        children: ingredients.asMap().entries.map((entry) {
+          final i = entry.key;
+          final ing = entry.value;
           final qty = ing.quantity.toInt() == ing.quantity
               ? ing.quantity.toInt().toString()
               : ing.quantity.toString();
           final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 7),
-                  child: Icon(
-                    Icons.circle,
-                    size: 8,
-                    color: colorScheme.primary,
-                  ),
+          final checked = _checkedIngredients.contains(i);
+          return Container(
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: checked
+                  ? colorScheme.primary.withValues(alpha: 0.08)
+                  : const Color(0xFFF1F4F1),
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+            ),
+            child: CheckboxListTile(
+              value: checked,
+              onChanged: (selected) {
+                setState(() {
+                  if (selected == true) {
+                    _checkedIngredients.add(i);
+                  } else {
+                    _checkedIngredients.remove(i);
+                  }
+                });
+              },
+              dense: true,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.sm),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              title: Text(
+                amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                  height: 1.4,
+                  decoration: checked
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         }).toList(),
@@ -910,41 +1215,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             ),
           );
         }),
-      ),
-    );
-  }
-}
-
-class _MetaChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _MetaChip({required this.icon, required this.label});
-
-  static const Color wellGreen = Color(0xFF097333);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: wellGreen.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: wellGreen),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: wellGreen,
-            ),
-          ),
-        ],
       ),
     );
   }

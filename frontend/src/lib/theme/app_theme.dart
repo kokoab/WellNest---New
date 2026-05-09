@@ -10,6 +10,9 @@ const Color kImagePlaceholderGreen = Color(0xFFE8F1EC);
 const Color kBodyTextDark = Color(0xFF333333);
 const Color kCaptionGray = Color(0xFF666666);
 
+/// Discover hero wash (soft pale green — matches status band behind notch).
+const Color kHeroPaleGreen = Color(0xFFF0F7F0);
+
 /// Legacy aliases (for gradual migration)
 const Color kWellGreen = kPrimaryGreen;
 const Color kNestOrange = kAccentOrange;
@@ -100,6 +103,30 @@ ThemeData get lightTheme => ThemeData(
       color: kBodyTextDark,
     ),
   ),
+  bottomAppBarTheme: BottomAppBarThemeData(
+    elevation: 0,
+    height: 64,
+    padding: EdgeInsets.zero,
+    color: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    shadowColor: Colors.black.withValues(alpha: 0.06),
+  ),
+  floatingActionButtonTheme: const FloatingActionButtonThemeData(
+    elevation: 6,
+    highlightElevation: 10,
+    backgroundColor: kAccentOrange,
+    foregroundColor: Colors.white,
+    shape: CircleBorder(),
+    sizeConstraints: BoxConstraints.tightFor(width: 56, height: 56),
+  ),
+  cardTheme: CardThemeData(
+    color: Colors.white,
+    elevation: 0,
+    margin: EdgeInsets.zero,
+    shadowColor: Colors.black.withValues(alpha: 0.08),
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.md)),
+  ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: kPrimaryGreen,
@@ -149,6 +176,21 @@ ThemeData get darkTheme => ThemeData(
   ),
   scaffoldBackgroundColor: const Color(0xFF121212),
   cardColor: const Color(0xFF2C2C2C),
+  bottomAppBarTheme: BottomAppBarThemeData(
+    elevation: 0,
+    height: 64,
+    padding: EdgeInsets.zero,
+    color: const Color(0xFF1E1E1E),
+    surfaceTintColor: Colors.transparent,
+    shadowColor: Colors.black.withValues(alpha: 0.35),
+  ),
+  floatingActionButtonTheme: const FloatingActionButtonThemeData(
+    elevation: 6,
+    backgroundColor: kAccentOrange,
+    foregroundColor: Colors.white,
+    shape: CircleBorder(),
+    sizeConstraints: BoxConstraints.tightFor(width: 56, height: 56),
+  ),
   appBarTheme: AppBarTheme(
     backgroundColor: const Color(0xFF1E1E1E),
     foregroundColor: Colors.white,
@@ -162,6 +204,7 @@ class AppColors {
   static const Color primaryGreen = kPrimaryGreen;
   static const Color accentOrange = kAccentOrange;
   static const Color accentYellow = kAccentYellow;
+  static const Color heroPaleGreen = kHeroPaleGreen;
   static const Color backgroundCream = kBackgroundCream;
   static const Color surfaceWarmGray = kSurfaceWarmGray;
   static const Color imagePlaceholderGreen = kImagePlaceholderGreen;

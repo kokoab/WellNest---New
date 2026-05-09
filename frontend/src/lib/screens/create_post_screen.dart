@@ -1,0 +1,298 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:my_app/models/recipe.dart';
+import 'package:my_app/services/api_service.dart';
+import 'package:my_app/services/saved_recipe_service.dart';
+import 'package:my_app/services/user_service.dart';
+import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/widgets/initials_avatar.dart';
+
+class CreatePostScreen extends StatefulWidget {
+  const CreatePostScreen({super.key});
+
+  @override
+  State<CreatePostScreen> createState() => _CreatePostScreenState();
+}
+
+class _CreatePostScreenState extends State<CreatePostScreen> {
+  final ApiService _apiService = ApiService();
+  final TextEditingController _controller = TextEditingController();
+  CurrentUser? _currentUser;
+  Recipe? _selectedRecipe;
+  XFile? _selectedImage;
+  bool _loadingUser = true;
+  bool _posting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await UserService.instance.fetchCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _currentUser = user;
+        _loadingUser = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingUser = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    if (image != null && mounted) {
+      setState(() => _selectedImage = image);
+    }
+  }
+
+  Future<void> _pickRecipeFromSaved() async {
+    try {
+      final data = await SavedRecipeService.instance.fetchSavedRecipes(page: 1);
+      if (!mounted) return;
+      if (data.recipes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No saved recipes found to attach.')),
+        );
+        return;
+      }
+
+      final picked = await showModalBottomSheet<Recipe>(
+        context: context,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: data.recipes.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final recipe = data.recipes[index];
+              return ListTile(
+                leading: const Icon(Icons.restaurant_menu_rounded),
+                title: Text(
+                  recipe.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text('${recipe.prepTime} min'),
+                onTap: () => Navigator.pop(context, recipe),
+              );
+            },
+          ),
+        ),
+      );
+
+      if (picked != null && mounted) {
+        setState(() => _selectedRecipe = picked);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  Future<void> _submit() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty || _posting) return;
+
+    setState(() => _posting = true);
+    try {
+      final post = await _apiService.createPost(
+        content: content,
+        recipeId: _selectedRecipe?.id,
+      );
+      if (_selectedImage != null) {
+        await _apiService.uploadPostImage(post.id, _selectedImage!);
+      }
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.accentOrange,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Create Post',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_loadingUser)
+                const LinearProgressIndicator(minHeight: 1.5)
+              else
+                Row(
+                  children: [
+                    InitialsAvatar(
+                      name: _currentUser?.displayName ?? 'Guest',
+                      size: 44,
+                      imageUrl: _currentUser?.displayProfilePhotoUrl,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _currentUser?.displayName ?? 'Guest',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.bodyText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _controller,
+                maxLines: 8,
+                autofocus: true,
+                enabled: !_posting,
+                decoration: InputDecoration(
+                  hintText: "What's on your mind?",
+                  hintStyle: TextStyle(
+                    color: AppColors.primaryGreen.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _posting ? null : _pickImage,
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: const Text('Add photo'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _posting ? null : _pickRecipeFromSaved,
+                    icon: const Icon(Icons.restaurant_menu_rounded),
+                    label: const Text('Attach recipe'),
+                  ),
+                ],
+              ),
+              if (_selectedImage != null) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.file(
+                    File(_selectedImage!.path),
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 180,
+                      color: const Color(0xFFEFF3EF),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.image_rounded),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _posting
+                        ? null
+                        : () => setState(() => _selectedImage = null),
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Remove photo'),
+                  ),
+                ),
+              ],
+              if (_selectedRecipe != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryGreen.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.restaurant_rounded,
+                        color: AppColors.primaryGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _selectedRecipe!.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _posting
+                            ? null
+                            : () => setState(() => _selectedRecipe = null),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                onPressed: _posting ? null : _submit,
+                child: _posting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Post'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
