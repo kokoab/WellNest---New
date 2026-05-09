@@ -19,7 +19,12 @@ flutter run -d emulator-5554 \
   --dart-define=REVERB_PORT=8081 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
-
+# IOS EMULATOR
+cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
+flutter run -d BE3ADADD-5382-4422-93DD-2552A3728A47 \
+  --dart-define=BASE_URL=http://localhost:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
 
 ## Option 1: Run Flutter on your Mac (recommended)

@@ -81,6 +81,13 @@ class _MasterUserTableState extends State<MasterUserTable> {
     }
   }
 
+  // Calculate responsive column width based on screen percentage
+  double _getResponsiveColumnWidth(BuildContext context, double percentage) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Subtracts some padding to account for margins
+    return (screenWidth * percentage) - 10;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.loading) {
@@ -106,112 +113,189 @@ class _MasterUserTableState extends State<MasterUserTable> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(AppSpacing.lg),
-          child: Text(
-            'No users found',
-            style: TextStyle(color: kCaptionGray),
-          ),
+          child: Text('No users found', style: TextStyle(color: kCaptionGray)),
         ),
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        sortColumnIndex: ['name', 'email', 'totalPosts', 'lastLogin'].indexOf(_sortColumn),
-        sortAscending: _sortAscending,
-        headingRowColor: WidgetStateProperty.all(kSurfaceWarmGray.withOpacity(0.5)),
-        columns: [
-          DataColumn(
-            label: const Text('User Name', style: TextStyle(fontWeight: FontWeight.bold)),
-            onSort: (_, __) => _sort('name'),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return SizedBox(
+      width: screenWidth,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: DataTable(
+          sortColumnIndex: [
+            'name',
+            'email',
+            'totalPosts',
+            'lastLogin',
+          ].indexOf(_sortColumn),
+          sortAscending: _sortAscending,
+          columnSpacing: 12.0,
+          headingRowColor: WidgetStateProperty.all(
+            kSurfaceWarmGray.withOpacity(0.5),
           ),
-          DataColumn(
-            label: const Text('Email', style: TextStyle(fontWeight: FontWeight.bold)),
-            onSort: (_, __) => _sort('email'),
-          ),
-          DataColumn(
-            numeric: true,
-            label: const Text('Total Posts', style: TextStyle(fontWeight: FontWeight.bold)),
-            onSort: (_, __) => _sort('totalPosts'),
-          ),
-          DataColumn(
-            label: const Text('Last Login', style: TextStyle(fontWeight: FontWeight.bold)),
-            onSort: (_, __) => _sort('lastLogin'),
-          ),
-          const DataColumn(
-            label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-        rows: _sortedUsers.map((user) {
-          return DataRow(
-            color: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return kPrimaryGreen.withOpacity(0.05);
-              }
-              return null;
-            }),
-            cells: [
-              DataCell(
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: kPrimaryGreen.withOpacity(0.1),
-                      child: Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          color: kPrimaryGreen,
-                          fontWeight: FontWeight.bold,
+          columns: [
+            // Column 1: User Name (20% of screen width)
+            DataColumn(
+              label: SizedBox(
+                width: _getResponsiveColumnWidth(context, 0.20),
+                child: const Text(
+                  'User Name',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              onSort: (_, __) => _sort('name'),
+            ),
+            // Column 2: Email (25% of screen width)
+            DataColumn(
+              label: SizedBox(
+                width: _getResponsiveColumnWidth(context, 0.25),
+                child: const Text(
+                  'Email',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              onSort: (_, __) => _sort('email'),
+            ),
+            // Column 3: Total Posts (15% of screen width)
+            DataColumn(
+              numeric: true,
+              label: SizedBox(
+                width: _getResponsiveColumnWidth(context, 0.15),
+                child: const Text(
+                  'Total Posts',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              onSort: (_, __) => _sort('totalPosts'),
+            ),
+            // Column 4: Last Login (15% of screen width)
+            DataColumn(
+              label: SizedBox(
+                width: _getResponsiveColumnWidth(context, 0.15),
+                child: const Text(
+                  'Last Login',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              onSort: (_, __) => _sort('lastLogin'),
+            ),
+            // Column 5: Actions (25% of screen width)
+            DataColumn(
+              label: SizedBox(
+                width: _getResponsiveColumnWidth(context, 0.25),
+                child: const Text(
+                  'Actions',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+          rows: _sortedUsers.map((user) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.hovered)) {
+                  return kPrimaryGreen.withOpacity(0.05);
+                }
+                return null;
+              }),
+              cells: [
+                DataCell(
+                  SizedBox(
+                    width: _getResponsiveColumnWidth(context, 0.20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: kPrimaryGreen.withOpacity(0.1),
+                          child: Text(
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: kPrimaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            user.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(user.name),
-                  ],
+                  ),
+                  onTap: () => widget.onUserTap?.call(user),
                 ),
-                onTap: () => widget.onUserTap?.call(user),
-              ),
-              DataCell(
-                Text(user.email),
-                onTap: () => widget.onUserTap?.call(user),
-              ),
-              DataCell(
-                Text(user.totalPosts.toString()),
-                onTap: () => widget.onUserTap?.call(user),
-              ),
-              DataCell(
-                Text(_formatLastLogin(user.lastLogin)),
-                onTap: () => widget.onUserTap?.call(user),
-              ),
-              DataCell(
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => widget.onViewPosts?.call(user),
-                      icon: const Icon(Icons.article_outlined, size: 16),
-                      label: const Text('Posts'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: kPrimaryGreen,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
+                DataCell(
+                  Tooltip(
+                    message: user.email,
+                    child: SizedBox(
+                      width: _getResponsiveColumnWidth(context, 0.25),
+                      child: Text(user.email, overflow: TextOverflow.ellipsis),
                     ),
-                    TextButton.icon(
-                      onPressed: () => widget.onViewComments?.call(user),
-                      icon: const Icon(Icons.comment_outlined, size: 16),
-                      label: const Text('Comments'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: kAccentOrange,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ),
-                  ],
+                  ),
+                  onTap: () => widget.onUserTap?.call(user),
                 ),
-              ),
-            ],
-          );
-        }).toList(),
+                DataCell(
+                  Text(user.totalPosts.toString()),
+                  onTap: () => widget.onUserTap?.call(user),
+                ),
+                DataCell(
+                  Text(_formatLastLogin(user.lastLogin)),
+                  onTap: () => widget.onUserTap?.call(user),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: _getResponsiveColumnWidth(context, 0.25),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: TextButton.icon(
+                            onPressed: () => widget.onViewPosts?.call(user),
+                            icon: const Icon(Icons.article_outlined, size: 16),
+                            label: const Text('Posts'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: kPrimaryGreen,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: TextButton.icon(
+                            onPressed: () => widget.onViewComments?.call(user),
+                            icon: const Icon(Icons.comment_outlined, size: 16),
+                            label: const Text('Comments'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: kAccentOrange,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }

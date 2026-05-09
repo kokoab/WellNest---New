@@ -4976,19 +4976,18 @@ class _UsersTable extends StatelessWidget {
   Widget build(BuildContext context) {
     // Render table without an inner vertical scroll so the page's outer
     // ScrollController can detect when the bottom is reached.
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
-        child: _flexTable(
-          theme: theme,
-          columnWidths: const {
-            0: FlexColumnWidth(0.4),
-            1: FlexColumnWidth(1.4),
-            2: FlexColumnWidth(2),
-            3: FlexColumnWidth(0.9),
-            4: FlexColumnWidth(1.6),
-          },
+    final screenWidth = MediaQuery.of(context).size.width;
+    return SizedBox(
+      width: screenWidth,
+      child: _flexTable(
+        theme: theme,
+        columnWidths: {
+          0: FlexColumnWidth(screenWidth * 0.08),
+          1: FlexColumnWidth(screenWidth * 0.20),
+          2: FlexColumnWidth(screenWidth * 0.28),
+          3: FlexColumnWidth(screenWidth * 0.15),
+          4: FlexColumnWidth(screenWidth * 0.29),
+        },
           headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
           rows: users.asMap().entries.map((e) {
             final user = e.value;
@@ -5017,67 +5016,72 @@ class _UsersTable extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                user.email,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant,
+              SizedBox(
+                width: screenWidth * 0.28,
+                child: Text(
+                  user.email,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               _StatusPill(isActive: user.isActive),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (user.isActive)
+              SizedBox(
+                width: screenWidth * 0.29,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (user.isActive)
+                      _ActionIconBtn(
+                        icon: Icons.person_off_outlined,
+                        color: kAccentOrange,
+                        tooltip: 'Deactivate',
+                        onPressed: () => onDeactivate(user),
+                      )
+                    else
+                      _ActionIconBtn(
+                        icon: Icons.person_add_outlined,
+                        color: kPrimaryGreen,
+                        tooltip: 'Activate',
+                        onPressed: () => onActivate(user),
+                      ),
+                    const SizedBox(width: 4),
                     _ActionIconBtn(
-                      icon: Icons.person_off_outlined,
-                      color: kAccentOrange,
-                      tooltip: 'Deactivate',
-                      onPressed: () => onDeactivate(user),
-                    )
-                  else
-                    _ActionIconBtn(
-                      icon: Icons.person_add_outlined,
+                      icon: Icons.article_outlined,
                       color: kPrimaryGreen,
-                      tooltip: 'Activate',
-                      onPressed: () => onActivate(user),
+                      tooltip: 'Posts',
+                      onPressed: () => onViewPosts(user),
                     ),
-                  const SizedBox(width: 4),
-                  _ActionIconBtn(
-                    icon: Icons.article_outlined,
-                    color: kPrimaryGreen,
-                    tooltip: 'Posts',
-                    onPressed: () => onViewPosts(user),
-                  ),
-                  const SizedBox(width: 4),
-                  _ActionIconBtn(
-                    icon: Icons.comment_outlined,
-                    color: kAccentOrange,
-                    tooltip: 'Comments',
-                    onPressed: () => onViewComments(user),
-                  ),
-                  const SizedBox(width: 4),
-                  _ActionIconBtn(
-                    icon: Icons.restaurant_menu_outlined,
-                    color: const Color(0xFFE6930A),
-                    tooltip: 'Recipes',
-                    onPressed: () => onViewRecipes(user),
-                  ),
-                  const SizedBox(width: 4),
-                  _ActionIconBtn(
-                    icon: Icons.delete_outline_rounded,
-                    color: Colors.red,
-                    tooltip: 'Delete',
-                    onPressed: () => onDelete(user),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    _ActionIconBtn(
+                      icon: Icons.comment_outlined,
+                      color: kAccentOrange,
+                      tooltip: 'Comments',
+                      onPressed: () => onViewComments(user),
+                    ),
+                    const SizedBox(width: 4),
+                    _ActionIconBtn(
+                      icon: Icons.restaurant_menu_outlined,
+                      color: const Color(0xFFE6930A),
+                      tooltip: 'Recipes',
+                      onPressed: () => onViewRecipes(user),
+                    ),
+                    const SizedBox(width: 4),
+                    _ActionIconBtn(
+                      icon: Icons.delete_outline_rounded,
+                      color: Colors.red,
+                      tooltip: 'Delete',
+                      onPressed: () => onDelete(user),
+                    ),
+                  ],
+                ),
               ),
             ], null);
           }).toList(),
         ),
-      ),
-    );
+      );
   }
 }
 
