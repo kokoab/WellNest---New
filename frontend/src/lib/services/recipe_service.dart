@@ -123,10 +123,22 @@ class RecipeService {
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 201) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final img = data['image'] as Map<String, dynamic>?;
-      final id = img?['id'] as int?;
-      if (id != null) return id;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          throw Exception('Invalid upload response shape');
+        }
+        final img = decoded['image'] as Map<String, dynamic>?;
+        final id = img?['id'] as int?;
+        if (id != null) return id;
+      } catch (e) {
+        if (e is FormatException) {
+          throw Exception(
+            _nonJsonServerMessage(response),
+          );
+        }
+        rethrow;
+      }
       throw Exception('Invalid upload response');
     }
     _throwFromResponse(response);
@@ -185,8 +197,24 @@ class RecipeService {
     _throwFromResponse(response);
   }
 
+  static String _nonJsonServerMessage(http.Response response) {
+    final snippet = response.body.length > 160
+        ? '${response.body.substring(0, 160)}…'
+        : response.body;
+    return 'Server returned HTML or non-JSON (HTTP ${response.statusCode}). '
+        'Often this means the API hit an error page — run backend migrations '
+        '(images.sort_order) and confirm BASE_URL points at Laravel /api. '
+        'Body starts with: ${snippet.trim()}';
+  }
+
   static Never _throwFromResponse(http.Response response) {
-    final data = jsonDecode(response.body) as Map<String, dynamic>?;
+    Map<String, dynamic>? data;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) data = decoded;
+    } catch (_) {
+      throw Exception(_nonJsonServerMessage(response));
+    }
     final message = data?['message'] as String?;
     final errors = data?['errors'] as Map<String, dynamic>?;
     if (errors != null && errors.isNotEmpty) {
