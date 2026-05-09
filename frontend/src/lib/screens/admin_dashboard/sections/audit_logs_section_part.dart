@@ -323,14 +323,14 @@ Widget _flexTable({
             .map(
               (h) => Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: 18,
+                  vertical: 14,
                 ),
                 child: Text(
                   h,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 9,
+                    fontSize: 10,
                     color: theme.colorScheme.onSurfaceVariant,
                     letterSpacing: 0.7,
                   ),
@@ -350,7 +350,7 @@ TableRow _tableRow(ThemeData theme, List<Widget> cells, Color? bg) {
     children: cells
         .map(
           (c) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Align(alignment: Alignment.centerLeft, child: c),
           ),
         )
@@ -365,92 +365,65 @@ class _AuditLogsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = theme.brightness == Brightness.dark;
-    final height = (logs.length * 74.0).clamp(240.0, 540.0);
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        borderRadius: BorderRadius.circular(_kCardRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-          width: 0.5,
-        ),
-      ),
-      child: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: logs.length,
-        separatorBuilder: (_, _) => Divider(
-          height: 10,
-          color: theme.colorScheme.outline.withValues(alpha: 0.12),
-        ),
-        itemBuilder: (_, index) {
-          final log = logs[index];
-          return Row(
-            children: [
-              SizedBox(
-                width: 40,
-                child: Text(
-                  '${log.id}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 88,
-                child: Text(
-                  _formatHumanDate(log.createdAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 90,
-                child: _CategoryPill(theme: theme, label: log.category),
-              ),
-              SizedBox(
-                width: 120,
-                child: Text(
-                  log.action,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  log.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 130,
-                child: Text(
-                  log.actorName ?? '—',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ],
-          );
+    final screenWidth = MediaQuery.of(context).size.width;
+    return SizedBox(
+      width: screenWidth,
+      child: _flexTable(
+        theme: theme,
+        columnWidths: {
+          0: FlexColumnWidth(screenWidth * 0.07),
+          1: FlexColumnWidth(screenWidth * 0.14),
+          2: FlexColumnWidth(screenWidth * 0.11),
+          3: FlexColumnWidth(screenWidth * 0.16),
+          4: FlexColumnWidth(screenWidth * 0.30),
+          5: FlexColumnWidth(screenWidth * 0.14),
+          6: FlexColumnWidth(screenWidth * 0.08),
         },
+        headers: ['ID', 'CATEGORY', 'DATE', 'ACTION', 'DESCRIPTION', 'ACTOR', 'IP'],
+        rows: logs.map((log) {
+          return _tableRow(theme, [
+            Text(
+              '${log.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            _CategoryPill(theme: theme, label: log.category),
+            Text(
+              _formatHumanDate(log.createdAt),
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              log.action,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+            ),
+            Text(
+              log.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+            ),
+            Text(
+              log.actorName ?? '—',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+            ),
+            Text(
+              log.ipAddress ?? '—',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ], null);
+        }).toList(),
       ),
     );
   }

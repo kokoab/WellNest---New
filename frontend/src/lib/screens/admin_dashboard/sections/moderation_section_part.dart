@@ -395,118 +395,91 @@ class _ReportsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = theme.brightness == Brightness.dark;
-    final height = (reports.length * 84.0).clamp(240.0, 540.0);
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        borderRadius: BorderRadius.circular(_kCardRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-          width: 0.5,
-        ),
-      ),
-      child: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: reports.length,
-        separatorBuilder: (_, _) => Divider(
-          height: 12,
-          color: theme.colorScheme.outline.withValues(alpha: 0.12),
-        ),
-        itemBuilder: (_, index) {
-          final r = reports[index];
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 46,
-                child: Text(
-                  '${r.id}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 90,
-                child: _TypePill(type: r.reportable?.type ?? 'unknown'),
-              ),
-              Expanded(
-                child: Text(
-                  r.reportableLabel,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  r.reason ?? '—',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 78,
-                child: Text(
-                  _formatHumanDate(r.createdAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ActionIconBtn(
-                    icon: Icons.close_rounded,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Dismiss',
-                    onPressed: () => onAction(r.id, 'dismiss'),
-                    size: 14,
-                  ),
-                  _ActionIconBtn(
-                    icon: Icons.check_rounded,
-                    color: kPrimaryGreen,
-                    tooltip: 'Approve',
-                    onPressed: () => onAction(r.id, 'approve'),
-                    size: 14,
-                  ),
-                  if (r.isRecipeReport || r.isPostReport)
-                    _ActionIconBtn(
-                      icon: Icons.delete_outline_rounded,
-                      color: kAccentOrange,
-                      tooltip: 'Remove content',
-                      onPressed: () => onAction(r.id, 'remove-content'),
-                      size: 14,
-                    ),
-                  if (r.isUserReport)
-                    _ActionIconBtn(
-                      icon: Icons.block_rounded,
-                      color: Colors.red,
-                      tooltip: 'Suspend user',
-                      onPressed: () => onAction(r.id, 'suspend-user'),
-                      size: 14,
-                    ),
-                ],
-              ),
-            ],
-          );
+    final screenWidth = MediaQuery.of(context).size.width;
+    return SizedBox(
+      width: screenWidth,
+      child: _flexTable(
+        theme: theme,
+        columnWidths: {
+          0: FlexColumnWidth(screenWidth * 0.08),
+          1: FlexColumnWidth(screenWidth * 0.12),
+          2: FlexColumnWidth(screenWidth * 0.25),
+          3: FlexColumnWidth(screenWidth * 0.23),
+          4: FlexColumnWidth(screenWidth * 0.12),
+          5: FlexColumnWidth(screenWidth * 0.20),
         },
+        headers: ['ID', 'TAG', 'REPORTED ITEM', 'REASON', 'DATE', 'ACTIONS'],
+        rows: reports.map((r) {
+          return _tableRow(theme, [
+            Text(
+              '${r.id}',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            _TypePill(type: r.reportable?.type ?? 'unknown'),
+            Text(
+              r.reportableLabel,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+            ),
+            Text(
+              r.reason ?? '—',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+            ),
+            Text(
+              _formatHumanDate(r.createdAt),
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ActionIconBtn(
+                  icon: Icons.close_rounded,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  tooltip: 'Dismiss',
+                  onPressed: () => onAction(r.id, 'dismiss'),
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                _ActionIconBtn(
+                  icon: Icons.check_rounded,
+                  color: kPrimaryGreen,
+                  tooltip: 'Approve',
+                  onPressed: () => onAction(r.id, 'approve'),
+                  size: 14,
+                ),
+                if (r.isRecipeReport || r.isPostReport) ...[
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.delete_outline_rounded,
+                    color: kAccentOrange,
+                    tooltip: 'Remove content',
+                    onPressed: () => onAction(r.id, 'remove-content'),
+                    size: 14,
+                  ),
+                ],
+                if (r.isUserReport) ...[
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.block_rounded,
+                    color: Colors.red,
+                    tooltip: 'Suspend user',
+                    onPressed: () => onAction(r.id, 'suspend-user'),
+                    size: 14,
+                  ),
+                ],
+              ],
+            ),
+          ], null);
+        }).toList(),
       ),
     );
   }

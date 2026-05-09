@@ -479,7 +479,7 @@ class _UsersTable extends StatelessWidget {
             Text(
               '${user.id}',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -492,7 +492,7 @@ class _UsersTable extends StatelessWidget {
                     user.name.isEmpty ? '—' : user.name,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: theme.colorScheme.onSurface,
                     ),
@@ -506,7 +506,7 @@ class _UsersTable extends StatelessWidget {
                 user.email,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
