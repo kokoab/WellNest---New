@@ -60,6 +60,7 @@ class RecipeRankingController extends Controller
                 'image_url' => $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null,
                 'author_name' => $authorName,
                 'category' => $r->category?->name,
+                'prep_time' => (int) $r->prep_time,
                 'average_rating' => round($avg, 2),
                 'ratings_count' => (int) $r->ratings_count,
                 'views_count' => $views,
