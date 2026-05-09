@@ -11,6 +11,7 @@ import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
+import 'package:my_app/screens/feed_search_screen.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
@@ -212,9 +213,34 @@ class _FeedPageState extends State<FeedPage> {
                               0,
                               AppSpacing.md,
                             ),
-                            child: Text(
-                              'Feed',
-                              style: wellnestPageTitleStyle(),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Feed',
+                                    style: wellnestPageTitleStyle(),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Search feed',
+                                  icon: Icon(
+                                    Icons.search,
+                                    color: colorScheme.primary,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push<void>(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (context) => FeedSearchScreen(
+                                          followingOnly:
+                                              _feedScope ==
+                                              _FeedScope.following,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                           if (AuthService.instance.isLoggedIn) ...[

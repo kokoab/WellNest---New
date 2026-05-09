@@ -4,6 +4,7 @@ class Post {
   final int id;
   final int? userId;
   final int? recipeId;
+  final String? title;
   final String userName;
   final String? userProfilePhotoUrl;
   final String content;
@@ -17,6 +18,7 @@ class Post {
     required this.id,
     this.userId,
     this.recipeId,
+    this.title,
     required this.userName,
     this.userProfilePhotoUrl,
     required this.content,
@@ -36,6 +38,7 @@ class Post {
       id: json['id'] as int,
       userId: json['user_id'] as int?,
       recipeId: json['recipe_id'] as int?,
+      title: json['title'] as String?,
       userName: userName,
       userProfilePhotoUrl: photo,
       content: json['content'] as String? ?? '',

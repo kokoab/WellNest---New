@@ -69,8 +69,25 @@ class SavedRecipeService {
   }
 
   /// GET /api/saved-recipes — paginated list
-  Future<RecipeListResponse> fetchSavedRecipes({int page = 1}) async {
-    final uri = Uri.parse('$_baseUrl/saved-recipes').replace(queryParameters: {'page': '$page'});
+  Future<RecipeListResponse> fetchSavedRecipes({
+    int page = 1,
+    int perPage = 15,
+    String? search,
+    String? sort,
+  }) async {
+    final params = <String, String>{
+      'page': '$page',
+      'per_page': '$perPage',
+    };
+    if (search != null && search.trim().isNotEmpty) {
+      params['search'] = search.trim();
+    }
+    if (sort != null && sort.trim().isNotEmpty) {
+      params['sort'] = sort.trim();
+    }
+    final uri = Uri.parse('$_baseUrl/saved-recipes').replace(
+      queryParameters: params,
+    );
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

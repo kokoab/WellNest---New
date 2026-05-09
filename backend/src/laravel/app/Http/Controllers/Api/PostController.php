@@ -63,8 +63,7 @@ class PostController extends Controller
             ->withCount([
                 'votes as likes_count',
                 'comments as comments_count',
-            ])
-            ->orderBy('created_at', 'desc');
+            ]);
 
         // Only filter by active users if not admin
         if (!$viewer || !$viewer->is_admin) {
@@ -90,6 +89,32 @@ class PostController extends Controller
             }
 
             $query->whereIn('user_id', $followingIds);
+        }
+
+        if ($request->filled('search')) {
+            $like = $this->sqlLikePattern((string) $request->input('search'));
+            $query->where(function ($q) use ($like) {
+                $q->where('posts.title', 'like', $like)
+                    ->orWhere('posts.content', 'like', $like)
+                    ->orWhereHas('user', function ($uq) use ($like) {
+                        $uq->whereRaw("CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,'')) LIKE ?", [$like])
+                            ->orWhere('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like);
+                    })
+                    ->orWhereHas('recipe', function ($rq) use ($like) {
+                        $rq->where('title', 'like', $like)
+                            ->orWhere('description', 'like', $like)
+                            ->orWhereHas('category', fn ($cq) => $cq->where('name', 'like', $like))
+                            ->orWhereHas('ingredients', fn ($iq) => $iq->where('name', 'like', $like));
+                    });
+            });
+        }
+
+        $sort = strtolower((string) $request->query('sort', ''));
+        if ($sort === 'popular') {
+            $query->orderByDesc('likes_count')->orderByDesc('posts.created_at');
+        } else {
+            $query->orderByDesc('posts.created_at');
         }
 
         if ($viewer !== null) {
@@ -126,6 +151,7 @@ class PostController extends Controller
             'id' => $post->id,
             'user_id' => $post->user_id,
             'recipe_id' => $post->recipe_id,
+            'title' => $post->title,
             'content' => $post->content,
             'image_url' => $this->fixImageUrl($post->image_url ?? ''),
             'created_at' => $post->created_at?->toIso8601String(),
@@ -157,5 +183,14 @@ class PostController extends Controller
         }
 
         return str_replace('localhost:8000', 'localhost:8080', $url);
+    }
+
+    /** Escapes LIKE wildcards in user input; wraps with %. */
+    private function sqlLikePattern(string $raw): string
+    {
+        $t = trim($raw);
+        $escaped = addcslashes($t, '%_\\');
+
+        return '%'.$escaped.'%';
     }
 }

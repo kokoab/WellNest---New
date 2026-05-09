@@ -4,6 +4,7 @@ import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/screens/saved_recipes_search_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
@@ -119,9 +120,29 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
               AppSpacing.md,
               AppSpacing.md,
             ),
-            child: Text(
-              'Saved Recipes',
-              style: wellnestPageTitleStyle(color: wellGreen),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Saved Recipes',
+                    style: wellnestPageTitleStyle(color: wellGreen),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Search saved recipes',
+                  icon: const Icon(Icons.search),
+                  color: wellGreen,
+                  onPressed: () {
+                    Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (context) =>
+                            const SavedRecipesSearchScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(child: _buildContent()),

@@ -82,6 +82,8 @@ class ApiService {
     bool followingOnly = false,
     int page = 1,
     int perPage = 10,
+    String? search,
+    String? sort,
   }) async {
     final queryParameters = <String, String>{};
     if (userId != null) {
@@ -92,6 +94,12 @@ class ApiService {
     }
     queryParameters['page'] = '$page';
     queryParameters['per_page'] = '$perPage';
+    if (search != null && search.trim().isNotEmpty) {
+      queryParameters['search'] = search.trim();
+    }
+    if (sort != null && sort.trim().isNotEmpty) {
+      queryParameters['sort'] = sort.trim();
+    }
 
     final uri = Uri.parse('$_baseUrl/posts').replace(
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
@@ -113,12 +121,13 @@ class ApiService {
             .map((dynamic item) => Post.fromJson(item as Map<String, dynamic>))
             .toList();
         if (body is Map<String, dynamic>) {
+          final p = _readPostPagination(body, page, perPage);
           return PostListResponse(
             posts: posts,
-            currentPage: (body['current_page'] as num?)?.toInt() ?? page,
-            lastPage: (body['last_page'] as num?)?.toInt() ?? page,
-            total: (body['total'] as num?)?.toInt() ?? posts.length,
-            perPage: (body['per_page'] as num?)?.toInt() ?? perPage,
+            currentPage: p.$1,
+            lastPage: p.$2,
+            total: p.$3,
+            perPage: p.$4,
           );
         }
         return PostListResponse(
@@ -136,17 +145,45 @@ class ApiService {
     }
   }
 
+  /// Reads pagination from Laravel payloads that use either top-level keys or `meta`.
+  (int, int, int, int) _readPostPagination(
+    Map<String, dynamic> body,
+    int fallbackPage,
+    int fallbackPerPage,
+  ) {
+    final meta = body['meta'];
+    final m = meta is Map<String, dynamic> ? meta : null;
+    int read(String key, int def) {
+      final top = body[key];
+      if (top is num) return top.toInt();
+      final nested = m?[key];
+      if (nested is num) return nested.toInt();
+      return def;
+    }
+
+    return (
+      read('current_page', fallbackPage),
+      read('last_page', fallbackPage),
+      read('total', body['data'] is List ? (body['data'] as List).length : 0),
+      read('per_page', fallbackPerPage),
+    );
+  }
+
   Future<List<Post>> fetchPosts({
     int? userId,
     bool followingOnly = false,
     int page = 1,
     int perPage = 10,
+    String? search,
+    String? sort,
   }) async {
     final res = await fetchPostsPaginated(
       userId: userId,
       followingOnly: followingOnly,
       page: page,
       perPage: perPage,
+      search: search,
+      sort: sort,
     );
     return res.posts;
   }

@@ -32,7 +32,7 @@ class SavedRecipeController extends Controller
     /** GET /api/saved-recipes — list current user's saved recipes (paginated) */
     public function index(Request $request): JsonResponse
     {
-        $recipes = $request->user()
+        $query = $request->user()
             ->savedRecipes()
             ->with([
                 'category:id,name',
@@ -40,9 +40,36 @@ class SavedRecipeController extends Controller
                 'images:id,path,imageable_id,imageable_type',
             ])
             ->withAvg('ratings as average_rating', 'rating')
-            ->withCount('ratings')
-            ->orderBy('saved_recipes.created_at', 'desc')
-            ->paginate(15);
+            ->withCount('ratings');
+
+        if ($request->filled('search')) {
+            $like = $this->sqlLikePattern((string) $request->input('search'));
+            $query->where(function ($q) use ($like) {
+                $q->where('recipes.title', 'like', $like)
+                    ->orWhere('recipes.description', 'like', $like)
+                    ->orWhereHas('category', fn ($cq) => $cq->where('name', 'like', $like))
+                    ->orWhereHas('ingredients', fn ($iq) => $iq->where('name', 'like', $like))
+                    ->orWhereHas('user', function ($uq) use ($like) {
+                        $uq->whereRaw("CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,'')) LIKE ?", [$like])
+                            ->orWhere('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like);
+                    });
+            });
+        }
+
+        $sort = strtolower((string) $request->query('sort', ''));
+        if ($sort === 'popular') {
+            $query->orderByDesc('ratings_count')
+                ->orderByDesc('average_rating')
+                ->orderByDesc('saved_recipes.created_at');
+        } else {
+            $query->orderBy('saved_recipes.created_at', 'desc');
+        }
+
+        $perPage = max(1, min(100, (int) $request->query('per_page', 15)));
+        $page = max(1, (int) $request->query('page', 1));
+
+        $recipes = $query->paginate($perPage, ['*'], 'page', $page);
 
         $baseUrl = rtrim(config('app.url'), '/');
         $data = $recipes->toArray();
@@ -64,5 +91,14 @@ class SavedRecipeController extends Controller
             ->where('recipe_id', $recipe->id)
             ->exists();
         return response()->json(['saved' => $saved]);
+    }
+
+    /** Escapes LIKE wildcards in user input; wraps with %. */
+    private function sqlLikePattern(string $raw): string
+    {
+        $t = trim($raw);
+        $escaped = addcslashes($t, '%_\\');
+
+        return '%'.$escaped.'%';
     }
 }
