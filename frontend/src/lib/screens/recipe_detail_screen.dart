@@ -1,7 +1,11 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/models/recipe.dart';
+import 'package:my_app/screens/recipe_cook_mode_screen.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/services/auth_service.dart';
@@ -25,6 +29,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
 
+  /// Matches [SliverAppBar.expandedHeight], [kToolbarHeight], and bottom inset (~32).
+  static const double _recipeHeroExpandedHeight = 350;
+  static const double _recipeAppBarBottomInset = 32;
+  static const double _recipeTitleAppearScrollOffset =
+      _recipeHeroExpandedHeight - kToolbarHeight - _recipeAppBarBottomInset - 12;
+
+  final ScrollController _recipeScrollController = ScrollController();
+  bool _showCollapsedRecipeTitle = false;
+
   Recipe? _recipe;
   bool _loading = true;
   String? _error;
@@ -47,14 +60,25 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   void dispose() {
+    _recipeScrollController.removeListener(_onRecipeScrollForPinnedTitle);
+    _recipeScrollController.dispose();
     _galleryPageController.dispose();
     _reviewController.dispose();
     super.dispose();
   }
 
+  void _onRecipeScrollForPinnedTitle() {
+    if (!_recipeScrollController.hasClients || !mounted) return;
+    final show = _recipeScrollController.offset >= _recipeTitleAppearScrollOffset;
+    if (show != _showCollapsedRecipeTitle) {
+      setState(() => _showCollapsedRecipeTitle = show);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _recipeScrollController.addListener(_onRecipeScrollForPinnedTitle);
     _load();
   }
 
@@ -204,155 +228,296 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
   }
 
+  Widget _buildGlassBackButton() {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.45),
+            child: InkWell(
+              onTap: () => Navigator.maybePop(context),
+              child: const SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingSummaryPill() {
+    final avg =
+        _ratings?.averageRating ?? _recipe?.averageRating ?? 0.0;
+    final count = _ratings?.ratingsCount ?? _recipe?.ratingsCount ?? 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: wellGreen.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, color: Color(0xFFF9BD21), size: 20),
+          const SizedBox(width: 6),
+          Text(
+            '${avg.toStringAsFixed(1)} ($count)',
+            style: const TextStyle(
+              fontFamily: 'HelveticaNow',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: wellGreen,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Recipe',
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: Text(
+            'Recipe',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        actions: [
-          if (_recipe != null && AuthService.instance.isLoggedIn)
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
-              onSelected: (v) async {
-                if (v == 'edit') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RecipeFormScreen(recipe: _recipe),
-                    ),
-                  ).then((_) => _load());
-                } else if (v == 'report' && AuthService.instance.isLoggedIn) {
-                  await _reportRecipe();
-                } else if (v == 'delete') {
-                  await _deleteRecipe();
-                }
-              },
-              itemBuilder: (context) => [
-                if (_isOwner)
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                if (_isOwner)
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                if (AuthService.instance.isLoggedIn)
-                  const PopupMenuItem(value: 'report', child: Text('Report')),
+        body: const Center(
+          child: CircularProgressIndicator(color: wellGreen),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: Text(
+            'Recipe',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: nestOrange),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _load,
+                  style: FilledButton.styleFrom(backgroundColor: wellGreen),
+                  child: const Text('Retry'),
+                ),
               ],
             ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: wellGreen))
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: nestOrange),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        controller: _recipeScrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            stretch: true,
+            expandedHeight: _recipeHeroExpandedHeight,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            automaticallyImplyLeading: false,
+            leading: _buildGlassBackButton(),
+            title: _showCollapsedRecipeTitle
+                ? Text(
+                    _recipe!.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
                     ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _load,
-                      style: FilledButton.styleFrom(backgroundColor: wellGreen),
-                      child: const Text('Retry'),
-                    ),
+                  )
+                : null,
+            actions: [
+              if (_recipe != null && AuthService.instance.isLoggedIn)
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
+                  onSelected: (v) async {
+                    if (v == 'edit') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              RecipeFormScreen(recipe: _recipe),
+                        ),
+                      ).then((_) => _load());
+                    } else if (v == 'report' &&
+                        AuthService.instance.isLoggedIn) {
+                      await _reportRecipe();
+                    } else if (v == 'delete') {
+                      await _deleteRecipe();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (_isOwner)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    if (_isOwner)
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    if (AuthService.instance.isLoggedIn)
+                      const PopupMenuItem(
+                        value: 'report',
+                        child: Text('Report'),
+                      ),
                   ],
                 ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              stretchModes: const [StretchMode.zoomBackground],
+              background: _buildHeroImageBackground(),
+            ),
+            // Rounded overlap from hero → body while expanded only. When collapsed,
+            // a fixed bottom here still reserves ~32px under the toolbar (extra white).
+            bottom: PreferredSize(
+              preferredSize: Size.fromHeight(
+                _showCollapsedRecipeTitle ? 0 : _recipeAppBarBottomInset,
               ),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildRecipeImage(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Step 1: Title & Author
-                        Text(
-                          _recipe!.title,
-                          style: georgiaProTextStyle(
-                            fontSize: 26,
-                            color: wellGreen,
-                          ).copyWith(letterSpacing: 0),
-                        ),
-                        if (_recipe!.description != null &&
-                            _recipe!.description!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            _recipe!.description!.trim(),
-                            style: TextStyle(
-                              fontFamily: 'HelveticaNow',
-                              fontSize: 16,
-                              height: 1.45,
-                              color: Colors.grey.shade800,
-                            ),
+              child: _showCollapsedRecipeTitle
+                  ? const SizedBox.shrink()
+                  : SizedBox(
+                      height: _recipeAppBarBottomInset,
+                      width: double.infinity,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(32),
                           ),
-                        ],
-                        const SizedBox(height: 6),
-                        GestureDetector(
-                          onTap: _recipe!.userId != null
-                              ? () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => UserProfileScreen(
-                                      userId: _recipe!.userId!,
-                                    ),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.only(bottom: 32),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _recipe!.title,
+                      style: const TextStyle(
+                        fontFamily: kFontGeorgiaPro,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: wellGreen,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildRatingSummaryPill(),
+                    if (_recipe!.description != null &&
+                        _recipe!.description!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _recipe!.description!.trim(),
+                        style: TextStyle(
+                          fontFamily: 'HelveticaNow',
+                          fontSize: 16,
+                          height: 1.45,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: _recipe!.userId != null
+                          ? () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => UserProfileScreen(
+                                    userId: _recipe!.userId!,
                                   ),
-                                )
-                              : null,
-                          child: Text(
-                            _recipe!.user != null
-                                ? 'By ${_recipe!.userDisplayName}'
-                                : 'By Unknown',
-                            style: TextStyle(
-                              fontFamily: 'HelveticaNow',
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                              decoration: _recipe!.userId != null
-                                  ? TextDecoration.underline
-                                  : TextDecoration.none,
-                            ),
-                          ),
+                                ),
+                              )
+                          : null,
+                      child: Text(
+                        _recipe!.user != null
+                            ? 'By ${_recipe!.userDisplayName}'
+                            : 'By Unknown',
+                        style: TextStyle(
+                          fontFamily: 'HelveticaNow',
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          decoration: _recipe!.userId != null
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
                         ),
-                        const SizedBox(height: 12),
-                        // Tags & Ratings Row (horizontal)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            _buildMetaRow(),
-                            const Spacer(),
-                            const Icon(
-                              Icons.star,
-                              color: Color(0xFFF9BD21),
-                              size: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMetaRow(),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (ctx) => RecipeCookModeScreen(recipe: _recipe!),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${(_ratings?.averageRating ?? _recipe?.averageRating ?? 0.0).toStringAsFixed(1)} (${_ratings?.ratingsCount ?? _recipe?.ratingsCount ?? 0})',
-                              style: TextStyle(
-                                fontFamily: 'HelveticaNow',
-                                fontSize: 14,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          ],
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: wellGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        const SizedBox(height: 12),
+                        icon: const Icon(Icons.play_circle_outline),
+                        label: const Text(
+                          'Start cooking',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                         // Step 3: Action Buttons
                         Row(
                           children: [
@@ -557,90 +722,89 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
     );
   }
 
-  Widget _buildRecipeImage() {
-    const double imageHeight = 240;
+  /// Full-bleed hero for [SliverAppBar] flexible space ([BoxFit.cover]).
+  Widget _buildHeroImageBackground() {
     final urls = _recipe!.galleryDisplayUrls;
     if (urls.isEmpty) {
-      return _buildImagePlaceholder(imageHeight);
+      return _buildImagePlaceholderExpanded();
     }
     if (urls.length == 1) {
-      return Container(
-        height: imageHeight,
-        width: double.infinity,
-        color: AppColors.imagePlaceholderGreen,
-        child: Image.network(
-          urls.first,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          errorBuilder: (_, __, ___) => _buildImagePlaceholder(imageHeight),
-        ),
-      );
-    }
-    return SizedBox(
-      height: imageHeight,
-      width: double.infinity,
-      child: Stack(
+      return Stack(
         fit: StackFit.expand,
         children: [
-          PageView.builder(
-            controller: _galleryPageController,
-            itemCount: urls.length,
-            onPageChanged: (i) => setState(() => _galleryIndex = i),
-            itemBuilder: (context, i) {
-              return Image.network(
-                urls[i],
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                errorBuilder: (_, __, ___) =>
-                    _buildImagePlaceholder(imageHeight),
-              );
-            },
-          ),
-          Positioned(
-            bottom: 10,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${_galleryIndex + 1} / ${urls.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          Image.network(
+            urls.first,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => _buildImagePlaceholderExpanded(),
           ),
         ],
-      ),
+      );
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _galleryPageController,
+          itemCount: urls.length,
+          onPageChanged: (i) => setState(() => _galleryIndex = i),
+          itemBuilder: (context, i) {
+            return Image.network(
+              urls[i],
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              errorBuilder: (_, __, ___) =>
+                  _buildImagePlaceholderExpanded(),
+            );
+          },
+        ),
+        Positioned(
+          bottom: 40,
+          left: 0,
+          right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_galleryIndex + 1} / ${urls.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildImagePlaceholder(double height) {
-    return Container(
-      height: height,
-      width: double.infinity,
+  Widget _buildImagePlaceholderExpanded() {
+    return ColoredBox(
       color: AppColors.imagePlaceholderGreen,
-      child: Icon(Icons.restaurant_menu, size: 80, color: wellGreen),
+      child: Center(
+        child: Icon(Icons.restaurant_menu, size: 80, color: wellGreen),
+      ),
     );
   }
 
@@ -700,7 +864,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       children: [
         _MetaChip(
           icon: Icons.schedule_rounded,
-          label: '${_recipe!.prepTime} min',
+          label: _recipe!.displayPrepLabel,
         ),
         if (hasCategory) ...[
           const SizedBox(width: 8),
@@ -898,10 +1062,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: ingredients.map((ing) {
-          final qty = ing.quantity.toInt() == ing.quantity
-              ? ing.quantity.toInt().toString()
-              : ing.quantity.toString();
-          final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -918,7 +1078,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    amount.isNotEmpty ? '$amount ${ing.name}' : ing.name,
+                    ing.displayLine,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurface,
                       height: 1.5,
@@ -935,6 +1095,45 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildInstructions() {
     final theme = Theme.of(context);
+    if (_recipe!.hasStructuredSteps) {
+      final list = _recipe!.steps!;
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: list.asMap().entries.map((e) {
+            final i = e.key + 1;
+            final s = e.value;
+            final title = s.displayTitle(i);
+            final body = s.instructions?.trim() ?? '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: wellGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (body.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: SelectableText(
+                        body,
+                        style: theme.textTheme.bodyLarge?.copyWith(height: 1.75),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
     final steps = _recipe!.instructions
         .split(RegExp(r'\r?\n'))
         .map((step) => step.trim())

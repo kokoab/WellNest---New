@@ -2427,10 +2427,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: ingredients.map((ing) {
-          final qty = ing.quantity.toInt() == ing.quantity
-              ? ing.quantity.toInt().toString()
-              : ing.quantity.toString();
-          final amount = ing.unit.isEmpty ? qty : '$qty ${ing.unit}';
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
@@ -2447,23 +2443,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade800,
-                      ),
-                      children: [
-                        if (amount.isNotEmpty)
-                          TextSpan(
-                            text: '$amount ',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: wellGreen,
-                            ),
-                          ),
-                        TextSpan(text: ing.name),
-                      ],
+                  child: Text(
+                    ing.displayLine,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                      height: 1.35,
                     ),
                   ),
                 ),

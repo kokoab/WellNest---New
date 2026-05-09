@@ -50,6 +50,44 @@ class RecipeCrudTest extends TestCase
         $this->assertDatabaseCount('recipe_ingredients', 2);
     }
 
+    public function test_authenticated_user_can_create_recipe_with_structured_steps(): void
+    {
+        $user = $this->createUser();
+        $category = $this->createCategory();
+
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'category_id' => $category->id,
+            'title' => 'Step Soup',
+            'description' => 'Structured steps.',
+            'prep_timing_mode' => 'overall',
+            'prep_time' => 25,
+            'steps' => [
+                ['title' => 'Chop', 'instructions' => 'Dice onions'],
+                ['title' => 'Simmer', 'instructions' => 'Cook on low heat'],
+            ],
+            'ingredients' => [
+                ['name' => 'Onion', 'quantity' => 1, 'unit' => 'whole'],
+            ],
+        ];
+
+        $response = $this->postJson('/api/recipes', $payload);
+
+        $response->assertCreated()->assertJsonStructure(['message', 'id']);
+
+        $recipeId = $response->json('id');
+
+        $this->assertDatabaseHas('recipe_steps', ['recipe_id' => $recipeId]);
+        $this->assertSame(2, \App\Models\RecipeStep::where('recipe_id', $recipeId)->count());
+
+        $show = $this->getJson("/api/recipes/{$recipeId}");
+        $show->assertOk()->assertJsonPath('prep_timing_mode', 'overall');
+        $steps = $show->json('steps');
+        $this->assertIsArray($steps);
+        $this->assertCount(2, $steps);
+    }
+
     public function test_guest_cannot_create_recipe(): void
     {
         $category = $this->createCategory();

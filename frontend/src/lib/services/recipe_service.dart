@@ -79,16 +79,34 @@ class RecipeService {
   Future<int> createRecipe({
     required int categoryId,
     required String title,
-    required String instructions,
-    required int prepTime,
+    String? description,
+    /// Omit when sending structured [steps].
+    String? instructions,
+    /// Omit when [prepTimingMode] is per-step (server sums step minutes).
+    int? prepTime,
+    PrepTimingMode? prepTimingMode,
     List<Map<String, dynamic>>? ingredients,
+    List<Map<String, dynamic>>? steps,
   }) async {
     final body = <String, dynamic>{
       'category_id': categoryId,
       'title': title.trim(),
-      'instructions': instructions.trim(),
-      'prep_time': prepTime,
     };
+    if (description != null && description.trim().isNotEmpty) {
+      body['description'] = description.trim();
+    }
+    if (steps != null && steps.isNotEmpty) {
+      body['steps'] = steps;
+      final mode = prepTimingMode ?? PrepTimingMode.overall;
+      body['prep_timing_mode'] = prepTimingModeToApi(mode);
+      if (mode == PrepTimingMode.overall) {
+        body['prep_time'] = prepTime ?? 1;
+      }
+    } else {
+      body['instructions'] = (instructions ?? '').trim();
+      body['prep_time'] = prepTime ?? 1;
+      body['prep_timing_mode'] = prepTimingModeToApi(PrepTimingMode.overall);
+    }
     if (ingredients != null && ingredients.isNotEmpty) {
       body['ingredients'] = ingredients;
     }
@@ -112,6 +130,45 @@ class RecipeService {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/recipes/$recipeId/images'),
+    );
+    request.headers.addAll({
+      'Accept': 'application/json',
+      ...AuthService.instance.authHeaders,
+    });
+    request.files.add(
+      http.MultipartFile.fromBytes('image', bytes, filename: name),
+    );
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 201) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          throw Exception('Invalid upload response shape');
+        }
+        final img = decoded['image'] as Map<String, dynamic>?;
+        final id = img?['id'] as int?;
+        if (id != null) return id;
+      } catch (e) {
+        if (e is FormatException) {
+          throw Exception(
+            _nonJsonServerMessage(response),
+          );
+        }
+        rethrow;
+      }
+      throw Exception('Invalid upload response');
+    }
+    _throwFromResponse(response);
+  }
+
+  /// POST /api/recipes/{id}/steps/{stepId}/images — one image per step (replaces prior).
+  Future<int> uploadRecipeStepImage(int recipeId, int stepId, XFile imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    final name = imageFile.name.isNotEmpty ? imageFile.name : 'image.jpg';
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/recipes/$recipeId/steps/$stepId/images'),
     );
     request.headers.addAll({
       'Accept': 'application/json',
@@ -168,15 +225,29 @@ class RecipeService {
     int id, {
     int? categoryId,
     String? title,
+    String? description,
     String? instructions,
     int? prepTime,
+    PrepTimingMode? prepTimingMode,
     List<Map<String, dynamic>>? ingredients,
+    List<Map<String, dynamic>>? steps,
   }) async {
     final body = <String, dynamic>{};
     if (categoryId != null) body['category_id'] = categoryId;
     if (title != null) body['title'] = title.trim();
-    if (instructions != null) body['instructions'] = instructions.trim();
-    if (prepTime != null) body['prep_time'] = prepTime;
+    if (description != null) body['description'] = description.trim();
+    if (steps != null) {
+      body['steps'] = steps;
+      if (prepTimingMode != null) {
+        body['prep_timing_mode'] = prepTimingModeToApi(prepTimingMode);
+      }
+      if (prepTimingMode == PrepTimingMode.overall && prepTime != null) {
+        body['prep_time'] = prepTime;
+      }
+    } else {
+      if (instructions != null) body['instructions'] = instructions.trim();
+      if (prepTime != null) body['prep_time'] = prepTime;
+    }
     if (ingredients != null) body['ingredients'] = ingredients;
     final response = await http.put(
       Uri.parse('$_baseUrl/recipes/$id'),

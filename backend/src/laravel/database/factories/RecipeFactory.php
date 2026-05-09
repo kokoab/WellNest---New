@@ -28,6 +28,7 @@ class RecipeFactory extends Factory
             'description' => fake()->paragraph,
             'instructions' => fake()->paragraph,
             'prep_time' => fake()->numberBetween(5, 60),
+            'prep_timing_mode' => 'overall',
         ];
     }
 

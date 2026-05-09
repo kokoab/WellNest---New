@@ -12,6 +12,7 @@ use App\Models\Vote;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\RecipeRating;
+use App\Models\RecipeStep;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Recipe extends Model
@@ -26,7 +27,13 @@ class Recipe extends Model
         'description',
         'instructions',
         'prep_time',
+        'prep_timing_mode',
     ];
+
+    public function steps(): HasMany
+    {
+        return $this->hasMany(RecipeStep::class)->orderBy('sort_order')->orderBy('id');
+    }
 
     public function views(): HasMany {
         return $this->hasMany(RecipeView::class);

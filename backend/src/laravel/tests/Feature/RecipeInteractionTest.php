@@ -227,6 +227,6 @@ class RecipeInteractionTest extends TestCase
         $response->assertCreated()
             ->assertJsonFragment(['message' => 'Image uploaded successfully']);
 
-        $this->assertNotEmpty($response->json('image_url'));
+        $this->assertNotEmpty($response->json('image.image_url'));
     }
 }

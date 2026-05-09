@@ -239,6 +239,20 @@ class AppGradients {
     end: Alignment.bottomRight,
     colors: [Color(0xFFF0F4F1), Color(0xFFFAF9F6)],
   );
+
+  /// Same vertical fade as [WellnestDiscoverHero]: pale green → blended → [surface].
+  /// Discover uses [AppColors.backgroundCream]; recipe form uses white for field contrast.
+  static LinearGradient discoverHeroFadeTo(Color surface) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          AppColors.heroPaleGreen,
+          AppColors.heroPaleGreen,
+          Color.lerp(AppColors.heroPaleGreen, surface, 0.42) ?? surface,
+          surface,
+        ],
+        stops: const [0.0, 0.42, 0.76, 1.0],
+      );
 }
 
 /// Standardized curves

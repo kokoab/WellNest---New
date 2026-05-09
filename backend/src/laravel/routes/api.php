@@ -70,6 +70,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::post('recipes/{recipe}/images', [RecipeController::class, 'uploadImage']);
     Route::delete('recipes/{recipe}/images/{image}', [RecipeController::class, 'deleteImage']);
     Route::put('recipes/{recipe}/images/reorder', [RecipeController::class, 'reorderImages']);
+    Route::post('recipes/{recipe}/steps/{step}/images', [RecipeController::class, 'uploadStepImage']);
+    Route::delete('recipes/{recipe}/steps/{step}/images/{image}', [RecipeController::class, 'deleteStepImage']);
     Route::post('recipes/{recipe}/like', [VoteController::class, 'likeRecipe']);
     Route::delete('recipes/{recipe}/like', [VoteController::class, 'unlikeRecipe']);
     Route::post('recipes/{recipe}/report', [ReportController::class, 'reportRecipe']);

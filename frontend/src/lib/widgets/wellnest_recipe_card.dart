@@ -211,7 +211,7 @@ class WellnestRecipeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${recipe.prepTime} min',
+                          recipe.displayPrepLabel,
                           style: TextStyle(
                             color: Colors.grey.shade800,
                             fontSize: 12,

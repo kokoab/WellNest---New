@@ -23,6 +23,78 @@ class RecipeImageRef {
   String? get displayUrl => resolveStorageDisplayUrl(url.isEmpty ? null : url);
 }
 
+/// How prep time is entered for the recipe.
+enum PrepTimingMode {
+  overall,
+  perStep,
+}
+
+PrepTimingMode prepTimingModeFromApi(String? raw) {
+  switch (raw) {
+    case 'per_step':
+      return PrepTimingMode.perStep;
+    case 'overall':
+    default:
+      return PrepTimingMode.overall;
+  }
+}
+
+String prepTimingModeToApi(PrepTimingMode mode) {
+  switch (mode) {
+    case PrepTimingMode.perStep:
+      return 'per_step';
+    case PrepTimingMode.overall:
+      return 'overall';
+  }
+}
+
+/// One ordered cooking step from the API.
+class RecipeStepInfo {
+  final int id;
+  final int sortOrder;
+  final String? title;
+  final String? instructions;
+  final int? prepTimeMinutes;
+  final RecipeImageRef? image;
+
+  RecipeStepInfo({
+    required this.id,
+    required this.sortOrder,
+    this.title,
+    this.instructions,
+    this.prepTimeMinutes,
+    this.image,
+  });
+
+  factory RecipeStepInfo.fromJson(Map<String, dynamic> json) {
+    RecipeImageRef? img;
+    final rawImg = json['image'];
+    if (rawImg is Map<String, dynamic>) {
+      img = RecipeImageRef.fromJson(rawImg);
+    }
+
+    return RecipeStepInfo(
+      id: json['id'] as int,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      title: json['title'] as String?,
+      instructions: json['instructions'] as String?,
+      prepTimeMinutes: (json['prep_time_minutes'] as num?)?.toInt(),
+      image: img,
+    );
+  }
+
+  /// Non-empty title for UI, or a fallback label.
+  String displayTitle(int indexOneBased) {
+    final t = title?.trim() ?? '';
+    if (t.isNotEmpty) return t;
+    return 'Step $indexOneBased';
+  }
+
+  bool get hasBody =>
+      (instructions?.trim().isNotEmpty ?? false) ||
+      (title?.trim().isNotEmpty ?? false);
+}
+
 /// Recipe model matching backend API (with category, user, ingredients, image).
 class Recipe {
   final int id;
@@ -31,7 +103,8 @@ class Recipe {
   final String title;
   final String? description;
   final String instructions;
-  final int prepTime; // minutes
+  final int prepTime; // minutes (total or sum when per-step)
+  final PrepTimingMode prepTimingMode;
   final String? createdAt;
   final String? updatedAt;
   final CategoryInfo? category;
@@ -39,6 +112,7 @@ class Recipe {
   final List<RecipeIngredientInfo>? ingredients;
   final String? imageUrl;
   final List<RecipeImageRef> galleryImages;
+  final List<RecipeStepInfo>? steps;
   final double? averageRating;
   final int? ratingsCount;
   final int? viewsCount;
@@ -51,6 +125,7 @@ class Recipe {
     this.description,
     required this.instructions,
     required this.prepTime,
+    this.prepTimingMode = PrepTimingMode.overall,
     this.createdAt,
     this.updatedAt,
     this.category,
@@ -58,6 +133,7 @@ class Recipe {
     this.ingredients,
     this.imageUrl,
     this.galleryImages = const [],
+    this.steps,
     this.averageRating,
     this.ratingsCount,
     this.viewsCount,
@@ -102,6 +178,14 @@ class Recipe {
           .toList();
     }
 
+    List<RecipeStepInfo>? steps;
+    final rawSteps = json['steps'] as List<dynamic>?;
+    if (rawSteps != null && rawSteps.isNotEmpty) {
+      steps = rawSteps
+          .map((e) => RecipeStepInfo.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
     return Recipe(
       id: json['id'] as int,
       userId: json['user_id'] as int?,
@@ -110,6 +194,7 @@ class Recipe {
       description: json['description'] as String?,
       instructions: json['instructions'] as String? ?? '',
       prepTime: (json['prep_time'] as num?)?.toInt() ?? 0,
+      prepTimingMode: prepTimingModeFromApi(json['prep_timing_mode'] as String?),
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
       category: cat,
@@ -117,6 +202,7 @@ class Recipe {
       ingredients: ingredients,
       imageUrl: json['image_url'] as String?,
       galleryImages: gallery,
+      steps: steps,
       averageRating: (json['average_rating'] as num?)?.toDouble(),
       ratingsCount: json['ratings_count'] as int?,
       viewsCount: (json['views_count'] as num?)?.toInt(),
@@ -129,6 +215,7 @@ class Recipe {
         if (description != null) 'description': description,
         'instructions': instructions,
         'prep_time': prepTime,
+        'prep_timing_mode': prepTimingModeToApi(prepTimingMode),
       };
 
   String get userDisplayName {
@@ -151,6 +238,17 @@ class Recipe {
     final u = displayImageUrl;
     if (u != null && u.isNotEmpty) return [u];
     return [];
+  }
+
+  bool get hasStructuredSteps => steps != null && steps!.isNotEmpty;
+
+  /// Chip label for prep time on cards and detail.
+  String get displayPrepLabel {
+    if (prepTimingMode == PrepTimingMode.perStep && prepTime <= 0) {
+      return 'Prep varies';
+    }
+    if (prepTime <= 0) return '—';
+    return '$prepTime min';
   }
 }
 
@@ -180,4 +278,17 @@ class RecipeIngredientInfo {
     required this.quantity,
     required this.unit,
   });
+
+  /// Single line for UI and editing. Free-text lines are stored with quantity 1 and unit `unit`.
+  String get displayLine {
+    final u = unit.trim().toLowerCase();
+    if ((u.isEmpty || u == 'unit') && quantity == 1.0) {
+      return name;
+    }
+    final qtyStr =
+        quantity.toInt() == quantity ? quantity.toInt().toString() : quantity.toString();
+    final unitPart = unit.trim();
+    final amount = unitPart.isEmpty ? qtyStr : '$qtyStr $unitPart';
+    return '$amount $name'.trim();
+  }
 }
