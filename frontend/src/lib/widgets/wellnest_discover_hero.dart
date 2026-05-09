@@ -19,6 +19,8 @@ class WellnestDiscoverHero extends StatefulWidget {
 class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
     with WidgetsBindingObserver {
   static const double _avatarRadius = 24;
+  static final Color _avatarBorderColor =
+      const Color(0xFFC5C5C5).withValues(alpha: 0.95);
 
   CurrentUser? _user;
   bool _loadingUser = true;
@@ -186,8 +188,9 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
   }
 
   Widget _buildAvatar() {
+    late final Widget inner;
     if (_loadingUser) {
-      return CircleAvatar(
+      inner = CircleAvatar(
         radius: _avatarRadius,
         backgroundColor: Colors.white.withValues(alpha: 0.65),
         child: const SizedBox(
@@ -199,38 +202,47 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
           ),
         ),
       );
+    } else {
+      final photoUrl = _user?.displayProfilePhotoUrl;
+      inner = CircleAvatar(
+        radius: _avatarRadius,
+        backgroundColor: const Color(0xFFFFEECC),
+        child: photoUrl != null && photoUrl.isNotEmpty
+            ? ClipOval(
+                child: Image.network(
+                  photoUrl,
+                  width: _avatarRadius * 2,
+                  height: _avatarRadius * 2,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  cacheWidth: 192,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _initialsAvatar(),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primaryGreen,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            : _initialsAvatar(),
+      );
     }
 
-    final photoUrl = _user?.displayProfilePhotoUrl;
-    return CircleAvatar(
-      radius: _avatarRadius,
-      backgroundColor: const Color(0xFFFFEECC),
-      child: photoUrl != null && photoUrl.isNotEmpty
-          ? ClipOval(
-              child: Image.network(
-                photoUrl,
-                width: _avatarRadius * 2,
-                height: _avatarRadius * 2,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                cacheWidth: 192,
-                errorBuilder: (context, error, stackTrace) => _initialsAvatar(),
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primaryGreen,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            )
-          : _initialsAvatar(),
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: _avatarBorderColor, width: 1),
+      ),
+      child: inner,
     );
   }
 

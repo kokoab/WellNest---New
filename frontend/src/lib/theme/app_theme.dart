@@ -17,16 +17,13 @@ const Color kHeroPaleGreen = Color(0xFFF0F7F0);
 const Color kWellGreen = kPrimaryGreen;
 const Color kNestOrange = kAccentOrange;
 
-/// Display serif (must match `family` in [pubspec.yaml] under `flutter: fonts:`).
+/// Legacy serif stack name (still in pubspec). Prefer [kFontHelveticaNow] for UI text.
 const String kFontGeorgiaPro = 'GeorgiaPro';
 const String kFontHelveticaNow = 'HelveticaNow';
 const String kFontAppFamily = kFontHelveticaNow;
 
-/// Figma-style tracking in **thousandths of 1em** (e.g. `-30` → `-0.03em` letter-spacing).
-const double kGeorgiaProTrackingFigma = -30;
-
-/// Line-height multiplier for Georgia Pro display text (taller, news-masthead feel).
-const double kGeorgiaProLineHeightMultiplier = 1.12;
+/// Line-height multiplier for legacy display text hooks (sans headlines).
+const double kGeorgiaProLineHeightMultiplier = 1.22;
 
 /// Horizontal squeeze for [GeorgiaProDisplaySquish] (narrower = more condensed).
 const double kGeorgiaProDisplayScaleX = 0.93;
@@ -34,22 +31,20 @@ const double kGeorgiaProDisplayScaleX = 0.93;
 /// Vertical stretch paired with [kGeorgiaProDisplayScaleX] (taller letterforms).
 const double kGeorgiaProDisplayScaleY = 1.07;
 
-/// Letter-spacing in logical pixels for a given [fontSize] (matches Figma tracking).
-double georgiaProLetterSpacing(double fontSize) =>
-    fontSize * kGeorgiaProTrackingFigma / 1000;
+double _sansHeadlineLetterSpacing(double fontSize) => fontSize * (-18 / 1000);
 
-/// Georgia Pro display style: uses **Bold** (weight 700) by default so `GeorgiaPro-Bold.ttf` loads.
+/// Display / headline style (Helvetica Now). Kept name for existing call sites.
 TextStyle georgiaProDisplayStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.bold,
   Color? color,
 }) =>
     TextStyle(
-      fontFamily: kFontGeorgiaPro,
+      fontFamily: kFontHelveticaNow,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
-      letterSpacing: georgiaProLetterSpacing(fontSize),
+      letterSpacing: _sansHeadlineLetterSpacing(fontSize),
       height: kGeorgiaProLineHeightMultiplier,
     );
 
@@ -248,6 +243,7 @@ class AppCurves {
 
 const double kMinTapTargetSize = 48.0;
 
+/// Strong sans title style (Helvetica Now). Kept name for existing call sites.
 TextStyle georgiaProTextStyle({
   double? fontSize,
   FontWeight fontWeight = FontWeight.bold,
@@ -255,12 +251,12 @@ TextStyle georgiaProTextStyle({
 }) {
   final fs = fontSize;
   return TextStyle(
-    fontFamily: kFontGeorgiaPro,
+    fontFamily: kFontHelveticaNow,
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
-    letterSpacing: fs == null ? null : georgiaProLetterSpacing(fs),
-    height: kGeorgiaProLineHeightMultiplier,
+    letterSpacing: fs == null ? null : _sansHeadlineLetterSpacing(fs),
+    height: 1.25,
   );
 }
 

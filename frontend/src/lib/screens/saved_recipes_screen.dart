@@ -307,7 +307,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                       child: Text(
                         recipe.title,
                         style: georgiaProTextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           color: const Color(0xFF097333),
                         ),
                         maxLines: 2,
@@ -319,7 +319,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                       'By ${recipe.userDisplayName}',
                       style: TextStyle(
                         fontFamily: 'HelveticaNow',
-                        fontSize: 14,
+                        fontSize: 12,
                         color: Colors.grey.shade700,
                       ),
                       maxLines: 1,
@@ -328,13 +328,13 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.star, size: 16, color: accentYellow),
+                        Icon(Icons.star, size: 14, color: accentYellow),
                         const SizedBox(width: 4),
                         Text(
                           '${avg.toStringAsFixed(1)} ($count)',
                           style: TextStyle(
                             fontFamily: 'HelveticaNow',
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Colors.grey.shade700,
                           ),
                         ),

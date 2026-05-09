@@ -7,6 +7,7 @@ class RecipeRankingItem {
   final String? imageUrl;
   final String? authorName;
   final String? category;
+  final int prepTime;
   final double averageRating;
   final int ratingsCount;
   final int viewsCount;
@@ -18,6 +19,7 @@ class RecipeRankingItem {
     this.imageUrl,
     this.authorName,
     this.category,
+    this.prepTime = 0,
     required this.averageRating,
     required this.ratingsCount,
     required this.viewsCount,
@@ -31,6 +33,7 @@ class RecipeRankingItem {
       imageUrl: json['image_url'] as String?,
       authorName: json['author_name'] as String? ?? json['author'] as String?,
       category: json['category'] as String?,
+      prepTime: (json['prep_time'] as num?)?.toInt() ?? 0,
       averageRating: (json['average_rating'] as num?)?.toDouble() ?? 0.0,
       ratingsCount: (json['ratings_count'] as num?)?.toInt() ?? 0,
       viewsCount: (json['views_count'] as num?)?.toInt() ?? 0,

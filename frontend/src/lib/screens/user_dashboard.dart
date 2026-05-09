@@ -24,7 +24,6 @@ import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
 import 'package:my_app/screens/create_post_screen.dart';
 import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/wellnest_discover_hero.dart';
 import 'package:my_app/widgets/wellnest_recipe_card.dart';
 import 'package:my_app/widgets/weekly_meal_planner_strip.dart';
@@ -312,7 +311,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   final Map<int, bool> _recipeSaved = {};
   final Set<int> _recipeSaving = <int>{};
   final PageController _topRankedPageController = PageController(
-    viewportFraction: 0.82,
+    viewportFraction: 0.88,
   );
   final ValueNotifier<int> _topRankedPage = ValueNotifier<int>(0);
   final ScrollController _scrollController = ScrollController();
@@ -716,7 +715,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 key: const ValueKey('dashboard-view'),
                 child: RefreshIndicator(
                   onRefresh: () async {
-                    await Future.wait([_load(), _loadTopRanked()]);
+                    await Future.wait([
+                      _load(),
+                      _loadTopRanked(),
+                    ]);
                   },
                   color: wellGreen,
                   child: Stack(
@@ -1388,7 +1390,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           childCount: _recipes.length,
           itemBuilder: (context, index) {
             final recipe = _recipes[index];
-            return RepaintBoundary(child: _buildRecipeCard(recipe, index));
+            return RepaintBoundary(child: _buildRecipeCard(recipe));
           },
         ),
       ),
@@ -1420,11 +1422,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         Row(
           children: [
             Expanded(
-              child: GeorgiaProDisplaySquish(
-                child: Text(
-                  'Top Ranked Recipes',
-                  style: georgiaProTextStyle(fontSize: 21, color: wellGreen),
-                ),
+              child: Text(
+                'Top Ranked Recipes',
+                style: georgiaProTextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w800,
+                  color: wellGreen,
+                ).copyWith(letterSpacing: 0.4),
               ),
             ),
             TextButton(
@@ -1445,7 +1449,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ] else if (_topRanked.isNotEmpty) ...[
           const SizedBox(height: 8),
           SizedBox(
-            height: 248,
+            height: 264,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -1646,14 +1650,31 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '★ ${r.averageRating.toStringAsFixed(1)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            width: 0.5,
                           ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star_rounded,
+                              size: 15,
+                              color: accentYellow,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              r.averageRating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                                height: 1,
+                                letterSpacing: 0.35,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1717,10 +1738,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: georgiaProTextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
                                         color: Colors.grey.shade900,
-                                      ),
+                                      ).copyWith(letterSpacing: 0.35),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
@@ -1729,21 +1750,41 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.22,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      r.category?.trim().isNotEmpty == true
-                                          ? r.category!
-                                          : 'Uncategorized',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 12,
-                                      ),
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.flatware_rounded,
+                                          size: 13,
+                                          color: wellGreen.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            r.category?.trim().isNotEmpty ==
+                                                    true
+                                                ? r.category!
+                                                : 'Uncategorized',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade700,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -1779,16 +1820,17 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                 children: [
                                   Icon(
                                     badge.icon,
-                                    size: 13,
+                                    size: 12,
                                     color: badge.fgColor,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
                                     badge.label,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
                                       color: badge.fgColor,
+                                      letterSpacing: 0.28,
                                     ),
                                   ),
                                 ],
@@ -1798,20 +1840,25 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.star, size: 14, color: accentYellow),
-                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 13,
+                                  color: wellGreen.withValues(alpha: 0.85),
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  '${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
+                                  '${r.prepTime} min',
                                   style: TextStyle(
-                                    color: Colors.grey.shade700,
+                                    color: Colors.grey.shade800,
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.18,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Icon(
                                   Icons.visibility_outlined,
-                                  size: 14,
+                                  size: 13,
                                   color: Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 2),
@@ -1819,8 +1866,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                   '${r.viewsCount}',
                                   style: TextStyle(
                                     color: Colors.grey.shade700,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.18,
                                   ),
                                 ),
                               ],
@@ -1954,10 +2002,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     }
   }
 
-  Widget _buildRecipeCard(Recipe recipe, int index) {
-    /// Higher values → taller cards in the masonry column (see [WellnestRecipeCard.aspectRatio]).
-    final aspectRatios = [1.0, 1.14, 1.34, 1.06, 1.28];
-    final aspect = aspectRatios[index % aspectRatios.length];
+  Widget _buildRecipeCard(Recipe recipe) {
+    /// Image band width/height; card total height also grows with wrapped title text.
+    const gridCardAspectRatio = 0.7;
 
     return AnimatedPressScale(
       onTap: () async {
@@ -1968,13 +2015,15 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
           ),
         );
-        if (mounted) _load();
+        if (mounted) {
+          _load();
+        }
       },
       semanticLabel: 'View recipe, ${recipe.title}',
       child: WellnestRecipeCard(
         recipe: recipe,
         heroTag: 'recipe_${recipe.id}_image',
-        aspectRatio: 1 / aspect,
+        aspectRatio: gridCardAspectRatio,
         bookmarkSaving: _recipeSaving.contains(recipe.id),
         isBookmarked: _recipeSaved[recipe.id] ?? false,
         onBookmarkTap: AuthService.instance.isLoggedIn
