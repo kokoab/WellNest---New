@@ -178,6 +178,34 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
   bool _plannerExpanded = false;
 
+  int _topRankedRealIndex(int pageIndex) {
+    if (_topRanked.isEmpty) return 0;
+    return pageIndex % _topRanked.length;
+  }
+
+  int _topRankedVirtualCount() {
+    if (_topRanked.isEmpty) return 0;
+    return _topRanked.length * 1000;
+  }
+
+  int _topRankedInitialPage() {
+    if (_topRanked.isEmpty) return 0;
+    return _topRanked.length * 500;
+  }
+
+  Future<void> _jumpTopRankedBy(int delta) async {
+    if (_topRanked.length <= 1 || !_topRankedPageController.hasClients) return;
+    final current =
+        _topRankedPageController.page?.round() ?? _topRankedInitialPage();
+    final nextPage = current + delta;
+    await _topRankedPageController.animateToPage(
+      nextPage,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+    _topRankedPage.value = _topRankedRealIndex(nextPage);
+  }
+
   TextEditingController _getReviewController(int recipeId) {
     _reviewControllers[recipeId] ??= TextEditingController();
     return _reviewControllers[recipeId]!;
@@ -219,7 +247,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         window: '7d',
         mode: 'combined',
       );
-      final top = all.take(3).toList();
+      final top = all.take(10).toList();
       final savedState = <int, bool>{};
       if (AuthService.instance.isLoggedIn) {
         final savedResults = await Future.wait(
@@ -245,6 +273,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         _recipeSaved.addAll(savedState);
         _topRankedPage.value = 0;
         _loadingRanked = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_topRankedPageController.hasClients || top.isEmpty) {
+          return;
+        }
+        _topRankedPageController.jumpToPage(_topRankedInitialPage());
       });
     } catch (_) {
       if (!mounted) return;
@@ -846,13 +880,42 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           const SizedBox(height: 8),
           SizedBox(
             height: 250,
-            child: PageView.builder(
-              controller: _topRankedPageController,
-              padEnds: false,
-              itemCount: _topRanked.length,
-              onPageChanged: (i) => _topRankedPage.value = i,
-              itemBuilder: (_, i) =>
-                  _buildTopRankedCarouselCard(_topRanked[i], i),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PageView.builder(
+                  controller: _topRankedPageController,
+                  padEnds: true,
+                  itemCount: _topRankedVirtualCount(),
+                  onPageChanged: (i) =>
+                      _topRankedPage.value = _topRankedRealIndex(i),
+                  itemBuilder: (_, i) {
+                    final realIndex = _topRankedRealIndex(i);
+                    return _buildTopRankedCarouselCard(
+                      _topRanked[realIndex],
+                      realIndex + 1,
+                    );
+                  },
+                ),
+                if (_topRanked.length > 1) ...[
+                  Positioned(
+                    left: 6,
+                    child: _buildTopRankedArrow(
+                      icon: Icons.chevron_left_rounded,
+                      tooltip: 'Previous ranked recipe',
+                      onPressed: () => _jumpTopRankedBy(-1),
+                    ),
+                  ),
+                  Positioned(
+                    right: 6,
+                    child: _buildTopRankedArrow(
+                      icon: Icons.chevron_right_rounded,
+                      tooltip: 'Next ranked recipe',
+                      onPressed: () => _jumpTopRankedBy(1),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 10),
@@ -886,9 +949,65 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     );
   }
 
-  Widget _buildTopRankedCarouselCard(RecipeRankingItem r, int index) {
+  Widget _buildTopRankedArrow({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.24),
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Icon(icon, color: Colors.white.withValues(alpha: 0.82), size: 20),
+        splashRadius: 20,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  ({Color bgColor, Color fgColor, IconData icon, String label}) _rankBadgeStyle(
+    int rank,
+  ) {
+    if (rank == 1) {
+      return (
+        bgColor: const Color(0xFFB8860B),
+        fgColor: Colors.white,
+        icon: Icons.emoji_events,
+        label: 'Gold',
+      );
+    }
+    if (rank == 2) {
+      return (
+        bgColor: const Color(0xFF607D8B),
+        fgColor: Colors.white,
+        icon: Icons.emoji_events,
+        label: 'Silver',
+      );
+    }
+    if (rank == 3) {
+      return (
+        bgColor: const Color(0xFF8D5524),
+        fgColor: Colors.white,
+        icon: Icons.emoji_events,
+        label: 'Bronze',
+      );
+    }
+    return (
+      bgColor: const Color(0xFF455A64),
+      fgColor: Colors.white,
+      icon: Icons.workspace_premium,
+      label: 'Top 10',
+    );
+  }
+
+  Widget _buildTopRankedCarouselCard(RecipeRankingItem r, int rank) {
     final isSaved = _topRankedSaved[r.id] ?? false;
     final saving = _topRankedSaving.contains(r.id);
+    final badge = _rankBadgeStyle(rank);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: InkWell(
@@ -993,64 +1112,137 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '#${index + 1} ${r.title}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (r.category != null &&
-                                  r.category!.trim().isNotEmpty) ...[
-                                Flexible(
-                                  child: Text(
-                                    r.category!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                              Container(
+                                width: 3,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: badge.bgColor,
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
-                                const SizedBox(width: 8),
-                              ],
-                              Icon(Icons.star, size: 14, color: accentYellow),
-                              const SizedBox(width: 3),
-                              Flexible(
-                                child: Text(
-                                  '${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontSize: 12,
-                                  ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      r.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'By ${r.authorName?.trim().isNotEmpty == true ? r.authorName!.trim() : 'WellNest Community'}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      r.category?.trim().isNotEmpty == true
+                                          ? r.category!
+                                          : 'Uncategorized',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${r.viewsCount}',
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 12,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
                               ),
+                              decoration: BoxDecoration(
+                                color: badge.bgColor,
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: Colors.black.withValues(alpha: 0.18),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x22000000),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    badge.icon,
+                                    size: 13,
+                                    color: badge.fgColor,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    badge.label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: badge.fgColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star, size: 14, color: accentYellow),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${r.averageRating.toStringAsFixed(1)} (${r.ratingsCount})',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.visibility_outlined,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${r.viewsCount}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

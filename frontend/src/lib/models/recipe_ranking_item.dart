@@ -5,6 +5,7 @@ class RecipeRankingItem {
   final int id;
   final String title;
   final String? imageUrl;
+  final String? authorName;
   final String? category;
   final double averageRating;
   final int ratingsCount;
@@ -15,6 +16,7 @@ class RecipeRankingItem {
     required this.id,
     required this.title,
     this.imageUrl,
+    this.authorName,
     this.category,
     required this.averageRating,
     required this.ratingsCount,
@@ -27,6 +29,7 @@ class RecipeRankingItem {
       id: jsonDecodeInt(json['id']),
       title: json['title'] as String? ?? '',
       imageUrl: json['image_url'] as String?,
+      authorName: json['author_name'] as String? ?? json['author'] as String?,
       category: json['category'] as String?,
       averageRating: (json['average_rating'] as num?)?.toDouble() ?? 0.0,
       ratingsCount: (json['ratings_count'] as num?)?.toInt() ?? 0,

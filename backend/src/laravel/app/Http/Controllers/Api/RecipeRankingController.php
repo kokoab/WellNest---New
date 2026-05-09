@@ -25,7 +25,11 @@ class RecipeRankingController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
 
         $recipes = Recipe::query()
-            ->with(['category:id,name', 'images:id,path,imageable_id,imageable_type'])
+            ->with([
+                'category:id,name',
+                'images:id,path,imageable_id,imageable_type',
+                'user:id,first_name,last_name,email',
+            ])
             ->withAvg('ratings as average_rating', 'rating')
             ->withCount('ratings')
             ->withCount(['views as views_count' => function ($query) use ($fromDate) {
@@ -45,11 +49,16 @@ class RecipeRankingController extends Controller
             $score = (0.6 * $ratingNorm) + (0.4 * $viewsNorm);
 
             $firstImage = $r->images->first();
+            $authorName = trim(($r->user?->first_name ?? '') . ' ' . ($r->user?->last_name ?? ''));
+            if ($authorName === '') {
+                $authorName = $r->user?->email ?? null;
+            }
 
             return [
                 'id' => $r->id,
                 'title' => $r->title,
                 'image_url' => $firstImage ? $baseUrl . '/storage/' . $firstImage->path : null,
+                'author_name' => $authorName,
                 'category' => $r->category?->name,
                 'average_rating' => round($avg, 2),
                 'ratings_count' => (int) $r->ratings_count,
