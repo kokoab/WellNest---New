@@ -14,7 +14,20 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
   List<ActivityLog> _logs = [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
+  final Set<String> _selectedSearchFields = <String>{};
+  static const List<_SearchFieldOption> _searchFieldOptions = [
+    _SearchFieldOption(key: 'category', label: 'Category'),
+    _SearchFieldOption(key: 'action', label: 'Action'),
+    _SearchFieldOption(key: 'description', label: 'Description'),
+    _SearchFieldOption(key: 'actor_name', label: 'Actor'),
+    _SearchFieldOption(key: 'email', label: 'Email'),
+    _SearchFieldOption(key: 'ip_address', label: 'IP address'),
+  ];
+  Timer? _searchDebounce;
+  final TextEditingController _searchController = TextEditingController();
   _DateRangeFilter _range = _DateRangeFilter.monthly;
+  DateTimeRange? _customDateRange;
   int _page = 1;
   int _lastPage = 1;
   bool _loadingPage = false;
@@ -23,6 +36,13 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
   void initState() {
     super.initState();
     refresh();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> refresh() async {
@@ -34,6 +54,10 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       final res = await AdminAuditLogService.instance.fetchLogs(
         page: 1,
         range: _range.apiValue,
+        search: _searchQuery,
+        searchFields: _selectedSearchFields.toList(),
+        startDate: _customDateRange?.start,
+        endDate: _customDateRange?.end,
       );
       if (!mounted) return;
       setState(() {
@@ -58,6 +82,10 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       final res = await AdminAuditLogService.instance.fetchLogs(
         page: page,
         range: _range.apiValue,
+        search: _searchQuery,
+        searchFields: _selectedSearchFields.toList(),
+        startDate: _customDateRange?.start,
+        endDate: _customDateRange?.end,
       );
       if (!mounted) return;
       setState(() {
@@ -73,6 +101,27 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
     }
   }
 
+  void _handleSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      refresh();
+    });
+  }
+
+  void _clearAllFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _selectedSearchFields.clear();
+      _range = _DateRangeFilter.monthly;
+      _customDateRange = null;
+    });
+    refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -81,11 +130,35 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       logs: _logs,
       loading: _loading,
       error: _error,
-      selectedRange: _range,
-      onRangeChanged: (range) {
-        setState(() => _range = range);
+      searchQuery: _searchQuery,
+      searchController: _searchController,
+      onSearchChanged: _handleSearchChanged,
+      searchFieldOptions: _searchFieldOptions,
+      selectedSearchFields: _selectedSearchFields,
+      onSearchFieldToggled: (fieldKey) {
+        setState(() {
+          if (_selectedSearchFields.contains(fieldKey)) {
+            _selectedSearchFields.remove(fieldKey);
+          } else {
+            _selectedSearchFields.add(fieldKey);
+          }
+        });
         refresh();
       },
+      selectedRange: _range,
+      onRangeChanged: (range) {
+        setState(() {
+          _range = range;
+          _customDateRange = null;
+        });
+        refresh();
+      },
+      customDateRange: _customDateRange,
+      onCustomDateRangeChanged: (value) {
+        setState(() => _customDateRange = value);
+        refresh();
+      },
+      onClearAllFilters: _clearAllFilters,
       onRefresh: refresh,
       currentPage: _page,
       totalPages: _lastPage,
@@ -103,8 +176,17 @@ class _AuditLogsSection extends StatelessWidget {
   final List<ActivityLog> logs;
   final bool loading;
   final String? error;
+  final String searchQuery;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final List<_SearchFieldOption> searchFieldOptions;
+  final Set<String> selectedSearchFields;
+  final ValueChanged<String> onSearchFieldToggled;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
+  final DateTimeRange? customDateRange;
+  final ValueChanged<DateTimeRange?> onCustomDateRangeChanged;
+  final VoidCallback onClearAllFilters;
   final VoidCallback onRefresh;
   final int currentPage;
   final int totalPages;
@@ -116,8 +198,17 @@ class _AuditLogsSection extends StatelessWidget {
     required this.logs,
     required this.loading,
     required this.error,
+    required this.searchQuery,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.searchFieldOptions,
+    required this.selectedSearchFields,
+    required this.onSearchFieldToggled,
     required this.selectedRange,
     required this.onRangeChanged,
+    required this.customDateRange,
+    required this.onCustomDateRangeChanged,
+    required this.onClearAllFilters,
     required this.onRefresh,
     required this.currentPage,
     required this.totalPages,
@@ -139,7 +230,14 @@ class _AuditLogsSection extends StatelessWidget {
                 subtitle: 'System & moderation events',
               ),
             ),
+            _ClearFiltersButton(onPressed: onClearAllFilters),
+            const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
+            const SizedBox(width: 6),
+            _CustomDateRangeButton(
+              value: customDateRange,
+              onChanged: onCustomDateRangeChanged,
+            ),
             const SizedBox(width: 6),
             _AdminCsvExportButton(range: selectedRange),
             const SizedBox(width: 6),
@@ -153,12 +251,31 @@ class _AuditLogsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
+        _SearchBar(
+          theme: theme,
+          controller: searchController,
+          onChanged: onSearchChanged,
+          hintText: 'Search audit logs...',
+        ),
+        const SizedBox(height: 10),
+        _AdvancedSearchPanel(
+          theme: theme,
+          options: searchFieldOptions,
+          selectedKeys: selectedSearchFields,
+          onToggleField: onSearchFieldToggled,
+        ),
+        const SizedBox(height: 14),
         if (loading && logs.isEmpty)
           const _LoadingState()
         else if (error != null)
           _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
         else if (logs.isEmpty)
-          _EmptyState(theme: theme, message: 'No audit logs yet')
+          _EmptyState(
+            theme: theme,
+            message: searchQuery.isEmpty
+                ? 'No audit logs yet'
+                : 'No audit logs match your search',
+          )
         else
           _AuditLogsTable(theme: theme, logs: logs),
         if (logs.isNotEmpty) ...[
@@ -265,7 +382,7 @@ class _AuditLogsTable extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: logs.length,
-        separatorBuilder: (_, __) => Divider(
+        separatorBuilder: (_, _) => Divider(
           height: 10,
           color: theme.colorScheme.outline.withValues(alpha: 0.12),
         ),

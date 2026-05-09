@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
@@ -36,9 +37,10 @@ class UserDashboard extends StatefulWidget {
 
 class _UserDashboardState extends State<UserDashboard> {
   int _currentIndex = 0;
-  int _recipeGridKey = 0;
   int _feedRefreshKey = 0;
   int _savedRefreshKey = 0;
+  final GlobalKey<_RecipeGridViewState> _recipeGridViewKey =
+      GlobalKey<_RecipeGridViewState>();
   final List<bool> _tabHasBeenBuilt = [false, false, false, false];
 
   @override
@@ -46,7 +48,7 @@ class _UserDashboardState extends State<UserDashboard> {
     _tabHasBeenBuilt[_currentIndex] = true;
     final pages = [
       _tabHasBeenBuilt[0]
-          ? RecipeGridView(key: ValueKey(_recipeGridKey))
+          ? RecipeGridView(key: _recipeGridViewKey)
           : const SizedBox.shrink(),
       _tabHasBeenBuilt[1]
           ? FeedPage(key: ValueKey('feed_$_feedRefreshKey'))
@@ -102,7 +104,9 @@ class _UserDashboardState extends State<UserDashboard> {
               heroTag: 'recipe_add_fab',
               onPressed: () async {
                 final result = await RecipeFormScreen.showAsModal(context);
-                if (result == true && mounted) setState(() => _recipeGridKey++);
+                if (result == true && mounted) {
+                  await _recipeGridViewKey.currentState?._load();
+                }
               },
               backgroundColor: AppColors.accentOrange,
               foregroundColor: Colors.white,
@@ -116,6 +120,10 @@ class _UserDashboardState extends State<UserDashboard> {
         child: CustomBottomNav(
           currentIndex: _currentIndex,
           onTap: (index) {
+            if (index == _currentIndex && index == 0) {
+              _recipeGridViewKey.currentState?.scrollToTop();
+              return;
+            }
             setState(() {
               _currentIndex = index;
               if (index == 1) _feedRefreshKey++;
@@ -157,8 +165,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   bool _submittingRating = false;
   final Map<int, TextEditingController> _reviewControllers = {};
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  List<String> _recentSearches = [];
+  bool _loadingPopularCuisines = false;
+  List<_PopularCuisineItem> _popularCuisines = [];
+  bool _mobileSearchActive = false;
   int _loadRecipesGeneration = 0;
   int _recipesPage = 1;
   final int _recipesPerPage = 10;
@@ -217,6 +230,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       c.dispose();
     }
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _searchDebounce?.cancel();
     _topRankedPageController.dispose();
     _topRankedPage.dispose();
@@ -229,7 +243,138 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     super.initState();
     _load();
     _loadTopRanked();
+    _loadPopularCuisines();
+    _loadRecentSearches();
+    _searchFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _recentSearches =
+          prefs.getStringList('recent_recipe_searches') ?? <String>[];
+    });
+  }
+
+  Future<void> _persistRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('recent_recipe_searches', _recentSearches);
+  }
+
+  Future<void> _addRecentSearch(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+    setState(() {
+      _recentSearches = [
+        normalized,
+        ..._recentSearches.where(
+          (item) => item.toLowerCase() != normalized.toLowerCase(),
+        ),
+      ].take(10).toList();
+    });
+    await _persistRecentSearches();
+  }
+
+  Future<void> _clearRecentSearches() async {
+    setState(() => _recentSearches = []);
+    await _persistRecentSearches();
+  }
+
+  Future<void> _applySearchQuery(String query, {bool keepFocus = false}) async {
+    final normalized = query.trim();
+    _searchDebounce?.cancel();
+    _searchController.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+    setState(() {
+      _searchQuery = normalized;
+      _mobileSearchActive = false;
+    });
+    if (normalized.isNotEmpty) {
+      await _addRecentSearch(normalized);
+    }
+    await _loadRecipes();
+    if (!keepFocus && mounted) {
+      FocusScope.of(context).unfocus();
+    }
+  }
+
+  void _closeMobileSearch() {
+    _searchDebounce?.cancel();
+    _searchController.value = TextEditingValue(
+      text: _searchQuery,
+      selection: TextSelection.collapsed(offset: _searchQuery.length),
+    );
+    FocusScope.of(context).unfocus();
+    setState(() => _mobileSearchActive = false);
+  }
+
+  void _openMobileSearch() {
+    _searchDebounce?.cancel();
+    setState(() => _mobileSearchActive = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mobileSearchActive) return;
+      _searchFocusNode.requestFocus();
+      Future<void>.delayed(const Duration(milliseconds: 80), () {
+        if (mounted && _mobileSearchActive) {
+          _searchFocusNode.requestFocus();
+        }
+      });
+    });
+  }
+
+  void scrollToTop() {
+    if (_mobileSearchActive) {
+      _closeMobileSearch();
+    }
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _loadPopularCuisines() async {
+    try {
+      setState(() => _loadingPopularCuisines = true);
+      final ranked = await RecipeService.instance.fetchRankings(
+        window: '30d',
+        mode: 'views',
+      );
+      final seen = <String>{};
+      final cuisines = <_PopularCuisineItem>[];
+      for (final item in ranked) {
+        final baseLabel = (item.category ?? '').trim().isNotEmpty
+            ? item.category!.trim()
+            : item.title.trim().split(' ').first;
+        final label = baseLabel.isEmpty ? 'Popular' : baseLabel;
+        final normalized = label.toLowerCase();
+        if (seen.contains(normalized)) continue;
+        seen.add(normalized);
+        cuisines.add(
+          _PopularCuisineItem(
+            label: label,
+            imageUrl: item.displayImageUrl,
+            searchTerm: label,
+          ),
+        );
+        if (cuisines.length >= 8) break;
+      }
+      if (!mounted) return;
+      setState(() {
+        _popularCuisines = cuisines;
+        _loadingPopularCuisines = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingPopularCuisines = false);
+    }
   }
 
   void _onScroll() {
@@ -412,241 +557,377 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     final crossAxisCount = width > 900 ? 5 : (width > 600 ? 3 : 2);
     const padding = AppSpacing.md;
     const gap = 16.0;
+    final mobileSearchActive = width <= 600 && _mobileSearchActive;
 
     return SafeArea(
       bottom: false,
-      child: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([_load(), _loadTopRanked()]);
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 460),
+        reverseDuration: const Duration(milliseconds: 380),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              if (currentChild != null) currentChild,
+              ...previousChildren,
+            ],
+          );
         },
-        color: wellGreen,
-        child: Stack(
-          children: [
-            CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                        AppSpacing.md,
-                        0,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const WellnestHeader(),
-                          AppSpacing.gapV8,
-                          TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Search by name or ingredients...',
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                color: kPrimaryGreen,
-                                size: 22,
-                              ),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(
-                                        Icons.clear,
-                                        color: Colors.grey.shade600,
-                                        size: 20,
-                                      ),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() => _searchQuery = '');
-                                        _loadRecipes();
-                                      },
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                                vertical: AppSpacing.sm,
-                              ),
-                            ),
-                            onChanged: (value) {
-                              setState(() {});
-                              _searchDebounce?.cancel();
-                              _searchDebounce = Timer(
-                                const Duration(milliseconds: 400),
-                                () {
-                                  if (!mounted) return;
-                                  setState(() => _searchQuery = value.trim());
-                                  _loadRecipes();
-                                },
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          if (_categories.isNotEmpty) ...[
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Category',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
-                                  ),
+        transitionBuilder: (child, animation) {
+          final isSearchView =
+              child.key == const ValueKey('mobile-search-view');
+          final slideAnimation = Tween<Offset>(
+            begin: isSearchView ? const Offset(0, 0.10) : Offset.zero,
+            end: Offset.zero,
+          ).animate(animation);
+          final fadeAnimation = CurvedAnimation(
+            parent: animation,
+            curve: const Interval(0.15, 1, curve: Curves.easeOut),
+          );
+
+          return FadeTransition(
+            opacity: fadeAnimation,
+            child: SlideTransition(position: slideAnimation, child: child),
+          );
+        },
+        child: mobileSearchActive
+            ? KeyedSubtree(
+                key: const ValueKey('mobile-search-view'),
+                child: _buildMobileSearchView(),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('dashboard-view'),
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await Future.wait([_load(), _loadTopRanked()]);
+                  },
+                  color: wellGreen,
+                  child: Stack(
+                    children: [
+                      CustomScrollView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: RepaintBoundary(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.sm,
+                                  AppSpacing.md,
+                                  0,
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 36,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      children: [
-                                        _FilterChip(
-                                          label: 'All',
-                                          selected: _selectedCategoryId == null,
-                                          onTap: () {
-                                            setState(() {
-                                              _selectedCategoryId = null;
-                                              _searchQuery = _searchController
-                                                  .text
-                                                  .trim();
-                                            });
-                                            _loadRecipes();
-                                          },
-                                        ),
-                                        ..._categories.map(
-                                          (c) => _FilterChip(
-                                            label: c.name,
-                                            selected:
-                                                _selectedCategoryId == c.id,
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedCategoryId = c.id;
-                                                _searchQuery = _searchController
-                                                    .text
-                                                    .trim();
-                                              });
-                                              _loadRecipes();
-                                            },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const WellnestHeader(),
+                                    AppSpacing.gapV8,
+                                    width <= 600
+                                        ? _buildMobileSearchTrigger()
+                                        : _buildRecipeSearchField(
+                                            searchOnlyMode: false,
+                                          ),
+                                    if (_searchFocusNode.hasFocus) ...[
+                                      const SizedBox(height: 12),
+                                      _buildSearchDiscoveryPanel(),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    if (_categories.isNotEmpty) ...[
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Category',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 36,
+                                              child: ListView(
+                                                scrollDirection:
+                                                    Axis.horizontal,
+                                                children: [
+                                                  _FilterChip(
+                                                    label: 'All',
+                                                    selected:
+                                                        _selectedCategoryId ==
+                                                        null,
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _selectedCategoryId =
+                                                            null;
+                                                        _searchQuery =
+                                                            _searchController
+                                                                .text
+                                                                .trim();
+                                                      });
+                                                      _loadRecipes();
+                                                    },
+                                                  ),
+                                                  ..._categories.map(
+                                                    (c) => _FilterChip(
+                                                      label: c.name,
+                                                      selected:
+                                                          _selectedCategoryId ==
+                                                          c.id,
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _selectedCategoryId =
+                                                              c.id;
+                                                          _searchQuery =
+                                                              _searchController
+                                                                  .text
+                                                                  .trim();
+                                                        });
+                                                        _loadRecipes();
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (_hasActiveFilters) ...[
+                                        const SizedBox(height: 8),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton.icon(
+                                            onPressed: _clearAllFilters,
+                                            icon: Icon(
+                                              Icons.filter_list_off,
+                                              size: 18,
+                                              color: nestOrange,
+                                            ),
+                                            label: Text(
+                                              'Clear filters',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: nestOrange,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    // Only show these sections if the search box is empty
+                                    if (_searchController.text.isEmpty) ...[
+                                      if (_categories.isNotEmpty)
+                                        const SizedBox(height: 10),
+                                      _buildTopRankedSection(),
+                                      const SizedBox(height: 16),
+                                      _buildMealPlannerSection(),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Discover',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF097333),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ] else ...[
+                                      // When searching, hide the above and show a "Search Results" title instead
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Search Results',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF097333),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  ],
                                 ),
-                              ],
-                            ),
-                            if (_hasActiveFilters) ...[
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: TextButton.icon(
-                                  onPressed: _clearAllFilters,
-                                  icon: Icon(
-                                    Icons.filter_list_off,
-                                    size: 18,
-                                    color: nestOrange,
-                                  ),
-                                  label: Text(
-                                    'Clear filters',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: nestOrange,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                          ],
-                          // Only show these sections if the search box is empty
-                          if (_searchController.text.isEmpty) ...[
-                            if (_categories.isNotEmpty)
-                              const SizedBox(height: 10),
-                            _buildTopRankedSection(),
-                            const SizedBox(height: 16),
-                            _buildMealPlannerSection(),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Discover',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF097333),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                          ] else ...[
-                            // When searching, hide the above and show a "Search Results" title instead
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Search Results',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF097333),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
+                          ),
+                          ..._buildDiscoverGridSlivers(
+                            crossAxisCount: crossAxisCount,
+                            padding: padding,
+                            gap: gap,
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                ..._buildDiscoverGridSlivers(
-                  crossAxisCount: crossAxisCount,
-                  padding: padding,
-                  gap: gap,
-                ),
-              ],
-            ),
-            if (_recipesLoadingMore)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 14,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                      if (_recipesLoadingMore)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 14,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.72),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Loading more...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Loading more...',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildMobileSearchTrigger() {
+    final value = _searchController.text.trim();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _openMobileSearch,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: kPrimaryGreen, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value.isEmpty ? 'Search by name or ingredients...' : value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: value.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                ),
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMobileSearchView() {
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: _closeMobileSearch,
+                icon: const Icon(Icons.arrow_back_rounded),
+                color: Colors.black87,
+                tooltip: 'Back to dashboard',
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _buildRecipeSearchField(
+                  searchOnlyMode: true,
+                  autofocus: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          _buildSearchDiscoveryPanel(boxed: false, horizontalInset: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecipeSearchField({
+    required bool searchOnlyMode,
+    bool autofocus = false,
+  }) {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      autofocus: autofocus,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Search by name or ingredients...',
+        prefixIcon: const Icon(Icons.search, color: kPrimaryGreen, size: 22),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+                onPressed: () {
+                  _searchController.clear();
+                  _searchDebounce?.cancel();
+                  if (searchOnlyMode) {
+                    setState(() {});
+                    return;
+                  }
+                  setState(() => _searchQuery = '');
+                  _loadRecipes();
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+      ),
+      onChanged: (value) {
+        setState(() {});
+        _searchDebounce?.cancel();
+        if (searchOnlyMode) return;
+        _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+          if (!mounted) return;
+          setState(() => _searchQuery = value.trim());
+          _loadRecipes();
+        });
+      },
+      onSubmitted: (value) => _applySearchQuery(value),
     );
   }
 
@@ -711,6 +992,172 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchDiscoveryPanel({
+    bool boxed = true,
+    double horizontalInset = 0,
+  }) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Popular Cuisines',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: wellGreen,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_loadingPopularCuisines)
+          const LinearProgressIndicator(minHeight: 2, color: wellGreen)
+        else if (_popularCuisines.isEmpty)
+          Text(
+            'No popular cuisines yet.',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          )
+        else
+          SizedBox(
+            height: 118,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _popularCuisines.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final item = _popularCuisines[index];
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _applySearchQuery(item.searchTerm),
+                  child: SizedBox(
+                    width: 110,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: item.imageUrl != null
+                              ? Image.network(
+                                  item.imageUrl!,
+                                  height: 82,
+                                  width: 110,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      _buildCuisinePlaceholder(item.label),
+                                )
+                              : _buildCuisinePlaceholder(item.label),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Recent Searches',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: wellGreen,
+                ),
+              ),
+            ),
+            if (_recentSearches.isNotEmpty)
+              TextButton(
+                onPressed: _clearRecentSearches,
+                child: const Text('Clear'),
+              ),
+          ],
+        ),
+        if (_recentSearches.isEmpty)
+          Text(
+            'Your recent searches will appear here.',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _recentSearches
+                .map(
+                  (query) => ActionChip(
+                    label: Text(query),
+                    onPressed: () => _applySearchQuery(query),
+                    avatar: const Icon(
+                      Icons.history_rounded,
+                      size: 16,
+                      color: wellGreen,
+                    ),
+                    labelStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+      ],
+    );
+
+    if (!boxed) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalInset),
+        child: SizedBox(width: double.infinity, child: content),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: content,
+    );
+  }
+
+  Widget _buildCuisinePlaceholder(String label) {
+    return Container(
+      height: 82,
+      width: 110,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7F1EA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          label.isNotEmpty ? label.substring(0, 1).toUpperCase() : '🍽',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: wellGreen,
+          ),
+        ),
       ),
     );
   }
@@ -921,7 +1368,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           const SizedBox(height: 10),
           ValueListenableBuilder<int>(
             valueListenable: _topRankedPage,
-            builder: (_, page, __) => Row(
+            builder: (_, page, _) => Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_topRanked.length, (i) {
                 final active = i == page;
@@ -1453,7 +1900,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                           ),
                         );
                       },
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           _buildRecipeImagePlaceholder(context),
                     )
                   : _buildRecipeImagePlaceholder(context),
@@ -1592,7 +2039,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
                       width: double.infinity,
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           _buildRecipeImagePlaceholder(context),
                     )
                   : _buildRecipeImagePlaceholder(context),
@@ -2113,4 +2560,16 @@ class _FilterChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PopularCuisineItem {
+  final String label;
+  final String? imageUrl;
+  final String searchTerm;
+
+  const _PopularCuisineItem({
+    required this.label,
+    required this.imageUrl,
+    required this.searchTerm,
+  });
 }

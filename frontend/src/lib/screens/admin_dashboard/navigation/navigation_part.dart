@@ -274,7 +274,7 @@ class _NavItem extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: 17,
+                size: 20,
                 color: isActive
                     ? kPrimaryGreen
                     : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -562,13 +562,20 @@ class _TopBarIconBtn extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    onPressed: onPressed,
-    icon: Icon(icon, size: 18, color: color),
-    tooltip: tooltip,
-    style: IconButton.styleFrom(
-      minimumSize: const Size(34, 34),
-      padding: EdgeInsets.zero,
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: _kAdminControlHeight,
+    child: IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20, color: color),
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(_kAdminControlHeight, _kAdminControlHeight),
+        maximumSize: const Size(_kAdminControlHeight, _kAdminControlHeight),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: color.withValues(alpha: 0.45), width: 1.2),
+      ),
     ),
   );
 }

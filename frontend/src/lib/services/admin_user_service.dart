@@ -51,6 +51,9 @@ class AdminUserService {
   Future<FetchUsersResult> fetchUsers({
     String? range,
     String? search,
+    List<String>? searchFields,
+    DateTime? startDate,
+    DateTime? endDate,
     int page = 1,
     int perPage = 10,
   }) async {
@@ -58,6 +61,15 @@ class AdminUserService {
     if (range != null && range.isNotEmpty) params['range'] = range;
     if (search != null && search.trim().isNotEmpty) {
       params['search'] = search.trim();
+    }
+    if (searchFields != null && searchFields.isNotEmpty) {
+      params['search_fields'] = searchFields.join(',');
+    }
+    if (startDate != null) {
+      params['start_date'] = startDate.toIso8601String().split('T').first;
+    }
+    if (endDate != null) {
+      params['end_date'] = endDate.toIso8601String().split('T').first;
     }
     params['page'] = '$page';
     params['per_page'] = '$perPage';
@@ -73,8 +85,8 @@ class AdminUserService {
       final list = body is List
           ? body
           : (body is Map<String, dynamic> && body['data'] is List
-              ? body['data'] as List<dynamic>
-              : <dynamic>[]);
+                ? body['data'] as List<dynamic>
+                : <dynamic>[]);
       final users = list
           .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
           .toList();

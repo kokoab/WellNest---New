@@ -663,27 +663,36 @@ class _AdminCsvExportButtonState extends State<_AdminCsvExportButton> {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: _exporting ? null : _onPressed,
-      style: FilledButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: kPrimaryGreen,
-        minimumSize: const Size(0, 34),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(fontSize: 12),
+    return SizedBox(
+      height: _kAdminControlHeight,
+      child: FilledButton.icon(
+        onPressed: _exporting ? null : _onPressed,
+        style: FilledButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: kPrimaryGreen,
+          minimumSize: const Size(0, _kAdminControlHeight),
+          maximumSize: const Size(double.infinity, _kAdminControlHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          side: BorderSide(
+            color: kPrimaryGreen.withValues(alpha: 0.65),
+            width: 1.2,
+          ),
+          textStyle: const TextStyle(fontSize: 12),
+        ),
+        icon: _exporting
+            ? const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.download_rounded, size: 14, color: Colors.white),
+        label: Text(_exporting ? 'Exporting…' : 'Export CSV'),
       ),
-      icon: _exporting
-          ? const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: Colors.white,
-              ),
-            )
-          : const Icon(Icons.download_rounded, size: 14, color: Colors.white),
-      label: Text(_exporting ? 'Exporting…' : 'Export CSV'),
     );
   }
 }

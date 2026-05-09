@@ -21,11 +21,27 @@ class AdminModerationService {
   /// GET /api/admin/reports — pending reports (supports paginated and legacy list responses).
   Future<AdminReportsResponse> fetchReportsPaginated({
     String? range,
+    String? search,
+    List<String>? searchFields,
+    DateTime? startDate,
+    DateTime? endDate,
     int page = 1,
     int perPage = 20,
   }) async {
     final params = <String, String>{};
     if (range != null && range.isNotEmpty) params['range'] = range;
+    if (search != null && search.trim().isNotEmpty) {
+      params['search'] = search.trim();
+    }
+    if (searchFields != null && searchFields.isNotEmpty) {
+      params['search_fields'] = searchFields.join(',');
+    }
+    if (startDate != null) {
+      params['start_date'] = startDate.toIso8601String().split('T').first;
+    }
+    if (endDate != null) {
+      params['end_date'] = endDate.toIso8601String().split('T').first;
+    }
     params['page'] = '$page';
     params['per_page'] = '$perPage';
 
@@ -67,11 +83,19 @@ class AdminModerationService {
 
   Future<List<Report>> fetchReports({
     String? range,
+    String? search,
+    List<String>? searchFields,
+    DateTime? startDate,
+    DateTime? endDate,
     int page = 1,
     int perPage = 20,
   }) async {
     final res = await fetchReportsPaginated(
       range: range,
+      search: search,
+      searchFields: searchFields,
+      startDate: startDate,
+      endDate: endDate,
       page: page,
       perPage: perPage,
     );

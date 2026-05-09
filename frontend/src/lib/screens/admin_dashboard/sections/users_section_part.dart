@@ -14,7 +14,16 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
   bool _loading = true;
   String? _error;
   String _searchQuery = '';
+  final Set<String> _selectedSearchFields = <String>{};
+  static const List<_SearchFieldOption> _searchFieldOptions = [
+    _SearchFieldOption(key: 'first_name', label: 'First name'),
+    _SearchFieldOption(key: 'last_name', label: 'Last name'),
+    _SearchFieldOption(key: 'email', label: 'Email'),
+    _SearchFieldOption(key: 'full_name', label: 'Full name'),
+  ];
   _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
+  DateTimeRange? _customDateRange;
+  final TextEditingController _searchController = TextEditingController();
   Timer? _usersSearchDebounce;
   int _usersPage = 1;
   final int _usersPerPage = 10;
@@ -31,6 +40,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
   @override
   void dispose() {
     _usersSearchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -50,6 +60,18 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     });
   }
 
+  void _clearAllFilters() {
+    _usersSearchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _selectedSearchFields.clear();
+      _usersRange = _DateRangeFilter.monthly;
+      _customDateRange = null;
+    });
+    _loadUsersPage(reset: true);
+  }
+
   Future<void> _loadUsersPage({bool reset = false}) async {
     final querySerial = ++_usersQuerySerial;
     if (reset) {
@@ -63,6 +85,9 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
       final result = await AdminUserService.instance.fetchUsers(
         range: _usersRange.apiValue,
         search: _searchQuery,
+        searchFields: _selectedSearchFields.toList(),
+        startDate: _customDateRange?.start,
+        endDate: _customDateRange?.end,
         page: _usersPage,
         perPage: _usersPerPage,
       );
@@ -88,6 +113,9 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
       final result = await AdminUserService.instance.fetchUsers(
         range: _usersRange.apiValue,
         search: _searchQuery,
+        searchFields: _selectedSearchFields.toList(),
+        startDate: _customDateRange?.start,
+        endDate: _customDateRange?.end,
         page: page,
         perPage: _usersPerPage,
       );
@@ -215,12 +243,34 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
       loading: _loading,
       error: _error,
       searchQuery: _searchQuery,
+      searchController: _searchController,
       onSearchChanged: _handleUsersSearchChanged,
+      searchFieldOptions: _searchFieldOptions,
+      selectedSearchFields: _selectedSearchFields,
+      onSearchFieldToggled: (fieldKey) {
+        setState(() {
+          if (_selectedSearchFields.contains(fieldKey)) {
+            _selectedSearchFields.remove(fieldKey);
+          } else {
+            _selectedSearchFields.add(fieldKey);
+          }
+        });
+        _loadUsersPage(reset: true);
+      },
       selectedRange: _usersRange,
       onRangeChanged: (range) {
-        setState(() => _usersRange = range);
+        setState(() {
+          _usersRange = range;
+          _customDateRange = null;
+        });
         refresh();
       },
+      customDateRange: _customDateRange,
+      onCustomDateRangeChanged: (value) {
+        setState(() => _customDateRange = value);
+        refresh();
+      },
+      onClearAllFilters: _clearAllFilters,
       onRefresh: refresh,
       onDeactivate: _confirmDeactivate,
       onActivate: _confirmActivate,
@@ -245,9 +295,16 @@ class _UsersSection extends StatelessWidget {
   final bool loading;
   final String? error;
   final String searchQuery;
+  final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
+  final List<_SearchFieldOption> searchFieldOptions;
+  final Set<String> selectedSearchFields;
+  final ValueChanged<String> onSearchFieldToggled;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
+  final DateTimeRange? customDateRange;
+  final ValueChanged<DateTimeRange?> onCustomDateRangeChanged;
+  final VoidCallback onClearAllFilters;
   final VoidCallback onRefresh;
   final void Function(AdminUser) onDeactivate;
   final void Function(AdminUser) onActivate;
@@ -267,9 +324,16 @@ class _UsersSection extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.searchQuery,
+    required this.searchController,
     required this.onSearchChanged,
+    required this.searchFieldOptions,
+    required this.selectedSearchFields,
+    required this.onSearchFieldToggled,
     required this.selectedRange,
     required this.onRangeChanged,
+    required this.customDateRange,
+    required this.onCustomDateRangeChanged,
+    required this.onClearAllFilters,
     required this.onRefresh,
     required this.onDeactivate,
     required this.onActivate,
@@ -297,7 +361,14 @@ class _UsersSection extends StatelessWidget {
                 subtitle: loading ? 'Loading…' : '${users.length} users',
               ),
             ),
+            _ClearFiltersButton(onPressed: onClearAllFilters),
+            const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
+            const SizedBox(width: 6),
+            _CustomDateRangeButton(
+              value: customDateRange,
+              onChanged: onCustomDateRangeChanged,
+            ),
             const SizedBox(width: 6),
             if (!loading) ...[
               _TopBarIconBtn(
@@ -314,8 +385,16 @@ class _UsersSection extends StatelessWidget {
         const SizedBox(height: 14),
         _SearchBar(
           theme: theme,
+          controller: searchController,
           onChanged: onSearchChanged,
           hintText: 'Search by name or email…',
+        ),
+        const SizedBox(height: 10),
+        _AdvancedSearchPanel(
+          theme: theme,
+          options: searchFieldOptions,
+          selectedKeys: selectedSearchFields,
+          onToggleField: onSearchFieldToggled,
         ),
         const SizedBox(height: 14),
         if (loading && users.isEmpty)

@@ -15,7 +15,22 @@ class _ModerationSectionContainerState
   List<Report> _reports = [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
+  final Set<String> _selectedSearchFields = <String>{};
+  static const List<_SearchFieldOption> _searchFieldOptions = [
+    _SearchFieldOption(key: 'reporter', label: 'Reporter'),
+    _SearchFieldOption(key: 'reason', label: 'Reason'),
+    _SearchFieldOption(key: 'details', label: 'Details'),
+    _SearchFieldOption(key: 'reportable_type', label: 'Report type'),
+    _SearchFieldOption(key: 'reportable_name', label: 'Reported user'),
+    _SearchFieldOption(key: 'reportable_email', label: 'Reported email'),
+    _SearchFieldOption(key: 'reportable_title', label: 'Recipe title'),
+    _SearchFieldOption(key: 'reportable_content', label: 'Post content'),
+  ];
+  Timer? _searchDebounce;
+  final TextEditingController _searchController = TextEditingController();
   _DateRangeFilter _range = _DateRangeFilter.monthly;
+  DateTimeRange? _customDateRange;
   int _page = 1;
   int _lastPage = 1;
   bool _loadingPage = false;
@@ -27,6 +42,13 @@ class _ModerationSectionContainerState
     refresh();
   }
 
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> refresh() async {
     setState(() {
       _loading = true;
@@ -36,6 +58,10 @@ class _ModerationSectionContainerState
       final response = await AdminModerationService.instance
           .fetchReportsPaginated(
             range: _range.apiValue,
+            search: _searchQuery,
+            searchFields: _selectedSearchFields.toList(),
+            startDate: _customDateRange?.start,
+            endDate: _customDateRange?.end,
             page: 1,
             perPage: _perPage,
           );
@@ -62,6 +88,10 @@ class _ModerationSectionContainerState
       final response = await AdminModerationService.instance
           .fetchReportsPaginated(
             range: _range.apiValue,
+            search: _searchQuery,
+            searchFields: _selectedSearchFields.toList(),
+            startDate: _customDateRange?.start,
+            endDate: _customDateRange?.end,
             page: page,
             perPage: _perPage,
           );
@@ -77,6 +107,27 @@ class _ModerationSectionContainerState
       setState(() => _loadingPage = false);
       _showAdminErrorSnack(context, e);
     }
+  }
+
+  void _handleSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      refresh();
+    });
+  }
+
+  void _clearAllFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _selectedSearchFields.clear();
+      _range = _DateRangeFilter.monthly;
+      _customDateRange = null;
+    });
+    refresh();
   }
 
   Future<void> _confirmDeleteAllReports() async {
@@ -132,11 +183,35 @@ class _ModerationSectionContainerState
       reports: _reports,
       loading: _loading,
       error: _error,
-      selectedRange: _range,
-      onRangeChanged: (range) {
-        setState(() => _range = range);
+      searchQuery: _searchQuery,
+      searchController: _searchController,
+      onSearchChanged: _handleSearchChanged,
+      searchFieldOptions: _searchFieldOptions,
+      selectedSearchFields: _selectedSearchFields,
+      onSearchFieldToggled: (fieldKey) {
+        setState(() {
+          if (_selectedSearchFields.contains(fieldKey)) {
+            _selectedSearchFields.remove(fieldKey);
+          } else {
+            _selectedSearchFields.add(fieldKey);
+          }
+        });
         refresh();
       },
+      selectedRange: _range,
+      onRangeChanged: (range) {
+        setState(() {
+          _range = range;
+          _customDateRange = null;
+        });
+        refresh();
+      },
+      customDateRange: _customDateRange,
+      onCustomDateRangeChanged: (value) {
+        setState(() => _customDateRange = value);
+        refresh();
+      },
+      onClearAllFilters: _clearAllFilters,
       onRefresh: refresh,
       onDeleteAll: _confirmDeleteAllReports,
       onReportAction: _handleReportAction,
@@ -156,8 +231,17 @@ class _ModerationSection extends StatelessWidget {
   final List<Report> reports;
   final bool loading;
   final String? error;
+  final String searchQuery;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final List<_SearchFieldOption> searchFieldOptions;
+  final Set<String> selectedSearchFields;
+  final ValueChanged<String> onSearchFieldToggled;
   final _DateRangeFilter selectedRange;
   final ValueChanged<_DateRangeFilter> onRangeChanged;
+  final DateTimeRange? customDateRange;
+  final ValueChanged<DateTimeRange?> onCustomDateRangeChanged;
+  final VoidCallback onClearAllFilters;
   final VoidCallback onRefresh;
   final VoidCallback onDeleteAll;
   final Future<void> Function(int, String) onReportAction;
@@ -171,8 +255,17 @@ class _ModerationSection extends StatelessWidget {
     required this.reports,
     required this.loading,
     required this.error,
+    required this.searchQuery,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.searchFieldOptions,
+    required this.selectedSearchFields,
+    required this.onSearchFieldToggled,
     required this.selectedRange,
     required this.onRangeChanged,
+    required this.customDateRange,
+    required this.onCustomDateRangeChanged,
+    required this.onClearAllFilters,
     required this.onRefresh,
     required this.onDeleteAll,
     required this.onReportAction,
@@ -196,7 +289,14 @@ class _ModerationSection extends StatelessWidget {
                 subtitle: loading ? 'Loading…' : '${reports.length} pending',
               ),
             ),
+            _ClearFiltersButton(onPressed: onClearAllFilters),
+            const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
+            const SizedBox(width: 6),
+            _CustomDateRangeButton(
+              value: customDateRange,
+              onChanged: onCustomDateRangeChanged,
+            ),
             const SizedBox(width: 6),
             if (!loading) ...[
               _TopBarIconBtn(
@@ -218,7 +318,15 @@ class _ModerationSection extends StatelessWidget {
                   ),
                   tooltip: 'Delete all reports',
                   style: IconButton.styleFrom(
-                    minimumSize: const Size(34, 34),
+                    minimumSize: const Size(
+                      _kAdminControlHeight,
+                      _kAdminControlHeight,
+                    ),
+                    maximumSize: const Size(
+                      _kAdminControlHeight,
+                      _kAdminControlHeight,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: EdgeInsets.zero,
                   ),
                 ),
@@ -227,12 +335,31 @@ class _ModerationSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
+        _SearchBar(
+          theme: theme,
+          controller: searchController,
+          onChanged: onSearchChanged,
+          hintText: 'Search reports...',
+        ),
+        const SizedBox(height: 10),
+        _AdvancedSearchPanel(
+          theme: theme,
+          options: searchFieldOptions,
+          selectedKeys: selectedSearchFields,
+          onToggleField: onSearchFieldToggled,
+        ),
+        const SizedBox(height: 14),
         if (loading && reports.isEmpty)
           const _LoadingState()
         else if (error != null)
           _ErrorState(theme: theme, message: error!, onRetry: onRefresh)
         else if (reports.isEmpty)
-          _EmptyState(theme: theme, message: 'No pending reports — all clear ✓')
+          _EmptyState(
+            theme: theme,
+            message: searchQuery.isEmpty
+                ? 'No pending reports — all clear'
+                : 'No reports match your search',
+          )
         else
           _ReportsTable(
             theme: theme,
@@ -285,7 +412,7 @@ class _ReportsTable extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: reports.length,
-        separatorBuilder: (_, __) => Divider(
+        separatorBuilder: (_, _) => Divider(
           height: 12,
           color: theme.colorScheme.outline.withValues(alpha: 0.12),
         ),

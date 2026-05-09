@@ -13,10 +13,10 @@ class AdminAuditLogService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AdminAuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AdminAuthService.instance.authHeaders,
+  };
 
   /// GET /api/admin/audit-logs — paginated. Optional category, action.
   Future<ActivityLogListResponse> fetchLogs({
@@ -24,18 +24,40 @@ class AdminAuditLogService {
     String? category,
     String? action,
     String? range,
+    String? search,
+    List<String>? searchFields,
+    DateTime? startDate,
+    DateTime? endDate,
+    int perPage = 50,
   }) async {
     final params = <String, String>{'page': '$page'};
     if (category != null && category.isNotEmpty) params['category'] = category;
     if (action != null && action.isNotEmpty) params['action'] = action;
     if (range != null && range.isNotEmpty) params['range'] = range;
-    final uri = Uri.parse('$_baseUrl/admin/audit-logs').replace(queryParameters: params);
+    if (search != null && search.trim().isNotEmpty) {
+      params['search'] = search.trim();
+    }
+    if (searchFields != null && searchFields.isNotEmpty) {
+      params['search_fields'] = searchFields.join(',');
+    }
+    if (startDate != null) {
+      params['start_date'] = startDate.toIso8601String().split('T').first;
+    }
+    if (endDate != null) {
+      params['end_date'] = endDate.toIso8601String().split('T').first;
+    }
+    params['per_page'] = '$perPage';
+    final uri = Uri.parse(
+      '$_baseUrl/admin/audit-logs',
+    ).replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final list = (data['data'] as List<dynamic>?) ?? [];
       return ActivityLogListResponse(
-        logs: list.map((e) => ActivityLog.fromJson(e as Map<String, dynamic>)).toList(),
+        logs: list
+            .map((e) => ActivityLog.fromJson(e as Map<String, dynamic>))
+            .toList(),
         currentPage: data['current_page'] as int? ?? 1,
         lastPage: data['last_page'] as int? ?? 1,
         total: data['total'] as int? ?? 0,
@@ -54,9 +76,9 @@ class AdminAuditLogService {
     if (range != null && range.isNotEmpty) {
       params['range'] = range;
     }
-    final uri = Uri.parse('$_baseUrl/admin/audit-logs/export').replace(
-      queryParameters: params.isEmpty ? null : params,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/admin/audit-logs/export',
+    ).replace(queryParameters: params.isEmpty ? null : params);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       return response.bodyBytes;
