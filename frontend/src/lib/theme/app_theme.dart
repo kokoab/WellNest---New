@@ -105,7 +105,7 @@ ThemeData get lightTheme => ThemeData(
   ),
   bottomAppBarTheme: BottomAppBarThemeData(
     elevation: 0,
-    height: 64,
+    height: 56,
     padding: EdgeInsets.zero,
     color: Colors.white,
     surfaceTintColor: Colors.transparent,
@@ -178,7 +178,7 @@ ThemeData get darkTheme => ThemeData(
   cardColor: const Color(0xFF2C2C2C),
   bottomAppBarTheme: BottomAppBarThemeData(
     elevation: 0,
-    height: 64,
+    height: 56,
     padding: EdgeInsets.zero,
     color: const Color(0xFF1E1E1E),
     surfaceTintColor: Colors.transparent,
@@ -228,6 +228,17 @@ class AppRadii {
   static const double md = 16;
   static const double lg = 20;
   static const double xl = 24;
+}
+
+/// Soft scaffold washes for glass-friendly backgrounds.
+class AppGradients {
+  AppGradients._();
+
+  static const LinearGradient softScaffold = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF0F4F1), Color(0xFFFAF9F6)],
+  );
 }
 
 /// Standardized curves

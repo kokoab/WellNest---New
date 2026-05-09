@@ -1132,7 +1132,6 @@ class _OverviewRecipeRankingsCardState
   String _window = '7d';
   int _sortIndex = 0;
   bool _ascending = false;
-  int _carouselCenterIndex = 0;
   late final ScrollController _rankingsHScroll;
   late final ScrollController _rankingsVScroll;
 
@@ -1170,11 +1169,6 @@ class _OverviewRecipeRankingsCardState
       if (!mounted) return;
       setState(() {
         _rows = rows;
-        if (_rows.isEmpty) {
-          _carouselCenterIndex = 0;
-        } else if (_carouselCenterIndex >= _rows.length) {
-          _carouselCenterIndex = 0;
-        }
         _loading = false;
       });
     } catch (e) {
@@ -1201,126 +1195,7 @@ class _OverviewRecipeRankingsCardState
         );
         return _ascending ? cmp : -cmp;
       });
-      if (_rows.isEmpty) _carouselCenterIndex = 0;
-      if (_carouselCenterIndex >= _rows.length) _carouselCenterIndex = 0;
     });
-  }
-
-  int _wrappedIndex(int index, int length) {
-    return ((index % length) + length) % length;
-  }
-
-  void _moveCarousel(int delta) {
-    if (_rows.isEmpty) return;
-    setState(() {
-      _carouselCenterIndex = _wrappedIndex(
-        _carouselCenterIndex + delta,
-        _rows.length,
-      );
-    });
-  }
-
-  Widget _buildRankingCarousel(ThemeData theme) {
-    if (_rows.isEmpty) return const SizedBox.shrink();
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1C1C1C) : Colors.white;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.black.withValues(alpha: 0.08);
-
-    Widget buildCard(int absoluteIndex, {bool focused = false}) {
-      final rank = absoluteIndex + 1;
-      final item = _rows[absoluteIndex];
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: focused ? kPrimaryGreen : borderColor,
-            width: focused ? 1.2 : 0.8,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: focused
-                    ? kPrimaryGreen
-                    : kPrimaryGreen.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '#$rank',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: focused ? Colors.white : kPrimaryGreen,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: focused ? FontWeight.w700 : FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${item.viewsCount} views · ${item.averageRating.toStringAsFixed(1)}★',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_rows.length == 1) {
-      return buildCard(0, focused: true);
-    }
-
-    final left = _wrappedIndex(_carouselCenterIndex - 1, _rows.length);
-    final center = _wrappedIndex(_carouselCenterIndex, _rows.length);
-    final right = _wrappedIndex(_carouselCenterIndex + 1, _rows.length);
-
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => _moveCarousel(-1),
-          tooltip: 'Previous rank',
-          icon: const Icon(Icons.chevron_left_rounded, color: kPrimaryGreen),
-        ),
-        Expanded(child: Opacity(opacity: 0.74, child: buildCard(left))),
-        const SizedBox(width: 8),
-        Expanded(flex: 2, child: buildCard(center, focused: true)),
-        const SizedBox(width: 8),
-        Expanded(child: Opacity(opacity: 0.74, child: buildCard(right))),
-        IconButton(
-          onPressed: () => _moveCarousel(1),
-          tooltip: 'Next rank',
-          icon: const Icon(Icons.chevron_right_rounded, color: kPrimaryGreen),
-        ),
-      ],
-    );
   }
 
   @override
@@ -1366,10 +1241,6 @@ class _OverviewRecipeRankingsCardState
                 _load();
               },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: _buildRankingCarousel(theme),
           ),
           LayoutBuilder(
             builder: (context, constraints) {

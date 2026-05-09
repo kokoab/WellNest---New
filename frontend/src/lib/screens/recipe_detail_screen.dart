@@ -14,6 +14,7 @@ import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/georgia_pro_display_squish.dart';
+import 'package:my_app/widgets/wellnest_glass.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -246,15 +247,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     final recipe = _recipe;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: _loading
+      backgroundColor: Colors.transparent,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppGradients.softScaffold),
+        child: _loading
           ? CustomScrollView(
               physics: const NeverScrollableScrollPhysics(),
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
+                  leadingWidth: 52,
+                  leading: _RecipeDetailCircularBackButton(
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -270,8 +273,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
+                  leadingWidth: 52,
+                  leading: _RecipeDetailCircularBackButton(
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -309,8 +312,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   stretch: true,
                   elevation: 0,
                   scrolledUnderElevation: 0,
+                  leadingWidth: 52,
                   backgroundColor: _appBarCollapsed
-                      ? theme.scaffoldBackgroundColor
+                      ? const Color(0xFFFAF9F6)
                       : Colors.transparent,
                   surfaceTintColor: Colors.transparent,
                   foregroundColor: _appBarCollapsed
@@ -326,8 +330,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         ? colorScheme.onSurface
                         : Colors.white,
                   ),
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
+                  leading: _RecipeDetailCircularBackButton(
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: _appBarCollapsed
@@ -445,9 +448,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
                       AppSpacing.lg,
-                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
                       AppSpacing.xl,
                     ),
                     child: Column(
@@ -557,111 +560,94 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 ),
               ],
             ),
+        ),
       bottomNavigationBar:
           (!_loading && _error == null && recipe != null)
           ? SafeArea(
               top: false,
+              minimum: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
+                  AppSpacing.lg,
                   AppSpacing.sm,
-                  AppSpacing.md,
+                  AppSpacing.lg,
                   AppSpacing.md,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.95),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.07),
-                            blurRadius: 28,
-                            offset: const Offset(0, 12),
+                child: WellnestGlass(
+                  borderRadius: BorderRadius.circular(24),
+                  fillOpacity: 0.4,
+                  strokeOpacity: 0.8,
+                  strokeWidth: 1.5,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        IconButton.filledTonal(
+                          onPressed:
+                              AuthService.instance.isLoggedIn && !_liking
+                              ? _handleLikeTap
+                              : null,
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                nestOrange.withValues(alpha: 0.14),
+                            foregroundColor: nestOrange,
                           ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm2,
-                          vertical: AppSpacing.sm,
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton.filledTonal(
-                              onPressed:
-                                  AuthService.instance.isLoggedIn && !_liking
-                                  ? _handleLikeTap
-                                  : null,
-                              style: IconButton.styleFrom(
-                                backgroundColor:
-                                    nestOrange.withValues(alpha: 0.14),
-                                foregroundColor: nestOrange,
-                              ),
-                              icon: _liking
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: nestOrange,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _liked
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                    ),
-                              tooltip: _liked ? 'Unlike' : 'Like',
-                            ),
-                            IconButton.filledTonal(
-                              onPressed:
-                                  AuthService.instance.isLoggedIn && !_saving
-                                  ? _handleSaveTap
-                                  : null,
-                              style: IconButton.styleFrom(
-                                backgroundColor:
-                                    wellGreen.withValues(alpha: 0.12),
-                                foregroundColor: wellGreen,
-                              ),
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: wellGreen,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _saved
-                                          ? Icons.bookmark_rounded
-                                          : Icons.bookmark_border_rounded,
-                                    ),
-                              tooltip: _saved
-                                  ? 'Remove from saved'
-                                  : 'Save recipe',
-                            ),
-                            AppSpacing.gapH12,
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: _scrollToInstructions,
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(48),
-                                  backgroundColor: wellGreen,
+                          icon: _liking
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: nestOrange,
+                                  ),
+                                )
+                              : Icon(
+                                  _liked
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
                                 ),
-                                child: const Text('Start cooking'),
-                              ),
-                            ),
-                          ],
+                          tooltip: _liked ? 'Unlike' : 'Like',
                         ),
-                      ),
+                        IconButton.filledTonal(
+                          onPressed:
+                              AuthService.instance.isLoggedIn && !_saving
+                              ? _handleSaveTap
+                              : null,
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                wellGreen.withValues(alpha: 0.12),
+                            foregroundColor: wellGreen,
+                          ),
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: wellGreen,
+                                  ),
+                                )
+                              : Icon(
+                                  _saved
+                                      ? Icons.bookmark_rounded
+                                      : Icons.bookmark_border_rounded,
+                                ),
+                          tooltip: _saved
+                              ? 'Remove from saved'
+                              : 'Save recipe',
+                        ),
+                        AppSpacing.gapH12,
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: _scrollToInstructions,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              backgroundColor: wellGreen,
+                            ),
+                            child: const Text('Start cooking'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1215,6 +1201,44 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+/// Circular frosted back control — readable on bright hero imagery.
+class _RecipeDetailCircularBackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _RecipeDetailCircularBackButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: Center(
+        child: ClipOval(
+          clipBehavior: Clip.antiAlias,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.45),
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

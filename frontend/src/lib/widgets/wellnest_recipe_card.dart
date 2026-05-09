@@ -27,8 +27,8 @@ class WellnestRecipeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accentYellow = AppColors.accentYellow;
 
-    Widget imageCore = recipe.displayImageUrl != null &&
-            recipe.displayImageUrl!.isNotEmpty
+    Widget imageCore =
+        recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
         ? Image.network(
             recipe.displayImageUrl!,
             fit: BoxFit.cover,
@@ -43,7 +43,7 @@ class WellnestRecipeCard extends StatelessWidget {
                     color: AppColors.primaryGreen,
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
+                              loadingProgress.expectedTotalBytes!
                         : null,
                   ),
                 ),
@@ -175,12 +175,7 @@ class WellnestRecipeCard extends StatelessWidget {
                   fontSize: 14,
                   height: 1.2,
                   color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Color(0x66000000),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  shadows: [Shadow(color: Color(0x66000000), blurRadius: 8)],
                 ),
               ),
               AppSpacing.gapV8,

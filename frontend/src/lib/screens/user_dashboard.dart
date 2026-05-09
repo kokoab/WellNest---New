@@ -77,23 +77,20 @@ class _UserDashboardState extends State<UserDashboard> {
       bottomNavigationBar: MediaQuery.removePadding(
         context: context,
         removeBottom: true,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: RepaintBoundary(
-            child: CustomBottomNav(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                if (index == _currentIndex && index == 0) {
-                  _recipeGridViewKey.currentState?.scrollToTop();
-                  return;
-                }
-                setState(() {
-                  _currentIndex = index;
-                  if (index == 1) _feedRefreshKey++;
-                  if (index == 2) _savedRefreshKey++;
-                });
-              },
-            ),
+        child: RepaintBoundary(
+          child: CustomBottomNav(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              if (index == _currentIndex && index == 0) {
+                _recipeGridViewKey.currentState?.scrollToTop();
+                return;
+              }
+              setState(() {
+                _currentIndex = index;
+                if (index == 1) _feedRefreshKey++;
+                if (index == 2) _savedRefreshKey++;
+              });
+            },
           ),
         ),
       ),
