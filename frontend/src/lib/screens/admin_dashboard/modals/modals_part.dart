@@ -21,10 +21,7 @@ class _WebModal extends StatelessWidget {
     final modalWidth = (screenSize.width * 0.88).clamp(340.0, 760.0);
     final modalMaxHeight = screenSize.height * 0.84;
     final cardBg = isDark ? const Color(0xFF1C1C1C) : Colors.white;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.07)
-        : Colors.black.withValues(alpha: 0.07);
-
+    final outline = wellnestOutlineColor(context);
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
@@ -37,14 +34,7 @@ class _WebModal extends StatelessWidget {
           decoration: BoxDecoration(
             color: cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor, width: 0.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.14),
-                blurRadius: 48,
-                offset: const Offset(0, 16),
-              ),
-            ],
+            border: Border.all(color: outline, width: 1),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -88,7 +78,7 @@ class _WebModal extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: borderColor, width: 0.5),
+                          side: BorderSide(color: outline, width: 0.5),
                         ),
                       ),
                       tooltip: 'Close',
@@ -96,7 +86,7 @@ class _WebModal extends StatelessWidget {
                   ],
                 ),
               ),
-              Divider(height: 0.5, color: borderColor),
+              Divider(height: 0.5, color: outline),
               // Scrollable body
               Flexible(
                 child: Scrollbar(

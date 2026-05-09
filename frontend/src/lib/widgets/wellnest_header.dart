@@ -3,7 +3,6 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/services/reverb_service.dart';
 import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/notifications_dropdown.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
@@ -26,14 +25,12 @@ class WellnestHeader extends StatelessWidget {
           children: [
             Image.asset('lib/assets/images/logo1.png', height: logoHeight),
             const SizedBox(width: 10),
-            GeorgiaProDisplaySquish(
-              child: Text(
-                'Wellnest',
-                style: georgiaProTextStyle(
-                  fontSize: fontSize,
-                  color: AppColors.primaryGreen,
-                ),
-              ),
+            Text(
+              'Wellnest',
+              style: georgiaProTextStyle(
+                fontSize: fontSize,
+                color: AppColors.primaryGreen,
+              ).copyWith(letterSpacing: 0),
             ),
           ],
         ),

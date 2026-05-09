@@ -18,13 +18,6 @@ class CustomBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.58),
           width: 1.25,
@@ -64,9 +57,7 @@ class CustomBottomNav extends StatelessWidget {
     final glassTint = isLight
         ? Colors.white.withValues(alpha: 0.94)
         : scheme.surface.withValues(alpha: 0.94);
-    final outlineColor = isLight
-        ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
-        : Colors.white.withValues(alpha: 0.18);
+    final outlineColor = wellnestOutlineColor(context);
 
     return MediaQuery(
       data: mq.copyWith(
@@ -81,10 +72,8 @@ class CustomBottomNav extends StatelessWidget {
           BottomAppBar(
             shape: const CircularNotchedRectangle(),
             notchMargin: 4,
-            elevation: theme.bottomAppBarTheme.elevation ?? 8,
-            shadowColor:
-                theme.bottomAppBarTheme.shadowColor ??
-                Colors.black.withValues(alpha: isLight ? 0.06 : 0.35),
+            elevation: 0,
+            shadowColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             color: glassTint,
             padding: EdgeInsets.zero,

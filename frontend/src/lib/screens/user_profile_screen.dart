@@ -5,6 +5,7 @@ import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/theme/app_spacing.dart';
+import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/recipe_service.dart';
@@ -433,13 +434,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         decoration: BoxDecoration(
           color: wellGreen,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 5,
-              offset: Offset(0, 3),
-            ),
-          ],
+          border: Border.all(color: wellnestOutlineColor(context), width: 1),
         ),
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -483,6 +478,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildPostCard(Post post) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: wellnestOutlineColor(context), width: 1),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => Navigator.push(

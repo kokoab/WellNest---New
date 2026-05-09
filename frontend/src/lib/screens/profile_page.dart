@@ -303,15 +303,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
                 const SizedBox(height: 40),
 
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'My Recipes',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: wellGreen,
-                    ),
+                    style: wellnestSectionTitleStyle(color: wellGreen),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -484,7 +480,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 decoration: BoxDecoration(
                   color: wellGreen,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
                 child: const Icon(
                   Icons.camera_alt,
@@ -701,13 +697,7 @@ class _ProfilePageState extends State<ProfilePage> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 5,
-              offset: Offset(0, 3),
-            ),
-          ],
+          border: Border.all(color: wellnestOutlineColor(context), width: 1),
         ),
         padding: const EdgeInsets.all(10),
         child: Column(

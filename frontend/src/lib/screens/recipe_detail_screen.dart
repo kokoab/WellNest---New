@@ -11,7 +11,6 @@ import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -280,14 +279,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Step 1: Title & Author
-                        GeorgiaProDisplaySquish(
-                          child: Text(
-                            _recipe!.title,
-                            style: georgiaProTextStyle(
-                              fontSize: 26,
-                              color: wellGreen,
-                            ),
-                          ),
+                        Text(
+                          _recipe!.title,
+                          style: georgiaProTextStyle(
+                            fontSize: 26,
+                            color: wellGreen,
+                          ).copyWith(letterSpacing: 0),
                         ),
                         if (_recipe!.description != null &&
                             _recipe!.description!.trim().isNotEmpty) ...[

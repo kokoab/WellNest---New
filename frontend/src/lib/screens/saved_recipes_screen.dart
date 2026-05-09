@@ -5,7 +5,6 @@ import 'package:my_app/widgets/animated_press_scale.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
@@ -120,11 +119,9 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
               AppSpacing.md,
               AppSpacing.md,
             ),
-            child: GeorgiaProDisplaySquish(
-              child: Text(
-                'Saved Recipes',
-                style: georgiaProTextStyle(fontSize: 28, color: wellGreen),
-              ),
+            child: Text(
+              'Saved Recipes',
+              style: wellnestPageTitleStyle(color: wellGreen),
             ),
           ),
           Expanded(child: _buildContent()),
@@ -234,17 +231,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
       semanticLabel: 'View recipe, ${recipe.title}',
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14097333),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: wellnestCardDecoration(context),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -303,16 +290,14 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GeorgiaProDisplaySquish(
-                      child: Text(
-                        recipe.title,
-                        style: georgiaProTextStyle(
-                          fontSize: 16,
-                          color: const Color(0xFF097333),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      recipe.title,
+                      style: georgiaProTextStyle(
+                        fontSize: 16,
+                        color: const Color(0xFF097333),
+                      ).copyWith(letterSpacing: 0),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(

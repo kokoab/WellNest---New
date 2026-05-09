@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:my_app/theme/app_theme.dart';
 import '../models/notification.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -97,23 +98,7 @@ class _NotificationsDropdownState extends State<NotificationsDropdown>
                       onTap: () {},
                       child: Container(
                         constraints: const BoxConstraints(maxHeight: 480),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.13),
-                              blurRadius: 28,
-                              spreadRadius: 0,
-                              offset: const Offset(0, 8),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: wellnestCardDecoration(overlayContext),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Builder(

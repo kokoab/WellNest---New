@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/theme/app_theme.dart';
 import '../models/notification.dart';
 import '../services/notification_service.dart';
 import 'recipe_detail_screen.dart';
@@ -516,25 +517,10 @@ class _NotificationCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isUnread
-                    ? const Color(0xFF097333).withValues(alpha: 0.18)
-                    : Colors.grey.withValues(alpha: 0.12),
-                width: 1,
+                    ? const Color(0xFF097333).withValues(alpha: 0.35)
+                    : wellnestOutlineColor(context),
+                width: isUnread ? 1.5 : 1,
               ),
-              boxShadow: isUnread
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
             ),
             padding: const EdgeInsets.all(14),
             child: Row(

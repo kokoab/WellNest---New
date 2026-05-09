@@ -834,25 +834,17 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                         _buildMealPlannerSection(),
                                         const SizedBox(height: 16),
                                       ],
-                                      const Text(
+                                      Text(
                                         'Discover',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF097333),
-                                        ),
+                                        style: wellnestSectionTitleStyle(),
                                       ),
                                       const SizedBox(height: 8),
                                     ] else ...[
                                       // When searching, hide the above and show a "Search Results" title instead
                                       const SizedBox(height: 16),
-                                      const Text(
+                                      Text(
                                         'Search Results',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF097333),
-                                        ),
+                                        style: wellnestSectionTitleStyle(),
                                       ),
                                       const SizedBox(height: 8),
                                     ],
@@ -917,18 +909,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     );
   }
 
-  /// Same gray stroke as [CustomBottomNav] outline (light mode).
-  Color _searchBarOutlineColor(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return isLight
-        ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
-        : Colors.white.withValues(alpha: 0.18);
-  }
-
   OutlineInputBorder _recipeSearchOutline(BuildContext context) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(24),
-      borderSide: BorderSide(color: _searchBarOutlineColor(context), width: 1),
+      borderSide: BorderSide(color: wellnestOutlineColor(context), width: 1),
     );
   }
 
@@ -944,7 +928,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: _searchBarOutlineColor(context),
+            color: wellnestOutlineColor(context),
             width: 1,
           ),
         ),
@@ -1065,7 +1049,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _searchBarOutlineColor(context), width: 1),
+        border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: Column(
         children: [
@@ -1249,17 +1233,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: wellnestCardDecoration(context),
       child: content,
     );
   }
@@ -1615,7 +1589,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _searchBarOutlineColor(context), width: 1),
+            border: Border.all(color: wellnestOutlineColor(context), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1809,13 +1783,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                 border: Border.all(
                                   color: Colors.black.withValues(alpha: 0.18),
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x22000000),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,

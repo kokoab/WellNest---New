@@ -107,8 +107,10 @@ ThemeData get lightTheme => ThemeData(
     shadowColor: Colors.black.withValues(alpha: 0.06),
   ),
   floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    elevation: 6,
-    highlightElevation: 10,
+    elevation: 0,
+    focusElevation: 0,
+    hoverElevation: 2,
+    highlightElevation: 4,
     backgroundColor: kAccentOrange,
     foregroundColor: Colors.white,
     shape: CircleBorder(),
@@ -180,7 +182,10 @@ ThemeData get darkTheme => ThemeData(
     shadowColor: Colors.black.withValues(alpha: 0.35),
   ),
   floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    elevation: 6,
+    elevation: 0,
+    focusElevation: 0,
+    hoverElevation: 2,
+    highlightElevation: 4,
     backgroundColor: kAccentOrange,
     foregroundColor: Colors.white,
     shape: CircleBorder(),
@@ -270,3 +275,39 @@ TextStyle helveticaNow({
   fontWeight: fontWeight,
   color: color,
 );
+
+/// Grey hairline stroke aligned with Discover search, cards, and bottom nav.
+Color wellnestOutlineColor(BuildContext context) {
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  return isLight
+      ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
+      : Colors.white.withValues(alpha: 0.18);
+}
+
+/// White (or [color]) surface with outline — no drop shadow (Discover / Feed branding).
+BoxDecoration wellnestCardDecoration(
+  BuildContext context, {
+  double borderRadius = AppRadii.md,
+  Color? color,
+}) =>
+    BoxDecoration(
+      color: color ?? Colors.white,
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(color: wellnestOutlineColor(context), width: 1),
+    );
+
+/// In-column section titles (e.g. "Discover", "My Recipes").
+TextStyle wellnestSectionTitleStyle({Color? color}) =>
+    georgiaProTextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
+      color: color ?? kPrimaryGreen,
+    ).copyWith(letterSpacing: 0);
+
+/// Large tab titles (Feed, Saved, etc.) — normal tracking (not editorial squeeze).
+TextStyle wellnestPageTitleStyle({Color? color}) =>
+    georgiaProTextStyle(
+      fontSize: 28,
+      fontWeight: FontWeight.bold,
+      color: color ?? kPrimaryGreen,
+    ).copyWith(letterSpacing: 0);

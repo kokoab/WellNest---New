@@ -160,30 +160,12 @@ class _ChartCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1F2329) : Colors.white;
-    final borderColor = isDark
-        ? kPrimaryGreen.withValues(alpha: 0.22)
-        : kPrimaryGreen.withValues(alpha: 0.14);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(_kCardRadius),
-        border: Border.all(color: borderColor, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.26)
-                : kPrimaryGreen.withValues(alpha: 0.06),
-            blurRadius: isDark ? 16 : 12,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: isDark
-                ? kPrimaryGreen.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.03),
-            blurRadius: 1,
-          ),
-        ],
+        border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

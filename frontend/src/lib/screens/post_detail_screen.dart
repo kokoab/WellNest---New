@@ -8,7 +8,6 @@ import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -156,14 +155,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  GeorgiaProDisplaySquish(
-                                    child: Text(
-                                      _post.userName,
-                                      style: georgiaProTextStyle(
-                                        fontSize: 16,
-                                        color: wellGreen,
-                                      ),
-                                    ),
+                                  Text(
+                                    _post.userName,
+                                    style: georgiaProTextStyle(
+                                      fontSize: 16,
+                                      color: wellGreen,
+                                    ).copyWith(letterSpacing: 0),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -525,13 +522,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
+                  border: Border(
+                    top: BorderSide(color: wellnestOutlineColor(context), width: 1),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,

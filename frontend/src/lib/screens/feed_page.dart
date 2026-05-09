@@ -14,7 +14,6 @@ import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
@@ -203,13 +202,8 @@ class _FeedPageState extends State<FeedPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          AppSpacing.gapV8,
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                            ),
-                            child: WellnestHeader(),
-                          ),
+                          const SizedBox(height: 10),
+                          const WellnestHeader(),
                           AppSpacing.gapV16,
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
@@ -218,14 +212,9 @@ class _FeedPageState extends State<FeedPage> {
                               0,
                               AppSpacing.md,
                             ),
-                            child: GeorgiaProDisplaySquish(
-                              child: Text(
-                                'Feed',
-                                style: georgiaProTextStyle(
-                                  fontSize: 28,
-                                  color: AppColors.primaryGreen,
-                                ),
-                              ),
+                            child: Text(
+                              'Feed',
+                              style: wellnestPageTitleStyle(),
                             ),
                           ),
                           if (AuthService.instance.isLoggedIn) ...[
@@ -431,16 +420,9 @@ class _FeedPageState extends State<FeedPage> {
   Widget _buildCreatePostBox() {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      decoration: wellnestCardDecoration(
+        context,
+        borderRadius: AppRadii.lg,
       ),
       child: Column(
         children: [
@@ -599,16 +581,9 @@ class _FeedPageState extends State<FeedPage> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      decoration: wellnestCardDecoration(
+        context,
+        borderRadius: AppRadii.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

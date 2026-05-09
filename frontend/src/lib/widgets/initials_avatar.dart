@@ -48,13 +48,7 @@ class InitialsAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFFFFEECC),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: ClipOval(
         child: imageUrl != null && imageUrl!.trim().isNotEmpty
