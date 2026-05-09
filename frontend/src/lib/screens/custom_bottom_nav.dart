@@ -229,7 +229,7 @@ class _DockNavItem extends StatelessWidget {
       selected: selected,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.md),
+        customBorder: const CircleBorder(),
         child: Center(
           child: Icon(icon, size: CustomBottomNav._navIconSize, color: color),
         ),

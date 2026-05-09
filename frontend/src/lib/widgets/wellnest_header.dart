@@ -39,23 +39,62 @@ class WellnestHeader extends StatelessWidget {
         ),
 
         /// RIGHT SIDE (Chat + Notifications)
-        Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(child: _ChatBadgeButton(iconSize: iconSize)),
-              NotificationsDropdown(
-                iconColor: AppColors.accentOrange,
-                child: Icon(
-                  Icons.notifications,
-                  color: AppColors.accentOrange,
-                  size: iconSize,
-                ),
-              ),
-            ],
+        const WellnestHeaderActions(),
+      ],
+    );
+  }
+}
+
+/// Chat + notification icons used on the right side of headers (Discover greeting row, etc.).
+///
+/// Use [wrapWithFlexible]: true (default) inside [Row]s that rely on [MainAxisAlignment.spaceBetween]
+/// with a flexible left side. Use false when the actions sit after an [Expanded] left block so they
+/// stay flush to the trailing edge.
+class WellnestHeaderActions extends StatelessWidget {
+  const WellnestHeaderActions({super.key, this.wrapWithFlexible = true});
+
+  /// When true, wraps icons in [Flexible] for headers like [WellnestHeader]. When false, icons only
+  /// take intrinsic width (e.g. Discover greeting row).
+  final bool wrapWithFlexible;
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ChatBadgeButton(iconSize: WellnestHeader.iconSize),
+        NotificationsDropdown(
+          iconColor: AppColors.accentOrange,
+          child: Icon(
+            Icons.notifications,
+            color: AppColors.accentOrange,
+            size: WellnestHeader.iconSize,
           ),
         ),
       ],
+    );
+
+    if (!wrapWithFlexible) {
+      return trailing;
+    }
+
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: _ChatBadgeButton(iconSize: WellnestHeader.iconSize),
+          ),
+          NotificationsDropdown(
+            iconColor: AppColors.accentOrange,
+            child: Icon(
+              Icons.notifications,
+              color: AppColors.accentOrange,
+              size: WellnestHeader.iconSize,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -108,21 +107,17 @@ class _UserDashboardState extends State<UserDashboard> {
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.66),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    width: 1.1,
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Column(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: const Color(0xFFE8E8E8),
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _QuickActionTile(
@@ -153,7 +148,7 @@ class _UserDashboardState extends State<UserDashboard> {
                     Divider(
                       height: 1,
                       thickness: 0.7,
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: const Color(0xFFE8E8E8),
                       indent: 16,
                       endIndent: 16,
                     ),
@@ -174,7 +169,7 @@ class _UserDashboardState extends State<UserDashboard> {
                     Divider(
                       height: 1,
                       thickness: 0.7,
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: const Color(0xFFE8E8E8),
                       indent: 16,
                       endIndent: 16,
                     ),
@@ -213,8 +208,6 @@ class _UserDashboardState extends State<UserDashboard> {
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
         ),
       ),
@@ -319,39 +312,25 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   final Map<int, bool> _recipeSaved = {};
   final Set<int> _recipeSaving = <int>{};
   final PageController _topRankedPageController = PageController(
-    viewportFraction: 0.9,
+    viewportFraction: 0.82,
   );
   final ValueNotifier<int> _topRankedPage = ValueNotifier<int>(0);
   final ScrollController _scrollController = ScrollController();
   DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
   bool _plannerExpanded = false;
 
-  int _topRankedRealIndex(int pageIndex) {
-    if (_topRanked.isEmpty) return 0;
-    return pageIndex % _topRanked.length;
-  }
-
-  int _topRankedVirtualCount() {
-    if (_topRanked.isEmpty) return 0;
-    return _topRanked.length * 1000;
-  }
-
-  int _topRankedInitialPage() {
-    if (_topRanked.isEmpty) return 0;
-    return _topRanked.length * 500;
-  }
-
   Future<void> _jumpTopRankedBy(int delta) async {
     if (_topRanked.length <= 1 || !_topRankedPageController.hasClients) return;
-    final current =
-        _topRankedPageController.page?.round() ?? _topRankedInitialPage();
-    final nextPage = current + delta;
+    final current = _topRankedPageController.page?.round() ?? 0;
+    final last = _topRanked.length - 1;
+    final nextPage = (current + delta).clamp(0, last);
+    if (nextPage == current) return;
     await _topRankedPageController.animateToPage(
       nextPage,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
-    _topRankedPage.value = _topRankedRealIndex(nextPage);
+    _topRankedPage.value = nextPage;
   }
 
   TextEditingController _getReviewController(int recipeId) {
@@ -558,7 +537,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         if (!mounted || !_topRankedPageController.hasClients || top.isEmpty) {
           return;
         }
-        _topRankedPageController.jumpToPage(_topRankedInitialPage());
+        _topRankedPageController.jumpToPage(0);
       });
     } catch (_) {
       if (!mounted) return;
@@ -761,7 +740,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                   Padding(
                                     padding: const EdgeInsets.fromLTRB(
                                       AppSpacing.md,
-                                      AppSpacing.md,
+                                      AppSpacing.xs,
                                       AppSpacing.md,
                                       0,
                                     ),
@@ -773,69 +752,51 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       const SizedBox(height: AppSpacing.sm2),
                                       _buildSearchDiscoveryPanel(),
                                     ],
-                                    const SizedBox(height: AppSpacing.sm2),
+                                    const SizedBox(height: AppSpacing.xs),
                                     if (_categories.isNotEmpty) ...[
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Category',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade700,
+                                      SizedBox(
+                                        height: 36,
+                                        child: ListView(
+                                          scrollDirection: Axis.horizontal,
+                                          children: [
+                                            _FilterChip(
+                                              label: 'All',
+                                              selected:
+                                                  _selectedCategoryId ==
+                                                  null,
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedCategoryId =
+                                                      null;
+                                                  _searchQuery =
+                                                      _searchController
+                                                          .text
+                                                          .trim();
+                                                });
+                                                _loadRecipes();
+                                              },
                                             ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 36,
-                                              child: ListView(
-                                                scrollDirection:
-                                                    Axis.horizontal,
-                                                children: [
-                                                  _FilterChip(
-                                                    label: 'All',
-                                                    selected:
-                                                        _selectedCategoryId ==
-                                                        null,
-                                                    onTap: () {
-                                                      setState(() {
-                                                        _selectedCategoryId =
-                                                            null;
-                                                        _searchQuery =
-                                                            _searchController
-                                                                .text
-                                                                .trim();
-                                                      });
-                                                      _loadRecipes();
-                                                    },
-                                                  ),
-                                                  ..._categories.map(
-                                                    (c) => _FilterChip(
-                                                      label: c.name,
-                                                      selected:
-                                                          _selectedCategoryId ==
-                                                          c.id,
-                                                      onTap: () {
-                                                        setState(() {
-                                                          _selectedCategoryId =
-                                                              c.id;
-                                                          _searchQuery =
-                                                              _searchController
-                                                                  .text
-                                                                  .trim();
-                                                        });
-                                                        _loadRecipes();
-                                                      },
-                                                    ),
-                                                  ),
-                                                ],
+                                            ..._categories.map(
+                                              (c) => _FilterChip(
+                                                label: c.name,
+                                                selected:
+                                                    _selectedCategoryId ==
+                                                    c.id,
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedCategoryId =
+                                                        c.id;
+                                                    _searchQuery =
+                                                        _searchController
+                                                            .text
+                                                            .trim();
+                                                  });
+                                                  _loadRecipes();
+                                                },
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                       if (_hasActiveFilters) ...[
                                         const SizedBox(height: 8),
@@ -859,12 +820,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                           ),
                                         ),
                                       ],
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 4),
                                     ],
                                     // Only show these sections if the search box is empty
                                     if (_searchController.text.isEmpty) ...[
                                       if (_categories.isNotEmpty)
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 4),
                                       _buildTopRankedSection(),
                                       const SizedBox(height: 16),
                                       _buildMealPlannerSection(),
@@ -952,6 +913,21 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     );
   }
 
+  /// Same gray stroke as [CustomBottomNav] outline (light mode).
+  Color _searchBarOutlineColor(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return isLight
+        ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
+        : Colors.white.withValues(alpha: 0.18);
+  }
+
+  OutlineInputBorder _recipeSearchOutline(BuildContext context) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(24),
+      borderSide: BorderSide(color: _searchBarOutlineColor(context), width: 1),
+    );
+  }
+
   Widget _buildMobileSearchTrigger() {
     final value = _searchController.text.trim();
     return GestureDetector(
@@ -963,6 +939,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: _searchBarOutlineColor(context),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
@@ -1051,10 +1031,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
             : null,
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
+        border: _recipeSearchOutline(context),
+        enabledBorder: _recipeSearchOutline(context),
+        focusedBorder: _recipeSearchOutline(context),
+        disabledBorder: _recipeSearchOutline(context),
+        errorBorder: _recipeSearchOutline(context),
+        focusedErrorBorder: _recipeSearchOutline(context),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
@@ -1079,13 +1061,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        border: Border.all(color: _searchBarOutlineColor(context), width: 1),
       ),
       child: Column(
         children: [
@@ -1469,42 +1445,62 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ] else if (_topRanked.isNotEmpty) ...[
           const SizedBox(height: 8),
           SizedBox(
-            height: 250,
+            height: 248,
             child: Stack(
-              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 PageView.builder(
                   controller: _topRankedPageController,
-                  padEnds: true,
-                  itemCount: _topRankedVirtualCount(),
-                  onPageChanged: (i) =>
-                      _topRankedPage.value = _topRankedRealIndex(i),
+                  padEnds: false,
+                  itemCount: _topRanked.length,
+                  onPageChanged: (i) => _topRankedPage.value = i,
                   itemBuilder: (_, i) {
-                    final realIndex = _topRankedRealIndex(i);
                     return _buildTopRankedCarouselCard(
-                      _topRanked[realIndex],
-                      realIndex + 1,
+                      _topRanked[i],
+                      i + 1,
                     );
                   },
                 ),
-                if (_topRanked.length > 1) ...[
-                  Positioned(
-                    left: 6,
-                    child: _buildTopRankedArrow(
-                      icon: Icons.chevron_left_rounded,
-                      tooltip: 'Previous ranked recipe',
-                      onPressed: () => _jumpTopRankedBy(-1),
+                if (_topRanked.length > 1)
+                  Positioned.fill(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _topRankedPage,
+                      builder: (_, page, _) {
+                        final last = _topRanked.length - 1;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            if (page > 0)
+                              Positioned(
+                                left: 10,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: _buildTopRankedArrow(
+                                    icon: Icons.chevron_left_rounded,
+                                    tooltip: 'Previous ranked recipe',
+                                    onPressed: () => _jumpTopRankedBy(-1),
+                                  ),
+                                ),
+                              ),
+                            if (page < last)
+                              Positioned(
+                                right: 10,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: _buildTopRankedArrow(
+                                    icon: Icons.chevron_right_rounded,
+                                    tooltip: 'Next ranked recipe',
+                                    onPressed: () => _jumpTopRankedBy(1),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                  Positioned(
-                    right: 6,
-                    child: _buildTopRankedArrow(
-                      icon: Icons.chevron_right_rounded,
-                      tooltip: 'Next ranked recipe',
-                      onPressed: () => _jumpTopRankedBy(1),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -1599,7 +1595,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     final saving = _topRankedSaving.contains(r.id);
     final badge = _rankBadgeStyle(rank);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: InkWell(
         onTap: () => Navigator.push(
           context,
@@ -1613,13 +1609,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 8,
-                offset: Offset(0, 3),
-              ),
-            ],
+            border: Border.all(color: _searchBarOutlineColor(context), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1726,9 +1716,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       r.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
+                                      style: georgiaProTextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey.shade900,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
@@ -1964,7 +1955,8 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildRecipeCard(Recipe recipe, int index) {
-    final aspectRatios = [0.85, 1.05, 1.25, 1.0, 1.2];
+    /// Higher values → taller cards in the masonry column (see [WellnestRecipeCard.aspectRatio]).
+    final aspectRatios = [1.0, 1.14, 1.34, 1.06, 1.28];
     final aspect = aspectRatios[index % aspectRatios.length];
 
     return AnimatedPressScale(

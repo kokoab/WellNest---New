@@ -81,7 +81,7 @@ class WellnestRecipeCard extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          height: 96,
+          height: 118,
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -89,9 +89,11 @@ class WellnestRecipeCard extends StatelessWidget {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.62),
+                    Colors.black.withValues(alpha: 0.88),
+                    Colors.black.withValues(alpha: 0.48),
                     Colors.black.withValues(alpha: 0),
                   ],
+                  stops: const [0.0, 0.45, 1.0],
                 ),
               ),
             ),
@@ -169,14 +171,11 @@ class WellnestRecipeCard extends StatelessWidget {
                 recipe.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: kFontGeorgiaPro,
+                style: georgiaProTextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  height: 1.2,
                   color: Colors.white,
-                  shadows: [Shadow(color: Color(0x66000000), blurRadius: 8)],
-                ),
+                ).copyWith(height: 1.15),
               ),
               AppSpacing.gapV8,
               Wrap(
@@ -213,16 +212,14 @@ class WellnestRecipeCard extends StatelessWidget {
           )
         : stack;
 
+    final outline = Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
+        : Colors.white.withValues(alpha: 0.18);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.md),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: outline, width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.md),

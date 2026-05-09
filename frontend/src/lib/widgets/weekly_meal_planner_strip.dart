@@ -255,20 +255,15 @@ class _WeeklyMealPlannerStripState extends State<WeeklyMealPlannerStrip> {
     );
     final planned = _plans.length;
 
+    final outline = isDark
+        ? colorScheme.outlineVariant.withValues(alpha: 0.5)
+        : const Color(0xFFC5C5C5).withValues(alpha: 0.95);
+
     return Container(
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: isDark
-            ? Border.all(color: colorScheme.outlineVariant.withOpacity(0.5))
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.25) : Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: outline, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
