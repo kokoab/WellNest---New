@@ -51,7 +51,8 @@ class CustomBottomNav extends StatelessWidget {
     final mq = MediaQuery.of(context);
     final topPad = AppSpacing.md;
     final bottomPad = AppSpacing.md + mq.viewPadding.bottom;
-    final barHeight = 56 + AppSpacing.md + AppSpacing.sm + mq.viewPadding.bottom;
+    final barHeight =
+        56 + AppSpacing.md + AppSpacing.sm + mq.viewPadding.bottom;
     final geometryListenable = Scaffold.geometryOf(context);
     final isLight = scheme.brightness == Brightness.light;
     final glassTint = isLight
@@ -171,10 +172,13 @@ class _NotchedBottomBarOutlinePainter extends CustomPainter {
     if (barTopGlobal == null || fabGlobal == null) return;
 
     final Rect host = Offset.zero & size;
-    final Rect button =
-        fabGlobal.translate(0, -barTopGlobal).inflate(notchMargin);
-    final Path path =
-        const CircularNotchedRectangle().getOuterPath(host, button);
+    final Rect button = fabGlobal
+        .translate(0, -barTopGlobal)
+        .inflate(notchMargin);
+    final Path path = const CircularNotchedRectangle().getOuterPath(
+      host,
+      button,
+    );
 
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke

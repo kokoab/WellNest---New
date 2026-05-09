@@ -65,7 +65,9 @@ class _UserDashboardState extends State<UserDashboard> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
-      floatingActionButton: CustomBottomNav.fab(onPressed: _showQuickActionsSheet),
+      floatingActionButton: CustomBottomNav.fab(
+        onPressed: _showQuickActionsSheet,
+      ),
       floatingActionButtonLocation: CustomBottomNav.fabLocation,
       body: MediaQuery.removePadding(
         context: context,
@@ -110,103 +112,99 @@ class _UserDashboardState extends State<UserDashboard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFFE8E8E8),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
             ),
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _QuickActionTile(
-                      icon: Icons.post_add_rounded,
-                      label: 'Create new post',
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        if (!mounted) return;
-                        final created = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) => const CreatePostScreen(),
-                          ),
-                        );
-                        if (created == true && mounted) {
-                          setState(() {
-                            _currentIndex = 1;
-                            _feedRefreshKey++;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Post created!'),
-                              backgroundColor: wellGreen,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 0.7,
-                      color: const Color(0xFFE8E8E8),
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    _QuickActionTile(
-                      icon: Icons.restaurant_menu_rounded,
-                      label: 'Create new recipe',
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        if (!mounted) return;
-                        final result =
-                            await RecipeFormScreen.showAsModal(context);
-                        if (result == true && mounted) {
-                          setState(() => _currentIndex = 0);
-                          await _recipeGridViewKey.currentState?._load();
-                        }
-                      },
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 0.7,
-                      color: const Color(0xFFE8E8E8),
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    _QuickActionTile(
-                      icon: Icons.auto_awesome_rounded,
-                      label: 'Chat with WellNest AI',
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        if (!mounted) return;
-                        final svc = ConversationService();
-                        try {
-                          final conv = await svc.ensureAssistantConversation();
-                          if (!mounted) return;
-                          await Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => ConversationChatScreen(
-                                conversationId: conv.id,
-                                otherUserName: conv.otherUser.name,
-                                otherUserProfilePhotoUrl:
-                                    conv.otherUser.displayProfilePhotoUrl,
-                                isAssistant: true,
-                              ),
-                            ),
-                          );
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                e.toString().replaceFirst('Exception: ', ''),
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _QuickActionTile(
+                  icon: Icons.post_add_rounded,
+                  label: 'Create new post',
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    if (!mounted) return;
+                    final created = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const CreatePostScreen(),
+                      ),
+                    );
+                    if (created == true && mounted) {
+                      setState(() {
+                        _currentIndex = 1;
+                        _feedRefreshKey++;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Post created!'),
+                          backgroundColor: wellGreen,
+                        ),
+                      );
+                    }
+                  },
                 ),
+                Divider(
+                  height: 1,
+                  thickness: 0.7,
+                  color: const Color(0xFFE8E8E8),
+                  indent: 16,
+                  endIndent: 16,
+                ),
+                _QuickActionTile(
+                  icon: Icons.restaurant_menu_rounded,
+                  label: 'Create new recipe',
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    if (!mounted) return;
+                    final result = await RecipeFormScreen.showAsModal(context);
+                    if (result == true && mounted) {
+                      setState(() => _currentIndex = 0);
+                      await _recipeGridViewKey.currentState?._load();
+                    }
+                  },
+                ),
+                Divider(
+                  height: 1,
+                  thickness: 0.7,
+                  color: const Color(0xFFE8E8E8),
+                  indent: 16,
+                  endIndent: 16,
+                ),
+                _QuickActionTile(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'Chat with WellNest AI',
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    if (!mounted) return;
+                    final svc = ConversationService();
+                    try {
+                      final conv = await svc.ensureAssistantConversation();
+                      if (!mounted) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => ConversationChatScreen(
+                            conversationId: conv.id,
+                            otherUserName: conv.otherUser.name,
+                            otherUserProfilePhotoUrl:
+                                conv.otherUser.displayProfilePhotoUrl,
+                            isAssistant: true,
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceFirst('Exception: ', ''),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -251,10 +249,7 @@ class _QuickActionTile extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.grey.shade400,
-              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
             ],
           ),
         ),
@@ -715,10 +710,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 key: const ValueKey('dashboard-view'),
                 child: RefreshIndicator(
                   onRefresh: () async {
-                    await Future.wait([
-                      _load(),
-                      _loadTopRanked(),
-                    ]);
+                    await Future.wait([_load(), _loadTopRanked()]);
                   },
                   color: wellGreen,
                   child: Stack(
@@ -750,105 +742,106 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                    if (_searchFocusNode.hasFocus) ...[
-                                      const SizedBox(height: AppSpacing.sm2),
-                                      _buildSearchDiscoveryPanel(),
-                                    ],
-                                    const SizedBox(height: AppSpacing.xs),
-                                    if (_categories.isNotEmpty) ...[
-                                      SizedBox(
-                                        height: 36,
-                                        child: ListView(
-                                          scrollDirection: Axis.horizontal,
-                                          children: [
-                                            _FilterChip(
-                                              label: 'All',
-                                              selected:
-                                                  _selectedCategoryId ==
-                                                  null,
-                                              onTap: () {
-                                                setState(() {
-                                                  _selectedCategoryId =
-                                                      null;
-                                                  _searchQuery =
-                                                      _searchController
-                                                          .text
-                                                          .trim();
-                                                });
-                                                _loadRecipes();
-                                              },
+                                        if (_searchFocusNode.hasFocus) ...[
+                                          const SizedBox(
+                                            height: AppSpacing.sm2,
+                                          ),
+                                          _buildSearchDiscoveryPanel(),
+                                        ],
+                                        const SizedBox(height: AppSpacing.xs),
+                                        if (_categories.isNotEmpty) ...[
+                                          SizedBox(
+                                            height: 36,
+                                            child: ListView(
+                                              scrollDirection: Axis.horizontal,
+                                              children: [
+                                                _FilterChip(
+                                                  label: 'All',
+                                                  selected:
+                                                      _selectedCategoryId ==
+                                                      null,
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _selectedCategoryId =
+                                                          null;
+                                                      _searchQuery =
+                                                          _searchController.text
+                                                              .trim();
+                                                    });
+                                                    _loadRecipes();
+                                                  },
+                                                ),
+                                                ..._categories.map(
+                                                  (c) => _FilterChip(
+                                                    label: c.name,
+                                                    selected:
+                                                        _selectedCategoryId ==
+                                                        c.id,
+                                                    onTap: () {
+                                                      setState(() {
+                                                        _selectedCategoryId =
+                                                            c.id;
+                                                        _searchQuery =
+                                                            _searchController
+                                                                .text
+                                                                .trim();
+                                                      });
+                                                      _loadRecipes();
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            ..._categories.map(
-                                              (c) => _FilterChip(
-                                                label: c.name,
-                                                selected:
-                                                    _selectedCategoryId ==
-                                                    c.id,
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedCategoryId =
-                                                        c.id;
-                                                    _searchQuery =
-                                                        _searchController
-                                                            .text
-                                                            .trim();
-                                                  });
-                                                  _loadRecipes();
-                                                },
+                                          ),
+                                          if (_hasActiveFilters) ...[
+                                            const SizedBox(height: 8),
+                                            Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: TextButton.icon(
+                                                onPressed: _clearAllFilters,
+                                                icon: Icon(
+                                                  Icons.filter_list_off,
+                                                  size: 18,
+                                                  color: nestOrange,
+                                                ),
+                                                label: Text(
+                                                  'Clear filters',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: nestOrange,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],
-                                        ),
-                                      ),
-                                      if (_hasActiveFilters) ...[
-                                        const SizedBox(height: 8),
-                                        Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: TextButton.icon(
-                                            onPressed: _clearAllFilters,
-                                            icon: Icon(
-                                              Icons.filter_list_off,
-                                              size: 18,
-                                              color: nestOrange,
-                                            ),
-                                            label: Text(
-                                              'Clear filters',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: nestOrange,
-                                              ),
-                                            ),
+                                          const SizedBox(height: 4),
+                                        ],
+                                        // Only show these sections if the search box is empty
+                                        if (_searchController.text.isEmpty) ...[
+                                          if (_categories.isNotEmpty)
+                                            const SizedBox(height: 4),
+                                          if (_selectedCategoryId == null) ...[
+                                            _buildTopRankedSection(),
+                                            const SizedBox(height: 16),
+                                            _buildMealPlannerSection(),
+                                            const SizedBox(height: 16),
+                                          ],
+                                          Text(
+                                            'Discover',
+                                            style: wellnestSectionTitleStyle(),
                                           ),
-                                        ),
+                                          const SizedBox(height: 8),
+                                        ] else ...[
+                                          // When searching, hide the above and show a "Search Results" title instead
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Search Results',
+                                            style: wellnestSectionTitleStyle(),
+                                          ),
+                                          const SizedBox(height: 8),
+                                        ],
                                       ],
-                                      const SizedBox(height: 4),
-                                    ],
-                                    // Only show these sections if the search box is empty
-                                    if (_searchController.text.isEmpty) ...[
-                                      if (_categories.isNotEmpty)
-                                        const SizedBox(height: 4),
-                                      if (_selectedCategoryId == null) ...[
-                                        _buildTopRankedSection(),
-                                        const SizedBox(height: 16),
-                                        _buildMealPlannerSection(),
-                                        const SizedBox(height: 16),
-                                      ],
-                                      Text(
-                                        'Discover',
-                                        style: wellnestSectionTitleStyle(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ] else ...[
-                                      // When searching, hide the above and show a "Search Results" title instead
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Search Results',
-                                        style: wellnestSectionTitleStyle(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                  ],
                                     ),
                                   ),
                                 ],
@@ -927,10 +920,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: wellnestOutlineColor(context),
-            width: 1,
-          ),
+          border: Border.all(color: wellnestOutlineColor(context), width: 1),
         ),
         child: Row(
           children: [
@@ -1435,10 +1425,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                   itemCount: _topRanked.length,
                   onPageChanged: (i) => _topRankedPage.value = i,
                   itemBuilder: (_, i) {
-                    return _buildTopRankedCarouselCard(
-                      _topRanked[i],
-                      i + 1,
-                    );
+                    return _buildTopRankedCarouselCard(_topRanked[i], i + 1);
                   },
                 ),
                 if (_topRanked.length > 1)
