@@ -828,10 +828,12 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                     if (_searchController.text.isEmpty) ...[
                                       if (_categories.isNotEmpty)
                                         const SizedBox(height: 4),
-                                      _buildTopRankedSection(),
-                                      const SizedBox(height: 16),
-                                      _buildMealPlannerSection(),
-                                      const SizedBox(height: 16),
+                                      if (_selectedCategoryId == null) ...[
+                                        _buildTopRankedSection(),
+                                        const SizedBox(height: 16),
+                                        _buildMealPlannerSection(),
+                                        const SizedBox(height: 16),
+                                      ],
                                       const Text(
                                         'Discover',
                                         style: TextStyle(
@@ -1428,7 +1430,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                   fontSize: 23,
                   fontWeight: FontWeight.w800,
                   color: wellGreen,
-                ).copyWith(letterSpacing: 0.4),
+                ).copyWith(letterSpacing: 0),
               ),
             ),
             TextButton(

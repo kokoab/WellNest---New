@@ -118,13 +118,6 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
           borderRadius: const BorderRadius.vertical(
             bottom: Radius.circular(32),
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 20,
-              offset: Offset(0, 8),
-            ),
-          ],
         ),
         padding: EdgeInsets.fromLTRB(
           AppSpacing.md,
