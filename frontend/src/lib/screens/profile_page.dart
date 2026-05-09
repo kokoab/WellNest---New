@@ -4,11 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/providers/theme_provider.dart';
-import 'package:my_app/models/post.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/recipe_service.dart';
@@ -28,10 +26,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   CurrentUser? _user;
   List<Recipe> _myRecipes = [];
-  List<Post> _myPosts = [];
+  int _myRecipesPage = 1;
+  int _myRecipesLastPage = 1;
+  int _myRecipesTotal = 0;
+  int _myPostsTotal = 0;
+  bool _myRecipesLoadingMore = false;
   bool _loading = true;
   bool _uploadingPhoto = false;
-  bool _addingRecipe = false;
   bool _loggingOut = false;
   bool _deactivatingAccount = false;
   String? _error;
@@ -58,7 +59,10 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _user = null;
           _myRecipes = [];
-          _myPosts = [];
+          _myRecipesPage = 1;
+          _myRecipesLastPage = 1;
+          _myRecipesTotal = 0;
+          _myPostsTotal = 0;
           _loading = false;
           _error =
               'Could not load your profile from the server. Pull to refresh, or run backend migrations (php artisan migrate) if you recently updated the API.';
@@ -66,22 +70,29 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      List<Recipe> recipes = [];
-      List<Post> posts = [];
+      RecipeListResponse? recipesResponse;
+      PostListResponse? postsResponse;
       if (user != null) {
         final results = await Future.wait([
-          RecipeService.instance.fetchRecipes(userId: user.id),
-          ApiService().fetchPosts(userId: user.id),
+          RecipeService.instance.fetchRecipes(userId: user.id, page: 1),
+          ApiService().fetchPostsPaginated(
+            userId: user.id,
+            page: 1,
+            perPage: 10,
+          ),
         ]);
-        recipes = (results[0] as RecipeListResponse).recipes;
-        posts = results[1] as List<Post>;
+        recipesResponse = results[0] as RecipeListResponse;
+        postsResponse = results[1] as PostListResponse;
       }
 
       if (!mounted) return;
       setState(() {
         _user = user;
-        _myRecipes = recipes;
-        _myPosts = posts;
+        _myRecipes = recipesResponse?.recipes ?? [];
+        _myRecipesPage = recipesResponse?.currentPage ?? 1;
+        _myRecipesLastPage = recipesResponse?.lastPage ?? 1;
+        _myRecipesTotal = recipesResponse?.total ?? 0;
+        _myPostsTotal = postsResponse?.total ?? 0;
         _loading = false;
       });
     } catch (e) {
@@ -90,6 +101,34 @@ class _ProfilePageState extends State<ProfilePage> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMoreMyRecipes() async {
+    if (_myRecipesLoadingMore || _myRecipesPage >= _myRecipesLastPage) return;
+    final user = _user;
+    if (user == null) return;
+    setState(() => _myRecipesLoadingMore = true);
+    try {
+      final response = await RecipeService.instance.fetchRecipes(
+        userId: user.id,
+        page: _myRecipesPage + 1,
+      );
+      if (!mounted) return;
+      final existingIds = _myRecipes.map((r) => r.id).toSet();
+      final incoming = response.recipes
+          .where((r) => !existingIds.contains(r.id))
+          .toList();
+      setState(() {
+        _myRecipes.addAll(incoming);
+        _myRecipesPage = response.currentPage;
+        _myRecipesLastPage = response.lastPage;
+        _myRecipesTotal = response.total;
+        _myRecipesLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _myRecipesLoadingMore = false);
     }
   }
 
@@ -125,7 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: nestOrange.withOpacity(0.1),
+                        color: nestOrange.withValues(alpha: 0.1),
                         border: Border.all(color: nestOrange),
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -180,9 +219,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: nestOrange.withOpacity(0.10),
+                      color: nestOrange.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: nestOrange.withOpacity(0.35)),
+                      border: Border.all(
+                        color: nestOrange.withValues(alpha: 0.35),
+                      ),
                     ),
                     child: Text(
                       'Your account is ${_statusLabel(_user!.accountStatus)}.',
@@ -203,9 +244,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildStatColumn('${_myRecipes.length}', 'Recipes'),
+                    _buildStatColumn('$_myRecipesTotal', 'Recipes'),
                     const SizedBox(width: 40),
-                    _buildStatColumn('${_myPosts.length}', 'Posts'),
+                    _buildStatColumn('$_myPostsTotal', 'Posts'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -303,6 +344,24 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+                if (_myRecipesPage < _myRecipesLastPage) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _myRecipesLoadingMore
+                        ? null
+                        : _loadMoreMyRecipes,
+                    icon: _myRecipesLoadingMore
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.expand_more_rounded),
+                    label: Text(
+                      _myRecipesLoadingMore ? 'Loading…' : 'Load more recipes',
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 if (AuthService.instance.isLoggedIn)
                   TextButton.icon(
@@ -401,7 +460,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
                       cacheWidth: 240,
-                      errorBuilder: (_, __, ___) => _initialsContent(),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _initialsContent(),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return const Center(
@@ -540,7 +600,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 filled: true,
                 fillColor: Theme.of(
                   context,
-                ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -664,7 +724,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         alignment: Alignment.center,
                         width: double.infinity,
                         cacheWidth: 600,
-                        errorBuilder: (_, __, ___) => _placeholderImage(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _placeholderImage(),
                       )
                     : _placeholderImage(),
               ),

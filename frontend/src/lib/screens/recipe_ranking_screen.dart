@@ -13,12 +13,14 @@ class RecipeRankingScreen extends StatefulWidget {
 
 class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
   static const Color wellGreen = Color(0xFF097333);
+  static const int _pageSize = 20;
 
   String _window = '7d';
   String _mode = 'combined';
   bool _loading = true;
   String? _error;
   List<RecipeRankingItem> _items = [];
+  int _visibleCount = _pageSize;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
       if (!mounted) return;
       setState(() {
         _items = items;
+        _visibleCount = _pageSize;
         _loading = false;
       });
     } catch (e) {
@@ -121,65 +124,85 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                 ? Center(child: Text(_error!))
                 : _items.isEmpty
                 ? const Center(child: Text('No ranking data yet.'))
-                : ListView.separated(
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final item = _items[i];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0x1A097333),
-                          child: Text(
-                            '${i + 1}',
-                            style: const TextStyle(color: kPrimaryGreen),
-                          ),
-                        ),
-                        title: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '⭐ ${item.averageRating.toStringAsFixed(1)} (${item.ratingsCount})',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
+                : Column(
+                    children: [
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: _items.take(_visibleCount).length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final item = _items[i];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: const Color(0x1A097333),
+                                child: Text(
+                                  '${i + 1}',
+                                  style: const TextStyle(color: kPrimaryGreen),
                                 ),
                               ),
-                            ),
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${item.viewsCount}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
+                              title: Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                              subtitle: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '⭐ ${item.averageRating.toStringAsFixed(1)} (${item.ratingsCount})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.visibility_outlined,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${item.viewsCount}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Text(
+                                'Score ${item.score.toStringAsFixed(2)}',
+                              ),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  fullscreenDialog: true,
+                                  builder: (_) =>
+                                      RecipeDetailScreen(recipeId: item.id),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        trailing: Text(
-                          'Score ${item.score.toStringAsFixed(2)}',
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            fullscreenDialog: true,
-                            builder: (_) =>
-                                RecipeDetailScreen(recipeId: item.id),
+                      ),
+                      if (_visibleCount < _items.length)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: OutlinedButton.icon(
+                            onPressed: () => setState(() {
+                              _visibleCount = (_visibleCount + _pageSize).clamp(
+                                0,
+                                _items.length,
+                              );
+                            }),
+                            icon: const Icon(Icons.expand_more_rounded),
+                            label: const Text('Load more'),
                           ),
                         ),
-                      );
-                    },
+                    ],
                   ),
           ),
         ],

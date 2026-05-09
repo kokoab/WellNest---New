@@ -36,9 +36,13 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   final ConversationService _service = ConversationService();
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  static const int _messagesPerPage = 20;
 
   List<ChatMessage> _messages = [];
   bool _loading = true;
+  bool _loadingMoreMessages = false;
+  bool _messagesHasMore = true;
+  int _messagesPage = 1;
   String? _error;
   bool _sending = false;
   bool _uploadingAttachment = false;
@@ -60,22 +64,41 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   void initState() {
     super.initState();
     _currentUserId = AuthService.instance.userId;
+    _scrollController.addListener(_onScroll);
     _loadMessages();
     _subscribeLive();
     _service.markConversationAsRead(widget.conversationId);
+  }
+
+  void _onScroll() {
+    if (!_messagesHasMore || _loading || _loadingMoreMessages) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      _loadOlderMessages();
+    }
   }
 
   Future<void> _loadMessages() async {
     setState(() {
       _loading = true;
       _error = null;
+      _messagesPage = 1;
+      _messagesHasMore = true;
     });
     try {
-      final data = await _service.fetchMessages(widget.conversationId);
+      final data = await _service.fetchMessages(
+        widget.conversationId,
+        page: 1,
+        perPage: _messagesPerPage,
+      );
       final list = ConversationService.messagesFromResponse(data);
+      final currentPage = (data['current_page'] as num?)?.toInt() ?? 1;
+      final lastPage = (data['last_page'] as num?)?.toInt() ?? currentPage;
       if (mounted) {
         setState(() {
           _messages = list;
+          _messagesPage = currentPage;
+          _messagesHasMore = currentPage < lastPage;
           _loading = false;
           if (_currentUserId == null && list.isNotEmpty) {
             _currentUserId = list.first.userId;
@@ -87,8 +110,35 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
         setState(() {
           _error = e.toString().replaceFirst('Exception: ', '');
           _loading = false;
+          _messagesHasMore = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (_loadingMoreMessages || !_messagesHasMore) return;
+    setState(() => _loadingMoreMessages = true);
+    try {
+      final nextPage = _messagesPage + 1;
+      final data = await _service.fetchMessages(
+        widget.conversationId,
+        page: nextPage,
+        perPage: _messagesPerPage,
+      );
+      final list = ConversationService.messagesFromResponse(data);
+      final currentPage = (data['current_page'] as num?)?.toInt() ?? nextPage;
+      final lastPage = (data['last_page'] as num?)?.toInt() ?? currentPage;
+      if (!mounted) return;
+      setState(() {
+        _messages.addAll(list);
+        _messagesPage = currentPage;
+        _messagesHasMore = currentPage < lastPage && list.isNotEmpty;
+        _loadingMoreMessages = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMoreMessages = false);
     }
   }
 
@@ -126,6 +176,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   @override
   void dispose() {
     _service.unsubscribeFromLiveMessages(widget.conversationId);
+    _scrollController.removeListener(_onScroll);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -232,7 +283,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       child: CircularProgressIndicator(color: Colors.white),
                     );
                   },
-                  errorBuilder: (_, __, ___) => const Center(
+                  errorBuilder: (context, error, stackTrace) => const Center(
                     child: Icon(
                       Icons.broken_image,
                       size: 64,
@@ -293,7 +344,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 ),
               );
             },
-            errorBuilder: (_, __, ___) => Container(
+            errorBuilder: (context, error, stackTrace) => Container(
               width: _previewSize,
               height: _previewSize,
               color: Colors.black12,
@@ -448,8 +499,27 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                         _messages.length +
                         (widget.isAssistant && _streamingPreview != null
                             ? 1
-                            : 0),
+                            : 0) +
+                        (_loadingMoreMessages ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (_loadingMoreMessages &&
+                          index ==
+                              _messages.length +
+                                  (widget.isAssistant &&
+                                          _streamingPreview != null
+                                      ? 1
+                                      : 0)) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
                       final streamExtra =
                           widget.isAssistant && _streamingPreview != null
                           ? 1
@@ -499,8 +569,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                     ? null
                                     : BoxDecoration(
                                         color: isMe
-                                            ? AppColors.primaryGreen
-                                                  .withOpacity(0.9)
+                                            ? AppColors.primaryGreen.withValues(
+                                                alpha: 0.9,
+                                              )
                                             : (isDark
                                                   ? Colors.grey.shade700
                                                   : Colors.grey.shade700),
@@ -565,8 +636,8 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                           child: ActionChip(
                             label: Text(chip),
                             onPressed: _sending ? null : () => _applyChip(chip),
-                            backgroundColor: AppColors.primaryGreen.withOpacity(
-                              0.12,
+                            backgroundColor: AppColors.primaryGreen.withValues(
+                              alpha: 0.12,
                             ),
                             labelStyle: const TextStyle(
                               color: AppColors.primaryGreen,

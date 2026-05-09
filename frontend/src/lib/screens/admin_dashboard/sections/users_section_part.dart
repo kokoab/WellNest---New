@@ -116,23 +116,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
         title: 'Posts by ${user.name}',
         icon: Icons.article_outlined,
         iconColor: kPrimaryGreen,
-        child: FutureBuilder<List<Post>>(
-          future: ApiService().fetchPosts(userId: user.id),
-          builder: (ctx, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const _ModalLoading();
-            }
-            if (snapshot.hasError)
-              return _ModalError(message: snapshot.error.toString());
-            final posts = snapshot.data ?? [];
-            if (posts.isEmpty) {
-              return const _ModalEmpty(
-                message: 'This user has not created any posts yet.',
-              );
-            }
-            return _PostsModalContent(posts: posts);
-          },
-        ),
+        child: _PostsModalContent(userId: user.id),
       ),
     );
   }

@@ -16,6 +16,9 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
   String? _error;
   _DateRangeFilter _range = _DateRangeFilter.monthly;
   bool _exportingAuditLogsCsv = false;
+  int _page = 1;
+  int _lastPage = 1;
+  bool _loadingPage = false;
 
   @override
   void initState() {
@@ -36,6 +39,8 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       if (!mounted) return;
       setState(() {
         _logs = res.logs;
+        _page = res.currentPage;
+        _lastPage = res.lastPage;
         _loading = false;
       });
     } catch (e) {
@@ -44,6 +49,28 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
         _error = _adminErrorMessage(e);
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _handlePageChanged(int page) async {
+    if (page < 1 || page > _lastPage || page == _page) return;
+    setState(() => _loadingPage = true);
+    try {
+      final res = await AdminAuditLogService.instance.fetchLogs(
+        page: page,
+        range: _range.apiValue,
+      );
+      if (!mounted) return;
+      setState(() {
+        _logs = res.logs;
+        _page = res.currentPage;
+        _lastPage = res.lastPage;
+        _loadingPage = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingPage = false);
+      _showAdminErrorSnack(context, e);
     }
   }
 
@@ -85,6 +112,10 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
       },
       onRefresh: refresh,
       onExport: _exportAuditLogsCsv,
+      currentPage: _page,
+      totalPages: _lastPage,
+      loadingPage: _loadingPage,
+      onPageChanged: _handlePageChanged,
     );
   }
 
@@ -102,6 +133,10 @@ class _AuditLogsSection extends StatelessWidget {
   final ValueChanged<_DateRangeFilter> onRangeChanged;
   final VoidCallback onRefresh;
   final VoidCallback onExport;
+  final int currentPage;
+  final int totalPages;
+  final bool loadingPage;
+  final ValueChanged<int> onPageChanged;
 
   const _AuditLogsSection({
     required this.theme,
@@ -113,6 +148,10 @@ class _AuditLogsSection extends StatelessWidget {
     required this.onRangeChanged,
     required this.onRefresh,
     required this.onExport,
+    required this.currentPage,
+    required this.totalPages,
+    required this.loadingPage,
+    required this.onPageChanged,
   });
 
   @override
@@ -176,7 +215,16 @@ class _AuditLogsSection extends StatelessWidget {
         else if (logs.isEmpty)
           _EmptyState(theme: theme, message: 'No audit logs yet')
         else
-          _AuditLogsTable(theme: theme, logs: logs.take(20).toList()),
+          _AuditLogsTable(theme: theme, logs: logs),
+        if (logs.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _PaginationControls(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            loading: loadingPage,
+            onPageChanged: onPageChanged,
+          ),
+        ],
         const SizedBox(height: 32),
       ],
     );

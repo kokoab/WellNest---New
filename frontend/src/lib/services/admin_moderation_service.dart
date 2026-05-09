@@ -13,25 +13,69 @@ class AdminModerationService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AdminAuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AdminAuthService.instance.authHeaders,
+  };
 
-  /// GET /api/admin/reports — returns list of pending reports.
-  Future<List<Report>> fetchReports({String? range}) async {
+  /// GET /api/admin/reports — pending reports (supports paginated and legacy list responses).
+  Future<AdminReportsResponse> fetchReportsPaginated({
+    String? range,
+    int page = 1,
+    int perPage = 20,
+  }) async {
     final params = <String, String>{};
     if (range != null && range.isNotEmpty) params['range'] = range;
+    params['page'] = '$page';
+    params['per_page'] = '$perPage';
 
     final response = await http.get(
-      Uri.parse('$_baseUrl/admin/reports').replace(queryParameters: params.isEmpty ? null : params),
+      Uri.parse(
+        '$_baseUrl/admin/reports',
+      ).replace(queryParameters: params.isEmpty ? null : params),
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      final list = jsonDecode(response.body) as List<dynamic>;
-      return list.map((e) => Report.fromJson(e as Map<String, dynamic>)).toList();
+      final body = jsonDecode(response.body);
+      if (body is List<dynamic>) {
+        final reports = body
+            .map((e) => Report.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return AdminReportsResponse(
+          reports: reports,
+          currentPage: page,
+          lastPage: 1,
+          total: reports.length,
+          perPage: perPage,
+        );
+      }
+      if (body is Map<String, dynamic>) {
+        final list = (body['data'] as List<dynamic>?) ?? [];
+        return AdminReportsResponse(
+          reports: list
+              .map((e) => Report.fromJson(e as Map<String, dynamic>))
+              .toList(),
+          currentPage: (body['current_page'] as num?)?.toInt() ?? page,
+          lastPage: (body['last_page'] as num?)?.toInt() ?? page,
+          total: (body['total'] as num?)?.toInt() ?? list.length,
+          perPage: (body['per_page'] as num?)?.toInt() ?? perPage,
+        );
+      }
     }
     _throwFromResponse(response);
+  }
+
+  Future<List<Report>> fetchReports({
+    String? range,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final res = await fetchReportsPaginated(
+      range: range,
+      page: page,
+      perPage: perPage,
+    );
+    return res.reports;
   }
 
   /// PATCH /api/admin/reports/{report}/approve
@@ -106,4 +150,20 @@ class AdminModerationService {
     }
     throw Exception(message ?? 'Request failed: ${response.statusCode}');
   }
+}
+
+class AdminReportsResponse {
+  final List<Report> reports;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+  final int perPage;
+
+  const AdminReportsResponse({
+    required this.reports,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+    required this.perPage,
+  });
 }

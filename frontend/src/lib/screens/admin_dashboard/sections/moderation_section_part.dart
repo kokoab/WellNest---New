@@ -17,6 +17,10 @@ class _ModerationSectionContainerState
   String? _error;
   _DateRangeFilter _range = _DateRangeFilter.monthly;
   bool _exportingReportsCsv = false;
+  int _page = 1;
+  int _lastPage = 1;
+  bool _loadingPage = false;
+  static const int _perPage = 20;
 
   @override
   void initState() {
@@ -30,12 +34,17 @@ class _ModerationSectionContainerState
       _error = null;
     });
     try {
-      final reports = await AdminModerationService.instance.fetchReports(
-        range: _range.apiValue,
-      );
+      final response = await AdminModerationService.instance
+          .fetchReportsPaginated(
+            range: _range.apiValue,
+            page: 1,
+            perPage: _perPage,
+          );
       if (!mounted) return;
       setState(() {
-        _reports = reports;
+        _reports = response.reports;
+        _page = response.currentPage;
+        _lastPage = response.lastPage;
         _loading = false;
       });
     } catch (e) {
@@ -44,6 +53,30 @@ class _ModerationSectionContainerState
         _error = _adminErrorMessage(e);
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _handlePageChanged(int page) async {
+    if (page < 1 || page > _lastPage || page == _page) return;
+    setState(() => _loadingPage = true);
+    try {
+      final response = await AdminModerationService.instance
+          .fetchReportsPaginated(
+            range: _range.apiValue,
+            page: page,
+            perPage: _perPage,
+          );
+      if (!mounted) return;
+      setState(() {
+        _reports = response.reports;
+        _page = response.currentPage;
+        _lastPage = response.lastPage;
+        _loadingPage = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingPage = false);
+      _showAdminErrorSnack(context, e);
     }
   }
 
@@ -147,6 +180,10 @@ class _ModerationSectionContainerState
       exporting: _exportingReportsCsv,
       onDeleteAll: _confirmDeleteAllReports,
       onReportAction: _handleReportAction,
+      currentPage: _page,
+      totalPages: _lastPage,
+      loadingPage: _loadingPage,
+      onPageChanged: _handlePageChanged,
     );
   }
 
@@ -166,6 +203,10 @@ class _ModerationSection extends StatelessWidget {
   final bool exporting;
   final VoidCallback onDeleteAll;
   final Future<void> Function(int, String) onReportAction;
+  final int currentPage;
+  final int totalPages;
+  final bool loadingPage;
+  final ValueChanged<int> onPageChanged;
 
   const _ModerationSection({
     required this.theme,
@@ -179,6 +220,10 @@ class _ModerationSection extends StatelessWidget {
     required this.exporting,
     required this.onDeleteAll,
     required this.onReportAction,
+    required this.currentPage,
+    required this.totalPages,
+    required this.loadingPage,
+    required this.onPageChanged,
   });
 
   @override
@@ -244,6 +289,15 @@ class _ModerationSection extends StatelessWidget {
             reports: reports,
             onAction: onReportAction,
           ),
+        if (reports.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _PaginationControls(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            loading: loadingPage,
+            onPageChanged: onPageChanged,
+          ),
+        ],
         const SizedBox(height: 32),
       ],
     );

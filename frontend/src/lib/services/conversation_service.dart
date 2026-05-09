@@ -27,15 +27,17 @@ class ConversationService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   static Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AuthService.instance.authHeaders,
+  };
 
   /// GET /api/users/search?q=... — search users to message (excludes current user).
   Future<List<UserSearchResult>> searchUsers(String query) async {
     if (query.trim().isEmpty) return [];
-    final uri = Uri.parse('$_baseUrl/users/search').replace(queryParameters: {'q': query.trim()});
+    final uri = Uri.parse(
+      '$_baseUrl/users/search',
+    ).replace(queryParameters: {'q': query.trim()});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -43,11 +45,16 @@ class ConversationService {
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>?;
     final list = data?['data'] as List<dynamic>? ?? [];
-    return list.map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// POST /api/conversations — get or create conversation with another user. Returns conversation (with id).
-  Future<ConversationListItem> createConversation(int otherUserId, String otherUserName) async {
+  Future<ConversationListItem> createConversation(
+    int otherUserId,
+    String otherUserName,
+  ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/conversations'),
       headers: _headers,
@@ -55,11 +62,15 @@ class ConversationService {
     );
     if (response.statusCode != 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(data?['message'] as String? ?? 'Failed to start conversation');
+      throw Exception(
+        data?['message'] as String? ?? 'Failed to start conversation',
+      );
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final other = data['other_user'] is Map<String, dynamic>
-        ? ConversationOtherUser.fromJson(data['other_user'] as Map<String, dynamic>)
+        ? ConversationOtherUser.fromJson(
+            data['other_user'] as Map<String, dynamic>,
+          )
         : ConversationOtherUser(id: otherUserId, name: otherUserName);
     return ConversationListItem(
       id: (data['id'] as num).toInt(),
@@ -73,14 +84,21 @@ class ConversationService {
 
   /// GET /api/conversations/assistant — ensure the WellNest Assistant DM exists.
   Future<ConversationListItem> ensureAssistantConversation() async {
-    final response = await http.get(Uri.parse('$_baseUrl/conversations/assistant'), headers: _headers);
+    final response = await http.get(
+      Uri.parse('$_baseUrl/conversations/assistant'),
+      headers: _headers,
+    );
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(data?['message'] as String? ?? 'Assistant is unavailable');
+      throw Exception(
+        data?['message'] as String? ?? 'Assistant is unavailable',
+      );
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final other = data['other_user'] is Map<String, dynamic>
-        ? ConversationOtherUser.fromJson(data['other_user'] as Map<String, dynamic>)
+        ? ConversationOtherUser.fromJson(
+            data['other_user'] as Map<String, dynamic>,
+          )
         : ConversationOtherUser(id: 0, name: 'Assistant');
     return ConversationListItem(
       id: (data['id'] as num).toInt(),
@@ -92,16 +110,41 @@ class ConversationService {
     );
   }
 
-  /// GET /api/conversations — list conversations (Messenger-style).
-  Future<List<ConversationListItem>> fetchConversations() async {
-    final response = await http.get(Uri.parse('$_baseUrl/conversations'), headers: _headers);
+  /// GET /api/conversations — list conversations (Messenger-style, paginated).
+  Future<ConversationListResponse> fetchConversationsPaginated({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/conversations',
+    ).replace(queryParameters: {'page': '$page', 'per_page': '$perPage'});
+    final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(data?['message'] as String? ?? 'Failed to load conversations');
+      throw Exception(
+        data?['message'] as String? ?? 'Failed to load conversations',
+      );
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>?;
-    final list = data?['data'] as List<dynamic>? ?? [];
-    return list.map((e) => ConversationListItem.fromJson(e as Map<String, dynamic>)).toList();
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = data['data'] as List<dynamic>? ?? [];
+    return ConversationListResponse(
+      conversations: list
+          .map((e) => ConversationListItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      currentPage: (data['current_page'] as num?)?.toInt() ?? page,
+      lastPage: (data['last_page'] as num?)?.toInt() ?? page,
+      total: (data['total'] as num?)?.toInt() ?? list.length,
+      perPage: (data['per_page'] as num?)?.toInt() ?? perPage,
+    );
+  }
+
+  /// Backward-compatible list accessor.
+  Future<List<ConversationListItem>> fetchConversations({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final res = await fetchConversationsPaginated(page: page, perPage: perPage);
+    return res.conversations;
   }
 
   /// Sum unread message count across all conversations.
@@ -111,10 +154,14 @@ class ConversationService {
   }
 
   /// GET /api/conversations/{id}/messages — messages for one conversation (paginated).
-  Future<Map<String, dynamic>> fetchMessages(int conversationId, {int page = 1, int perPage = 20}) async {
-    final uri = Uri.parse('$_baseUrl/conversations/$conversationId/messages').replace(
-      queryParameters: {'page': '$page', 'per_page': '$perPage'},
-    );
+  Future<Map<String, dynamic>> fetchMessages(
+    int conversationId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/conversations/$conversationId/messages',
+    ).replace(queryParameters: {'page': '$page', 'per_page': '$perPage'});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -126,7 +173,9 @@ class ConversationService {
   /// Parse messages from API paginated response.
   static List<ChatMessage> messagesFromResponse(Map<String, dynamic> data) {
     final list = data['data'] as List<dynamic>? ?? [];
-    return list.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// POST /api/conversations/{id}/messages — send a message. Backend will broadcast via Reverb.
@@ -139,10 +188,11 @@ class ConversationService {
     if (response.statusCode == 429) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
       throw QuotaExceededException(
-        message: data?['message'] as String? ??
+        message:
+            data?['message'] as String? ??
             'You have reached your daily message limit.',
-        retryAfter: response.headers['retry-after'] ??
-            data?['retry_after'] as String?,
+        retryAfter:
+            response.headers['retry-after'] ?? data?['retry_after'] as String?,
       );
     }
     if (response.statusCode != 201) {
@@ -154,22 +204,33 @@ class ConversationService {
   }
 
   /// POST /api/messages/{messageId}/attachments — upload image (or file) for an existing message.
-  Future<Map<String, dynamic>> uploadMessageAttachment(int messageId, List<int> fileBytes, String fileName) async {
+  Future<Map<String, dynamic>> uploadMessageAttachment(
+    int messageId,
+    List<int> fileBytes,
+    String fileName,
+  ) async {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/messages/$messageId/attachments'),
     );
-    request.headers.addAll({'Accept': 'application/json', ...AuthService.instance.authHeaders});
-    request.files.add(http.MultipartFile.fromBytes(
-      'file',
-      fileBytes,
-      filename: fileName.isNotEmpty ? fileName : 'image.jpg',
-    ));
+    request.headers.addAll({
+      'Accept': 'application/json',
+      ...AuthService.instance.authHeaders,
+    });
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        fileBytes,
+        filename: fileName.isNotEmpty ? fileName : 'image.jpg',
+      ),
+    );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
-      throw Exception(data?['message'] as String? ?? 'Failed to upload attachment');
+      throw Exception(
+        data?['message'] as String? ?? 'Failed to upload attachment',
+      );
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -179,7 +240,8 @@ class ConversationService {
   Future<void> subscribeToLiveMessages(
     int conversationId,
     void Function(ChatMessage message) onNewMessage, {
-    void Function(String streamId, String fullText, String delta, bool done)? onAssistantStream,
+    void Function(String streamId, String fullText, String delta, bool done)?
+    onAssistantStream,
   }) async {
     await ReverbService.instance.subscribeToConversation(
       conversationId,
@@ -234,4 +296,20 @@ class ConversationService {
       headers: _headers,
     );
   }
+}
+
+class ConversationListResponse {
+  final List<ConversationListItem> conversations;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+  final int perPage;
+
+  const ConversationListResponse({
+    required this.conversations,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+    required this.perPage,
+  });
 }

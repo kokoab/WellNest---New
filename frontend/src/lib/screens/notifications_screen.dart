@@ -19,8 +19,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   List<AppNotification> _notifications = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  static const int _perPage = 20;
   bool _markingRead = false;
   int _unreadCount = 0;
+  final ScrollController _scrollController = ScrollController();
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -36,11 +41,22 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       parent: _fadeController,
       curve: Curves.easeOut,
     );
+    _scrollController.addListener(_onScroll);
     _load();
+  }
+
+  void _onScroll() {
+    if (_loading || _loadingMore || !_hasMore) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 240) {
+      _loadMore();
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -50,12 +66,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        NotificationService.instance.fetchNotifications(),
+        NotificationService.instance.fetchNotificationsPaginated(
+          page: 1,
+          perPage: _perPage,
+        ),
         NotificationService.instance.getUnreadCounts(),
       ]);
       if (!mounted) return;
+      final notifRes = results[0] as NotificationListResponse;
       setState(() {
-        _notifications = results[0] as List<AppNotification>;
+        _notifications = notifRes.notifications;
+        _page = notifRes.currentPage;
+        _hasMore = notifRes.currentPage < notifRes.lastPage;
         _unreadCount = (results[1] as NotificationCounts).allUnread;
         _loading = false;
       });
@@ -66,6 +88,30 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         _notifications = [];
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final res = await NotificationService.instance
+          .fetchNotificationsPaginated(page: nextPage, perPage: _perPage);
+      if (!mounted) return;
+      final existingIds = _notifications.map((n) => n.id).toSet();
+      final incoming = res.notifications
+          .where((n) => !existingIds.contains(n.id))
+          .toList();
+      setState(() {
+        _notifications.addAll(incoming);
+        _page = res.currentPage;
+        _hasMore = res.currentPage < res.lastPage;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
     }
   }
 
@@ -170,17 +216,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         );
       case 'recipe_comment':
       case 'comment_received':
-        return (
-          bg: wellGreenLight,
-          icon: wellGreen,
-          dot: wellGreen,
-        );
+        return (bg: wellGreenLight, icon: wellGreen, dot: wellGreen);
       case 'content_reported':
-        return (
-          bg: nestOrangeLight,
-          icon: nestOrange,
-          dot: nestOrange,
-        );
+        return (bg: nestOrangeLight, icon: nestOrange, dot: nestOrange);
       default:
         return (
           bg: const Color(0xFFF0F0F0),
@@ -242,10 +280,15 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 onPressed: _markingRead ? null : _markAllAsRead,
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: Colors.white.withOpacity(0.4)),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
                 child: _markingRead
@@ -271,58 +314,72 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: wellGreen))
           : _notifications.isEmpty
-              ? _buildEmptyState()
-              : FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: RefreshIndicator(
-                    onRefresh: _load,
-                    color: wellGreen,
-                    child: CustomScrollView(
-                      slivers: [
-                        if (unread.isNotEmpty) ...[
-                          _buildSectionHeader('New', unread.length),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (ctx, i) => _NotificationCard(
-                                  notification: unread[i],
-                                  colors: _colorsForType(unread[i].type),
-                                  icon: _iconForType(unread[i].type),
-                                  isUnread: true,
-                                  onTap: () => _onTapNotification(unread[i]),
-                                  formatTime: _formatTime,
-                                  index: i,
-                                ),
-                                childCount: unread.length,
-                              ),
+          ? _buildEmptyState()
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: RefreshIndicator(
+                onRefresh: _load,
+                color: wellGreen,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    if (unread.isNotEmpty) ...[
+                      _buildSectionHeader('New', unread.length),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, i) => _NotificationCard(
+                              notification: unread[i],
+                              colors: _colorsForType(unread[i].type),
+                              icon: _iconForType(unread[i].type),
+                              isUnread: true,
+                              onTap: () => _onTapNotification(unread[i]),
+                              formatTime: _formatTime,
+                              index: i,
+                            ),
+                            childCount: unread.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (read.isNotEmpty) ...[
+                      _buildSectionHeader('Earlier', null),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, i) => _NotificationCard(
+                              notification: read[i],
+                              colors: _colorsForType(read[i].type),
+                              icon: _iconForType(read[i].type),
+                              isUnread: false,
+                              onTap: () => _onTapNotification(read[i]),
+                              formatTime: _formatTime,
+                              index: i,
+                            ),
+                            childCount: read.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (_loadingMore)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                        ],
-                        if (read.isNotEmpty) ...[
-                          _buildSectionHeader('Earlier', null),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (ctx, i) => _NotificationCard(
-                                  notification: read[i],
-                                  colors: _colorsForType(read[i].type),
-                                  icon: _iconForType(read[i].type),
-                                  isUnread: false,
-                                  onTap: () => _onTapNotification(read[i]),
-                                  formatTime: _formatTime,
-                                  index: i,
-                                ),
-                                childCount: read.length,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
@@ -346,7 +403,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                 decoration: BoxDecoration(
-                  color: wellGreen.withOpacity(0.12),
+                  color: wellGreen.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -374,13 +431,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             width: 88,
             height: 88,
             decoration: BoxDecoration(
-              color: wellGreen.withOpacity(0.08),
+              color: wellGreen.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.notifications_none_rounded,
               size: 44,
-              color: wellGreen.withOpacity(0.5),
+              color: wellGreen.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 20),
@@ -459,21 +516,21 @@ class _NotificationCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isUnread
-                    ? const Color(0xFF097333).withOpacity(0.18)
-                    : Colors.grey.withOpacity(0.12),
+                    ? const Color(0xFF097333).withValues(alpha: 0.18)
+                    : Colors.grey.withValues(alpha: 0.12),
                 width: 1,
               ),
               boxShadow: isUnread
                   ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 12,
                         offset: const Offset(0, 3),
                       ),
                     ]
                   : [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withValues(alpha: 0.03),
                         blurRadius: 6,
                         offset: const Offset(0, 1),
                       ),
@@ -503,8 +560,9 @@ class _NotificationCard extends StatelessWidget {
                         notification.message,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight:
-                              isUnread ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight: isUnread
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                           color: isUnread
                               ? const Color(0xFF1A1A1A)
                               : const Color(0xFF555555),

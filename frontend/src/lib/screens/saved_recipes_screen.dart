@@ -22,12 +22,32 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
 
   List<Recipe> _recipes = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
   String? _error;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_loading || _loadingMore || !_hasMore) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 220) {
+      _loadMore();
+    }
   }
 
   Future<void> _load() async {
@@ -35,12 +55,16 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _page = 1;
+      _hasMore = true;
     });
     try {
-      final data = await SavedRecipeService.instance.fetchSavedRecipes();
+      final data = await SavedRecipeService.instance.fetchSavedRecipes(page: 1);
       if (!mounted) return;
       setState(() {
         _recipes = data.recipes;
+        _page = data.currentPage;
+        _hasMore = data.currentPage < data.lastPage;
         _loading = false;
       });
     } catch (e) {
@@ -49,6 +73,31 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final nextPage = _page + 1;
+      final data = await SavedRecipeService.instance.fetchSavedRecipes(
+        page: nextPage,
+      );
+      if (!mounted) return;
+      final existing = _recipes.map((r) => r.id).toSet();
+      final incoming = data.recipes
+          .where((r) => !existing.contains(r.id))
+          .toList();
+      setState(() {
+        _recipes.addAll(incoming);
+        _page = data.currentPage;
+        _hasMore = data.currentPage < data.lastPage;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
     }
   }
 
@@ -65,14 +114,16 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
           ),
           AppSpacing.gapV16,
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
             child: GeorgiaProDisplaySquish(
               child: Text(
                 'Saved Recipes',
-                style: georgiaProTextStyle(
-                  fontSize: 28,
-                  color: wellGreen,
-                ),
+                style: georgiaProTextStyle(fontSize: 28, color: wellGreen),
               ),
             ),
           ),
@@ -84,7 +135,9 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
 
   Widget _buildContent() {
     if (_loading && _recipes.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF097333)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF097333)),
+      );
     }
     if (_error != null && _recipes.isEmpty) {
       return Center(
@@ -130,10 +183,29 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
       onRefresh: _load,
       color: wellGreen,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-        itemCount: _recipes.length,
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 8,
+        ),
+        itemCount: _recipes.length + (_loadingMore ? 1 : 0),
         addRepaintBoundaries: true,
         itemBuilder: (context, index) {
+          if (_loadingMore && index == _recipes.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: wellGreen,
+                  ),
+                ),
+              ),
+            );
+          }
           final recipe = _recipes[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -181,7 +253,9 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
               child: SizedBox(
                 width: 90,
                 height: 90,
-                child: recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty
+                child:
+                    recipe.displayImageUrl != null &&
+                        recipe.displayImageUrl!.isNotEmpty
                     ? Image.network(
                         recipe.displayImageUrl!,
                         fit: BoxFit.cover,
@@ -194,22 +268,31 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                             child: Center(
                               child: CircularProgressIndicator(
                                 color: wellGreen,
-                                value: loadingProgress.expectedTotalBytes != null
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
                                     ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
+                                          loadingProgress.expectedTotalBytes!
                                     : null,
                               ),
                             ),
                           );
                         },
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (context, error, stackTrace) => Container(
                           color: AppColors.imagePlaceholderGreen,
-                          child: Icon(Icons.restaurant_menu, size: 40, color: wellGreen),
+                          child: Icon(
+                            Icons.restaurant_menu,
+                            size: 40,
+                            color: wellGreen,
+                          ),
                         ),
                       )
                     : Container(
                         color: AppColors.imagePlaceholderGreen,
-                        child: Icon(Icons.restaurant_menu, size: 40, color: wellGreen),
+                        child: Icon(
+                          Icons.restaurant_menu,
+                          size: 40,
+                          color: wellGreen,
+                        ),
                       ),
               ),
             ),
@@ -261,11 +344,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
                 ),
               ),
             ),
-            Icon(
-              Icons.favorite,
-              color: nestOrange,
-              size: 24,
-            ),
+            Icon(Icons.favorite, color: nestOrange, size: 24),
           ],
         ),
       ),

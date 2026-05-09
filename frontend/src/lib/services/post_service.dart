@@ -44,11 +44,14 @@ class PostComment {
       userName: name,
       createdAt: json['created_at'] as String? ?? '',
       imageUrl: _normalizeImageUrl(json['image_url'] as String?),
-      profilePhotoUrl: _normalizeImageUrl(user?['profile_photo_url'] as String?),
+      profilePhotoUrl: _normalizeImageUrl(
+        user?['profile_photo_url'] as String?,
+      ),
     );
   }
 
-  String? get displayProfilePhotoUrl => resolveStorageDisplayUrl(profilePhotoUrl);
+  String? get displayProfilePhotoUrl =>
+      resolveStorageDisplayUrl(profilePhotoUrl);
 }
 
 class PostService {
@@ -59,32 +62,69 @@ class PostService {
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AuthService.instance.authHeaders,
+  };
 
-  Future<List<PostComment>> fetchComments(int postId) async {
+  Future<PostCommentsResponse> fetchCommentsPaginated(
+    int postId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
     try {
+      final uri = Uri.parse(
+        '$_baseUrl/posts/$postId/comments',
+      ).replace(queryParameters: {'page': '$page', 'per_page': '$perPage'});
       final response = await http
-          .get(
-            Uri.parse('$_baseUrl/posts/$postId/comments'),
-            headers: _headers,
-          )
+          .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 15));
 
-      if (response.statusCode != 200) return [];
+      if (response.statusCode != 200) {
+        return PostCommentsResponse(
+          comments: const [],
+          currentPage: page,
+          lastPage: page,
+          total: 0,
+          perPage: perPage,
+        );
+      }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final list = (data['comments'] as List<dynamic>?) ?? [];
-      return list.map((e) => PostComment.fromJson(e as Map<String, dynamic>)).toList();
+      final paged = data['data'] as List<dynamic>?;
+      final legacy = data['comments'] as List<dynamic>?;
+      final list = paged ?? legacy ?? <dynamic>[];
+      return PostCommentsResponse(
+        comments: list
+            .map((e) => PostComment.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        currentPage: (data['current_page'] as num?)?.toInt() ?? page,
+        lastPage: (data['last_page'] as num?)?.toInt() ?? page,
+        total: (data['total'] as num?)?.toInt() ?? list.length,
+        perPage: (data['per_page'] as num?)?.toInt() ?? perPage,
+      );
     } catch (_) {
       // Network/CORS/timeout errors should not crash the feed UI.
-      return [];
+      return PostCommentsResponse(
+        comments: const [],
+        currentPage: page,
+        lastPage: page,
+        total: 0,
+        perPage: perPage,
+      );
     }
   }
 
+  Future<List<PostComment>> fetchComments(int postId) async {
+    final res = await fetchCommentsPaginated(postId);
+    return res.comments;
+  }
+
   /// Add a comment with optional image attachment.
-  Future<PostComment?> addComment(int postId, String comment, {XFile? image}) async {
+  Future<PostComment?> addComment(
+    int postId,
+    String comment, {
+    XFile? image,
+  }) async {
     // Use multipart so we can attach an image
     final request = http.MultipartRequest(
       'POST',
@@ -102,11 +142,9 @@ class PostService {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final filename = image.name.isNotEmpty ? image.name : 'image.jpg';
-      request.files.add(http.MultipartFile.fromBytes(
-        'image',
-        bytes,
-        filename: filename,
-      ));
+      request.files.add(
+        http.MultipartFile.fromBytes('image', bytes, filename: filename),
+      );
     }
 
     final streamed = await request.send();
@@ -130,4 +168,20 @@ class PostService {
     if (c == null) return null;
     return PostComment.fromJson(c);
   }
+}
+
+class PostCommentsResponse {
+  final List<PostComment> comments;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+  final int perPage;
+
+  const PostCommentsResponse({
+    required this.comments,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+    required this.perPage,
+  });
 }
