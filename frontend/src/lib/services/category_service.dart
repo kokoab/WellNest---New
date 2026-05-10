@@ -5,7 +5,7 @@ import '../models/category.dart';
 import 'auth_service.dart';
 import 'admin_auth_service.dart';
 
-/// API calls for categories. GET uses auth; create/update/delete require admin.
+/// API calls for categories. GET uses auth; admin create/update/delete require admin.
 class CategoryService {
   CategoryService._();
   static final CategoryService _instance = CategoryService._();
@@ -17,8 +17,8 @@ class CategoryService {
     final auth = admin
         ? AdminAuthService.instance.authHeaders
         : (AuthService.instance.authHeaders.isNotEmpty
-            ? AuthService.instance.authHeaders
-            : AdminAuthService.instance.authHeaders);
+              ? AuthService.instance.authHeaders
+              : AdminAuthService.instance.authHeaders);
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -34,7 +34,9 @@ class CategoryService {
     );
     if (response.statusCode == 200) {
       final list = jsonDecode(response.body) as List<dynamic>;
-      return list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => Category.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     _throwFromResponse(response);
   }
@@ -46,7 +48,9 @@ class CategoryService {
       headers: _headers(admin: admin),
     );
     if (response.statusCode == 200) {
-      return Category.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      return Category.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     _throwFromResponse(response);
   }
@@ -56,23 +60,56 @@ class CategoryService {
     final response = await http.post(
       Uri.parse('$_baseUrl/categories'),
       headers: _headers(admin: true),
-      body: jsonEncode({'name': name.trim(), 'description': description.trim()}),
+      body: jsonEncode({
+        'name': name.trim(),
+        'description': description.trim(),
+      }),
     );
     if (response.statusCode == 201) {
-      return Category.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      return Category.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    _throwFromResponse(response);
+  }
+
+  /// POST /api/categories/for-recipe — regular authenticated users can create
+  /// recipe categories while authoring a recipe.
+  Future<Category> findOrCreateForRecipe(String name) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/categories/for-recipe'),
+      headers: _headers(admin: false),
+      body: jsonEncode({
+        'name': name.trim(),
+        'description': 'User-created recipe category.',
+      }),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Category.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     _throwFromResponse(response);
   }
 
   /// PUT /api/categories/{id} — admin only
-  Future<Category> updateCategory(int id, String name, String description) async {
+  Future<Category> updateCategory(
+    int id,
+    String name,
+    String description,
+  ) async {
     final response = await http.put(
       Uri.parse('$_baseUrl/categories/$id'),
       headers: _headers(admin: true),
-      body: jsonEncode({'name': name.trim(), 'description': description.trim()}),
+      body: jsonEncode({
+        'name': name.trim(),
+        'description': description.trim(),
+      }),
     );
     if (response.statusCode == 200) {
-      return Category.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      return Category.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     _throwFromResponse(response);
   }

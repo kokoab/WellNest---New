@@ -5,8 +5,15 @@ import 'package:my_app/models/category.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/category_service.dart';
 import 'package:my_app/services/recipe_service.dart';
+import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/utils/media_url.dart';
+
+/// Selected row in category dropdown — same wash as [RecipeRankingScreen] filters.
+Color _recipeCategoryDropdownSelectedWash() => Color.alphaBlend(
+  kPrimaryGreen.withValues(alpha: 0.12),
+  Colors.grey.shade100,
+);
 
 /// Recipe wizard uses a white canvas and subtle gray bordered fields (not app cream/warm surface).
 const Color _recipeFormSurface = Colors.white;
@@ -27,12 +34,16 @@ class RecipeFormScreen extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             height: MediaQuery.of(ctx).size.height * 0.92,
             decoration: BoxDecoration(
               gradient: AppGradients.discoverHeroFadeTo(_recipeFormSurface),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: RecipeFormScreen(recipe: recipe, asModal: true),
@@ -49,15 +60,18 @@ class RecipeFormScreen extends StatefulWidget {
 class _RecipeFormScreenState extends State<RecipeFormScreen> {
   static const int _kWizardSteps = 4;
   static const int _kMaxRecipeImages = 10;
+  static const int _kMakeNewCategoryValue = -1;
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _prepTimeController = TextEditingController(text: '30');
+  final _newCategoryController = TextEditingController();
 
   int _wizardIndex = 0;
   final List<TextEditingController> _ingredientControllers = [];
   List<Category> _categories = [];
   int? _selectedCategoryId;
+  bool _useCustomCategory = false;
   PrepTimingMode _timingMode = PrepTimingMode.overall;
 
   List<_DraftStep> _draftSteps = [];
@@ -90,7 +104,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       filled: true,
       fillColor: _recipeFormFieldFill,
       isDense: dense,
-      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: dense ? 10 : 14),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: dense ? 10 : 14,
+      ),
       border: OutlineInputBorder(borderRadius: radius, borderSide: side),
       enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: side),
       focusedBorder: OutlineInputBorder(
@@ -99,6 +116,106 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       ),
     );
   }
+
+  InputDecoration _categoryDropdownDecoration(BuildContext context) {
+    return InputDecoration(
+      labelText: 'Category',
+      hintText: _loadingCategories
+          ? 'Loading categories...'
+          : 'Select a category',
+      hintStyle: helveticaNow(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: kCaptionGray,
+      ),
+      labelStyle: helveticaNow(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: kCaptionGray,
+      ),
+      floatingLabelStyle: helveticaNow(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryGreen,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        borderSide: BorderSide(color: wellnestOutlineColor(context)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        borderSide: BorderSide(color: wellnestOutlineColor(context)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
+  /// Softer surfaces + no primary tint on popup menus — matches [RecipeRankingScreen].
+  ThemeData _categoryDropdownTheme(BuildContext context) {
+    final base = Theme.of(context);
+    final outline = wellnestOutlineColor(context);
+    final menuShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadii.sm),
+      side: BorderSide(color: outline),
+    );
+    final wash = _recipeCategoryDropdownSelectedWash();
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        primary: wash,
+        onPrimary: kBodyTextDark,
+        primaryContainer: wash,
+        onPrimaryContainer: kBodyTextDark,
+      ),
+      focusColor: wash,
+      splashColor: AppColors.primaryGreen.withValues(alpha: 0.08),
+      highlightColor: wash,
+      canvasColor: Colors.white,
+      popupMenuTheme: PopupMenuThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        shape: menuShape,
+        textStyle: helveticaNow(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: kBodyTextDark,
+        ),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(Colors.white),
+          surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
+          elevation: WidgetStateProperty.all(6),
+          shadowColor: WidgetStateProperty.all(
+            Colors.black.withValues(alpha: 0.08),
+          ),
+          shape: WidgetStateProperty.all(menuShape),
+          padding: WidgetStateProperty.all(
+            const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          ),
+        ),
+      ),
+    );
+  }
+
+  TextStyle get _categoryDropdownValueStyle => helveticaNow(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: kPrimaryGreen,
+  );
+
+  TextStyle get _categoryDropdownMenuItemStyle => helveticaNow(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: kBodyTextDark,
+  );
 
   @override
   void initState() {
@@ -116,6 +233,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _prepTimeController.dispose();
+    _newCategoryController.dispose();
     for (final c in _ingredientControllers) {
       c.dispose();
     }
@@ -142,6 +260,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       _descriptionController.text = full.description ?? '';
       _prepTimeController.text = '${full.prepTime > 0 ? full.prepTime : 30}';
       _selectedCategoryId = full.categoryId;
+      _useCustomCategory = false;
+      _newCategoryController.clear();
       _timingMode = full.prepTimingMode;
 
       for (final c in _ingredientControllers) {
@@ -150,7 +270,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       _ingredientControllers.clear();
       if (full.ingredients != null && full.ingredients!.isNotEmpty) {
         for (final i in full.ingredients!) {
-          _ingredientControllers.add(TextEditingController(text: i.displayLine));
+          _ingredientControllers.add(
+            TextEditingController(text: i.displayLine),
+          );
         }
       }
       if (_ingredientControllers.isEmpty) {
@@ -207,9 +329,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       if (!mounted) return;
       setState(() {
         _categories = list;
-        if (!_isEditing) {
-          _selectedCategoryId ??= list.isNotEmpty ? list.first.id : null;
-        }
+        // New recipes: require an explicit choice — no default category.
         _loadingCategories = false;
       });
     } catch (e) {
@@ -241,7 +361,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
   bool _validateBasics() {
     if ((_titleController.text.trim()).isEmpty) return false;
-    if (_selectedCategoryId == null) return false;
+    if (_useCustomCategory) {
+      if (_newCategoryController.text.trim().isEmpty) return false;
+    } else if (_selectedCategoryId == null) {
+      return false;
+    }
     if (_timingMode == PrepTimingMode.overall) {
       final n = int.tryParse(_prepTimeController.text.trim());
       if (n == null || n < 1) return false;
@@ -249,9 +373,79 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     return true;
   }
 
+  Future<int> _resolveCategoryId() async {
+    if (!_useCustomCategory) {
+      final id = _selectedCategoryId;
+      if (id == null) throw Exception('Select a category.');
+      return id;
+    }
+
+    final category = await CategoryService.instance.findOrCreateForRecipe(
+      _newCategoryController.text.trim(),
+    );
+    if (mounted) {
+      setState(() {
+        if (!_categories.any((c) => c.id == category.id)) {
+          _categories = [..._categories, category]
+            ..sort((a, b) => a.name.compareTo(b.name));
+        }
+        _selectedCategoryId = category.id;
+      });
+    }
+    return category.id;
+  }
+
+  List<Category> _categorySuggestions() {
+    final typed = _newCategoryController.text.trim();
+    if (typed.length < 2) return const [];
+
+    final typedLower = typed.toLowerCase();
+    final maxDistance = typedLower.length <= 5 ? 1 : 2;
+    final matches = _categories.where((category) {
+      final name = category.name.trim();
+      if (name == typed) return false;
+
+      final nameLower = name.toLowerCase();
+      if (nameLower == typedLower) return true;
+      if (nameLower.startsWith(typedLower) ||
+          typedLower.startsWith(nameLower)) {
+        return true;
+      }
+      return _levenshteinDistance(typedLower, nameLower) <= maxDistance;
+    }).toList();
+
+    matches.sort((a, b) {
+      final da = _levenshteinDistance(typedLower, a.name.toLowerCase());
+      final db = _levenshteinDistance(typedLower, b.name.toLowerCase());
+      if (da != db) return da.compareTo(db);
+      return a.name.compareTo(b.name);
+    });
+    return matches.take(3).toList();
+  }
+
+  int _levenshteinDistance(String a, String b) {
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+
+    var previous = List<int>.generate(b.length + 1, (i) => i);
+    for (var i = 0; i < a.length; i++) {
+      final current = <int>[i + 1];
+      for (var j = 0; j < b.length; j++) {
+        final insert = current[j] + 1;
+        final delete = previous[j + 1] + 1;
+        final replace = previous[j] + (a[i] == b[j] ? 0 : 1);
+        current.add([insert, delete, replace].reduce((x, y) => x < y ? x : y));
+      }
+      previous = current;
+    }
+    return previous.last;
+  }
+
   bool _validateIngredients() {
-    final filled =
-        _ingredientControllers.where((c) => c.text.trim().isNotEmpty).length;
+    final filled = _ingredientControllers
+        .where((c) => c.text.trim().isNotEmpty)
+        .length;
     return filled >= 1;
   }
 
@@ -280,9 +474,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       }
     } catch (e) {
       if (mounted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not pick image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not pick image: $e')));
       }
     }
   }
@@ -327,7 +521,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         );
       } catch (e) {
         if (mounted && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$e')));
         }
         return;
       }
@@ -350,7 +546,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     for (var i = 0; i < _draftSteps.length; i++) {
       final local = _draftSteps[i].localImage;
       if (local != null && i < steps.length) {
-        await RecipeService.instance.uploadRecipeStepImage(recipeId, steps[i].id, local);
+        await RecipeService.instance.uploadRecipeStepImage(
+          recipeId,
+          steps[i].id,
+          local,
+        );
       }
     }
   }
@@ -361,11 +561,6 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       setState(() => _submitError = 'Please complete all required fields.');
       return;
     }
-    if (_selectedCategoryId == null) {
-      setState(() => _submitError = 'Select a category.');
-      return;
-    }
-
     final ingredients = _ingredientControllers
         .map((c) => c.text.trim())
         .where((line) => line.isNotEmpty)
@@ -377,12 +572,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
     setState(() => _saving = true);
     try {
+      final categoryId = await _resolveCategoryId();
       int recipeId;
       if (_isEditing) {
         recipeId = widget.recipe!.id;
         await RecipeService.instance.updateRecipe(
           recipeId,
-          categoryId: _selectedCategoryId!,
+          categoryId: categoryId,
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           prepTime: _timingMode == PrepTimingMode.overall ? prep : null,
@@ -395,7 +591,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           if (slot.serverId != null) {
             ids.add(slot.serverId!);
           } else if (slot.file != null) {
-            final nid = await RecipeService.instance.uploadRecipeImage(recipeId, slot.file!);
+            final nid = await RecipeService.instance.uploadRecipeImage(
+              recipeId,
+              slot.file!,
+            );
             ids.add(nid);
           }
         }
@@ -405,7 +604,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         await _syncStepPhotosAfterSave(recipeId);
       } else {
         recipeId = await RecipeService.instance.createRecipe(
-          categoryId: _selectedCategoryId!,
+          categoryId: categoryId,
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           prepTime: _timingMode == PrepTimingMode.overall ? prep : null,
@@ -416,7 +615,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         final ids = <int>[];
         for (final slot in _imageSlots) {
           if (slot.file != null) {
-            final nid = await RecipeService.instance.uploadRecipeImage(recipeId, slot.file!);
+            final nid = await RecipeService.instance.uploadRecipeImage(
+              recipeId,
+              slot.file!,
+            );
             ids.add(nid);
           }
         }
@@ -445,7 +647,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
   void _goNext() {
     if (_wizardIndex == 0 && !_validateBasics()) {
-      setState(() => _submitError = 'Add a title, category, and prep time (if overall).');
+      setState(
+        () =>
+            _submitError = 'Add a title, category, and prep time (if overall).',
+      );
       return;
     }
     if (_wizardIndex == 1 && !_validateIngredients()) {
@@ -453,7 +658,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       return;
     }
     if (_wizardIndex == 2 && !_validateSteps()) {
-      setState(() => _submitError = 'Each step needs a title and/or instructions.');
+      setState(
+        () => _submitError = 'Each step needs a title and/or instructions.',
+      );
       return;
     }
     setState(() {
@@ -469,31 +676,146 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     });
   }
 
+  Widget _buildCategorySelector(BuildContext context) {
+    final selectedDropdownValue = _useCustomCategory
+        ? _kMakeNewCategoryValue
+        : (_categories.any((c) => c.id == _selectedCategoryId)
+              ? _selectedCategoryId
+              : null);
+    final suggestions = _categorySuggestions();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Theme(
+          data: _categoryDropdownTheme(context),
+          child: DropdownButtonFormField<int>(
+            isExpanded: true,
+            value: selectedDropdownValue,
+            decoration: _categoryDropdownDecoration(context),
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadii.sm),
+            style: _categoryDropdownValueStyle,
+            iconEnabledColor: kPrimaryGreen,
+            items: [
+              DropdownMenuItem(
+                value: _kMakeNewCategoryValue,
+                child: Row(
+                  children: [
+                    Icon(Icons.add_rounded, size: 20, color: kBodyTextDark),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Make New category',
+                        style: _categoryDropdownMenuItemStyle,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ..._categories.map(
+                (c) => DropdownMenuItem(
+                  value: c.id,
+                  child: Text(
+                    c.name,
+                    style: _categoryDropdownMenuItemStyle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+            onChanged: _loadingCategories
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() {
+                      if (value == _kMakeNewCategoryValue) {
+                        _useCustomCategory = true;
+                      } else {
+                        _useCustomCategory = false;
+                        _selectedCategoryId = value;
+                      }
+                    });
+                  },
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_useCustomCategory)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _newCategoryController,
+                decoration: _recipeFieldDecoration(
+                  context,
+                  labelText: 'New category',
+                  hintText: 'Example: Breakfast',
+                ),
+                maxLength: 255,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setState(() {}),
+              ),
+              if (suggestions.isNotEmpty) ...[
+                Text(
+                  'Did you mean:',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: suggestions
+                      .map(
+                        (category) => ActionChip(
+                          label: Text(category.name),
+                          onPressed: () {
+                            setState(() {
+                              _selectedCategoryId = category.id;
+                              _useCustomCategory = false;
+                              _newCategoryController.clear();
+                            });
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        if (_useCustomCategory)
+          Text(
+            'Same spelling as an existing category counts as that category (capitalization does not matter).',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildBasicsStep(BuildContext context, ColorScheme cs) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         Text(
           'Basics',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          isExpanded: true,
-          value: _categories.isEmpty
-              ? null
-              : (_categories.any((c) => c.id == _selectedCategoryId) ? _selectedCategoryId : null),
-          decoration: _recipeFieldDecoration(context, labelText: 'Category'),
-          hint: Text(_categories.isEmpty ? 'No categories yet' : 'Select a category'),
-          items: _categories
-              .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis)))
-              .toList(),
-          onChanged: _categories.isEmpty ? null : (v) => setState(() => _selectedCategoryId = v),
-        ),
+        _buildCategorySelector(context),
         const SizedBox(height: 16),
         TextField(
           controller: _titleController,
-          decoration: _recipeFieldDecoration(context, labelText: 'Recipe title'),
+          decoration: _recipeFieldDecoration(
+            context,
+            labelText: 'Recipe title',
+          ),
           maxLength: 255,
           onChanged: (_) => setState(() {}),
         ),
@@ -510,12 +832,25 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         const SizedBox(height: 20),
         _buildCoverPhotosSection(context, cs),
         const SizedBox(height: 16),
-        Text('Prep time', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: cs.onSurfaceVariant)),
+        Text(
+          'Prep time',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
         const SizedBox(height: 8),
         SegmentedButton<PrepTimingMode>(
           segments: const [
-            ButtonSegment(value: PrepTimingMode.overall, label: Text('Overall'), icon: Icon(Icons.schedule)),
-            ButtonSegment(value: PrepTimingMode.perStep, label: Text('Per step'), icon: Icon(Icons.list_alt)),
+            ButtonSegment(
+              value: PrepTimingMode.overall,
+              label: Text('Overall'),
+              icon: Icon(Icons.schedule),
+            ),
+            ButtonSegment(
+              value: PrepTimingMode.perStep,
+              label: Text('Per step'),
+              icon: Icon(Icons.list_alt),
+            ),
           ],
           selected: {_timingMode},
           onSelectionChanged: (s) {
@@ -536,7 +871,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         else
           Text(
             'Enter optional minutes on each step in the next section. Total time is summed automatically.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
       ],
     );
@@ -548,12 +885,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       children: [
         Text(
           'Ingredients',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         Text(
           'One ingredient per line — include amount and unit in the text if you like.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 10),
         ...List.generate(_ingredientControllers.length, (i) {
@@ -576,12 +917,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.remove_circle_outline, color: cs.secondary, size: 22),
+                  icon: Icon(
+                    Icons.remove_circle_outline,
+                    color: cs.secondary,
+                    size: 22,
+                  ),
                   onPressed: _ingredientControllers.length > 1
                       ? () => setState(() {
-                            final removed = _ingredientControllers.removeAt(i);
-                            removed.dispose();
-                          })
+                          final removed = _ingredientControllers.removeAt(i);
+                          removed.dispose();
+                        })
                       : null,
                 ),
               ],
@@ -589,7 +934,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           );
         }),
         TextButton.icon(
-          onPressed: () => setState(() => _ingredientControllers.add(TextEditingController())),
+          onPressed: () => setState(
+            () => _ingredientControllers.add(TextEditingController()),
+          ),
           icon: const Icon(Icons.add, size: 20),
           label: const Text('Add ingredient line'),
         ),
@@ -603,12 +950,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       children: [
         Text(
           'Steps',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Text(
           'Each step needs a title and/or instructions. Instruction text is optional per step.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         ReorderableListView.builder(
@@ -645,7 +996,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                           index: index,
                           child: Padding(
                             padding: const EdgeInsets.only(right: 8),
-                            child: Icon(Icons.drag_handle, color: cs.onSurfaceVariant),
+                            child: Icon(
+                              Icons.drag_handle,
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
                         Text(
@@ -655,7 +1009,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                         const Spacer(),
                         if (_draftSteps.length > 1)
                           IconButton(
-                            icon: Icon(Icons.delete_outline, color: cs.secondary),
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: cs.secondary,
+                            ),
                             onPressed: () => setState(() {
                               s.dispose();
                               _draftSteps.removeAt(index);
@@ -702,10 +1059,17 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       children: [
                         OutlinedButton.icon(
                           onPressed: () => _pickStepPhoto(index),
-                          icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-                          label: Text(s.localImage != null || (s.serverImageUrl != null && !s.removeServerImage)
-                              ? 'Change step photo'
-                              : 'Add step photo (optional)'),
+                          icon: const Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            s.localImage != null ||
+                                    (s.serverImageUrl != null &&
+                                        !s.removeServerImage)
+                                ? 'Change step photo'
+                                : 'Add step photo (optional)',
+                          ),
                         ),
                         TextButton(
                           onPressed: () => setState(() {
@@ -725,7 +1089,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                             future: s.localImage!.readAsBytes(),
                             builder: (context, snap) {
                               if (snap.hasData) {
-                                return Image.memory(snap.data!, height: 100, fit: BoxFit.cover);
+                                return Image.memory(
+                                  snap.data!,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                );
                               }
                               return const SizedBox(height: 40);
                             },
@@ -738,11 +1106,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(AppRadii.sm),
                           child: Image.network(
-                            resolveStorageDisplayUrl(s.serverImageUrl!) ?? s.serverImageUrl!,
+                            resolveStorageDisplayUrl(s.serverImageUrl!) ??
+                                s.serverImageUrl!,
                             height: 100,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox.shrink(),
                           ),
                         ),
                       ),
@@ -772,16 +1142,18 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             Text(
               'Cover photos',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
           'Optional — first photo is the list thumbnail. Drag to reorder.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 10),
         if (_hydratingGallery)
@@ -803,17 +1175,25 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           const SizedBox(height: 8),
         ],
         OutlinedButton.icon(
-          onPressed: (_pickingImage || _imageSlots.length >= _kMaxRecipeImages || _hydratingGallery)
+          onPressed:
+              (_pickingImage ||
+                  _imageSlots.length >= _kMaxRecipeImages ||
+                  _hydratingGallery)
               ? null
               : _pickImages,
           icon: _pickingImage
               ? SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: cs.primary, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: cs.primary,
+                    strokeWidth: 2,
+                  ),
                 )
               : const Icon(Icons.add_photo_alternate_outlined),
-          label: Text(_imageSlots.isEmpty ? 'Add cover photos' : 'Add more photos'),
+          label: Text(
+            _imageSlots.isEmpty ? 'Add cover photos' : 'Add more photos',
+          ),
         ),
       ],
     );
@@ -821,8 +1201,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
   Widget _buildReviewStep(BuildContext context, ColorScheme cs) {
     final summarySteps = _draftSteps.length;
-    final ingCount =
-        _ingredientControllers.where((c) => c.text.trim().isNotEmpty).length;
+    final ingCount = _ingredientControllers
+        .where((c) => c.text.trim().isNotEmpty)
+        .length;
     final prepLabel = _timingMode == PrepTimingMode.overall
         ? '${_prepTimeController.text.trim().isEmpty ? '—' : _prepTimeController.text.trim()} min'
         : 'Per step';
@@ -832,7 +1213,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       children: [
         Text(
           'Review your recipe',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         Container(
@@ -847,17 +1230,21 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _titleController.text.trim().isEmpty ? 'Untitled recipe' : _titleController.text.trim(),
+                _titleController.text.trim().isEmpty
+                    ? 'Untitled recipe'
+                    : _titleController.text.trim(),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: cs.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if (_descriptionController.text.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   _descriptionController.text.trim(),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
                 ),
               ],
             ],
@@ -885,7 +1272,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                     label: ingCount == 1 ? 'Ingredient' : 'Ingredients',
                   ),
                 ),
-                VerticalDivider(width: 1, thickness: 1, color: _recipeFormFieldBorder),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: _recipeFormFieldBorder,
+                ),
                 Expanded(
                   child: _reviewStatSegment(
                     context,
@@ -895,14 +1286,20 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                     label: summarySteps == 1 ? 'Step' : 'Steps',
                   ),
                 ),
-                VerticalDivider(width: 1, thickness: 1, color: _recipeFormFieldBorder),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: _recipeFormFieldBorder,
+                ),
                 Expanded(
                   child: _reviewStatSegment(
                     context,
                     cs,
                     icon: Icons.schedule_rounded,
                     value: prepLabel,
-                    label: _timingMode == PrepTimingMode.overall ? 'Prep time' : 'Timing',
+                    label: _timingMode == PrepTimingMode.overall
+                        ? 'Prep time'
+                        : 'Timing',
                   ),
                 ),
               ],
@@ -917,9 +1314,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             Text(
               'Cover photos',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
             ),
           ],
         ),
@@ -946,12 +1343,18 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
-                Icon(Icons.hide_image_outlined, size: 18, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.hide_image_outlined,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'No cover photos yet — add them in Basics (step 1).',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -965,9 +1368,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             Text(
               'Cooking steps',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
             ),
           ],
         ),
@@ -976,8 +1379,12 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           final s = _draftSteps[i];
           final titleText = s.titleController.text.trim();
           final inst = s.instructionsController.text.trim();
-          final displayTitle = titleText.isNotEmpty ? titleText : 'Step ${i + 1}';
-          final hasThumb = s.localImage != null || (s.serverImageUrl != null && !s.removeServerImage);
+          final displayTitle = titleText.isNotEmpty
+              ? titleText
+              : 'Step ${i + 1}';
+          final hasThumb =
+              s.localImage != null ||
+              (s.serverImageUrl != null && !s.removeServerImage);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -1018,7 +1425,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       children: [
                         Text(
                           displayTitle,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: cs.onSurface,
                               ),
@@ -1029,7 +1437,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                             inst,
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: cs.onSurfaceVariant,
                                   height: 1.4,
                                 ),
@@ -1040,11 +1449,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(Icons.timer_outlined, size: 14, color: cs.onSurfaceVariant),
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 14,
+                                color: cs.onSurfaceVariant,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '${s.prepController.text.trim()} min',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
                                       color: cs.onSurfaceVariant,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1078,18 +1492,25 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                                     child: SizedBox(
                                       width: 18,
                                       height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: cs.primary,
+                                      ),
                                     ),
                                   ),
                                 );
                               },
                             )
                           : Image.network(
-                              resolveStorageDisplayUrl(s.serverImageUrl!) ?? s.serverImageUrl!,
+                              resolveStorageDisplayUrl(s.serverImageUrl!) ??
+                                  s.serverImageUrl!,
                               width: 56,
                               height: 56,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.image_not_supported_outlined, color: cs.outline),
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.image_not_supported_outlined,
+                                color: cs.outline,
+                              ),
                             ),
                     ),
                   ],
@@ -1101,7 +1522,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         const SizedBox(height: 8),
         Text(
           'Tap Create recipe when everything looks good. You can edit the recipe later.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
       ],
     );
@@ -1115,9 +1538,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     required String label,
   }) {
     final valueStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w800,
-          color: cs.onSurface,
-        );
+      fontWeight: FontWeight.w800,
+      color: cs.onSurface,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -1134,11 +1557,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                 children: [
                   Icon(icon, size: 20, color: cs.primary),
                   const SizedBox(width: 6),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    style: valueStyle,
-                  ),
+                  Text(value, maxLines: 1, style: valueStyle),
                 ],
               ),
             ),
@@ -1152,9 +1571,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               textAlign: TextAlign.center,
               maxLines: 1,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -1180,7 +1599,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       if (snap.hasData) {
                         return Image.memory(snap.data!, fit: BoxFit.cover);
                       }
-                      return ColoredBox(color: colorScheme.surfaceContainerHighest);
+                      return ColoredBox(
+                        color: colorScheme.surfaceContainerHighest,
+                      );
                     },
                   )
                 : Image.network(
@@ -1188,7 +1609,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => ColoredBox(
                       color: colorScheme.surfaceContainerHighest,
-                      child: Icon(Icons.broken_image_outlined, color: colorScheme.outline),
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ),
           ),
@@ -1204,7 +1628,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                 ),
                 child: const Text(
                   'Cover',
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -1231,7 +1659,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               future: slot.file!.readAsBytes(),
               builder: (context, snap) {
                 if (snap.hasData) {
-                  return Image.memory(snap.data!, fit: BoxFit.cover, width: double.infinity);
+                  return Image.memory(
+                    snap.data!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  );
                 }
                 return Container(color: colorScheme.surfaceContainerHighest);
               },
@@ -1269,7 +1701,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('Cover', style: TextStyle(color: Colors.white, fontSize: 12)),
+                child: const Text(
+                  'Cover',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
               ),
             ),
         ],
@@ -1308,8 +1743,8 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     }
 
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Column(
@@ -1326,7 +1761,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                     IconButton(
                       onPressed: () => Navigator.pop(context, false),
                       icon: Icon(Icons.close, color: cs.onSurfaceVariant),
-                      style: IconButton.styleFrom(backgroundColor: cs.surfaceContainerHighest),
+                      style: IconButton.styleFrom(
+                        backgroundColor: cs.surfaceContainerHighest,
+                      ),
                     ),
                 ],
               ),
@@ -1338,7 +1775,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               const SizedBox(height: 4),
               Text(
                 'Step ${_wizardIndex + 1} of $_kWizardSteps',
-                style: theme.textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -1384,7 +1823,12 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            16 + MediaQuery.of(context).padding.bottom,
+          ),
           child: Row(
             children: [
               if (_wizardIndex > 0)
@@ -1405,14 +1849,17 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : Text(_isEditing ? 'Save recipe' : 'Create recipe'),
                 ),
             ],
           ),
         ),
-        ],
+      ],
     );
   }
 
@@ -1424,8 +1871,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       return _buildShell();
     }
 
-    final topOverlap =
-        MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final topOverlap = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1445,7 +1891,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         ),
       ),
       body: DecoratedBox(
-        decoration: BoxDecoration(gradient: AppGradients.discoverHeroFadeTo(_recipeFormSurface)),
+        decoration: BoxDecoration(
+          gradient: AppGradients.discoverHeroFadeTo(_recipeFormSurface),
+        ),
         child: SafeArea(
           top: false,
           bottom: true,
@@ -1460,12 +1908,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 }
 
 class _DraftStep {
-  _DraftStep({
-    this.serverId,
-    int? serverImageId,
-    String? serverImageUrl,
-  })  : serverImageId = serverImageId,
-        serverImageUrl = serverImageUrl;
+  _DraftStep({this.serverId, int? serverImageId, String? serverImageUrl})
+    : serverImageId = serverImageId,
+      serverImageUrl = serverImageUrl;
 
   final int? serverId;
   final TextEditingController titleController = TextEditingController();
@@ -1485,7 +1930,8 @@ class _DraftStep {
 }
 
 class _RecipeImgSlot {
-  _RecipeImgSlot.network({required this.serverId, required this.url}) : file = null;
+  _RecipeImgSlot.network({required this.serverId, required this.url})
+    : file = null;
 
   _RecipeImgSlot.local(this.file) : serverId = null, url = null;
 

@@ -64,6 +64,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('logout-admin', [AdminAuthController::class, 'logout']);
 
+    Route::post('categories/for-recipe', [CategoryController::class, 'findOrCreateForRecipe']);
+
     Route::post('recipes', [RecipeController::class, 'create']);
     Route::put('recipes/{recipe}', [RecipeController::class, 'update']);
     Route::delete('recipes/{recipe}', [RecipeController::class, 'delete']);

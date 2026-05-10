@@ -281,4 +281,24 @@ class CategoryTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_find_or_create_for_recipe_matches_existing_category_case_insensitively(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $existing = $this->createCategory([
+            'name' => 'Vegan',
+            'description' => 'Plant-based',
+        ]);
+
+        $response = $this->postJson('/api/categories/for-recipe', [
+            'name' => 'vegan',
+            'description' => 'User-created recipe category.',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('id', $existing->id)
+            ->assertJsonPath('name', 'Vegan');
+    }
 }
