@@ -89,7 +89,7 @@ class RecipeSeeder extends Seeder
                 $this->stampRecipeCreatedAt($recipe);
                 $this->syncRecipeIngredients($recipe, $categoryName, $row['title'], $ingredientPools);
                 $this->ensureRecipeSeedImages($recipe, $templates, $remoteUrls, $index, $categoryName);
-                $this->seedRecipeSteps($recipe, $stepTemplates, $stepImagePaths, $stepImageCount, $index);
+                $this->seedRecipeSteps($recipe, $categoryName, $stepTemplates, $stepImagePaths, $stepImageCount, $index);
 
                 $index++;
             }
@@ -109,34 +109,50 @@ class RecipeSeeder extends Seeder
             $this->stampRecipeCreatedAt($recipe);
         }
 
-        // Backfill step images for any RecipeStep rows missing one.
-        if ($stepImageCount > 0) {
-            $stepsWithoutImages = RecipeStep::whereDoesntHave('images')->get();
-            foreach ($stepsWithoutImages as $idx => $step) {
+        // Backfill step images for any RecipeStep rows missing one. Prefers the
+        // global step pool if available, otherwise reuses the recipe's own cover
+        // image so each step still has a meaningful photo.
+        $stepsWithoutImages = RecipeStep::with('recipe.category')->whereDoesntHave('images')->get();
+        $backfilled = 0;
+        foreach ($stepsWithoutImages as $idx => $step) {
+            $imgPath = null;
+            if ($stepImageCount > 0) {
                 $imgPath = $stepImagePaths[$idx % $stepImageCount];
-                $this->attachStepImage($step, $imgPath);
+            } elseif ($step->recipe !== null) {
+                $imgPath = $this->resolveRecipeFallbackImagePath(
+                    $step->recipe->title,
+                    $step->recipe->category?->name ?? ''
+                );
             }
-            if ($stepsWithoutImages->isNotEmpty()) {
-                $this->command->info('Attached images to '.$stepsWithoutImages->count().' steps.');
+            if ($imgPath !== null && $this->attachStepImage($step, $imgPath)) {
+                $backfilled++;
             }
+        }
+        if ($backfilled > 0) {
+            $this->command->info("Attached images to {$backfilled} steps.");
         }
     }
 
     /**
      * Create the four generic RecipeStep rows for a recipe (idempotent) and
-     * attach a step image to each from the pool, cycling deterministically by
-     * the recipe's global index so re-seeds stay stable.
+     * attach a step image to each. Prefers the global step image pool (cycled
+     * deterministically by the recipe's global index for stable re-seeds);
+     * otherwise falls back to the recipe's own cover image so every step
+     * still gets a meaningful photo.
      *
      * @param  list<array{title: string, instructions: string, prep_time_minutes: int}>  $stepTemplates
      * @param  list<string>  $stepImagePaths
      */
-    private function seedRecipeSteps(Recipe $recipe, array $stepTemplates, array $stepImagePaths, int $stepImageCount, int $globalIndex): void
+    private function seedRecipeSteps(Recipe $recipe, string $categoryName, array $stepTemplates, array $stepImagePaths, int $stepImageCount, int $globalIndex): void
     {
         if ($recipe->steps()->exists()) {
             return;
         }
 
         $stepCount = count($stepTemplates);
+        $recipeFallback = $stepImageCount === 0
+            ? $this->resolveRecipeFallbackImagePath($recipe->title, $categoryName)
+            : null;
 
         foreach ($stepTemplates as $sortOrder => $stepData) {
             $step = RecipeStep::create([
@@ -147,11 +163,40 @@ class RecipeSeeder extends Seeder
                 'prep_time_minutes' => $stepData['prep_time_minutes'],
             ]);
 
+            $imgPath = null;
             if ($stepImageCount > 0) {
                 $imgPath = $stepImagePaths[($globalIndex * $stepCount + $sortOrder) % $stepImageCount];
+            } elseif ($recipeFallback !== null) {
+                $imgPath = $recipeFallback;
+            }
+            if ($imgPath !== null) {
                 $this->attachStepImage($step, $imgPath);
             }
         }
+    }
+
+    /**
+     * Best-effort: returns the same image path the recipe gallery seeder would
+     * use as the cover (per-recipe override -> bundled lane image). Used to
+     * give every step a meaningful photo when no dedicated step image pool is
+     * available under storage/app/public/steps.
+     */
+    private function resolveRecipeFallbackImagePath(string $title, string $categoryName): ?string
+    {
+        $override = $this->perRecipeOverridePath($title);
+        if ($override !== null) {
+            return $override;
+        }
+
+        $basenames = $this->recipeSeedImageBasenames($title, $categoryName);
+        foreach ($basenames as $basename) {
+            $path = $this->bundledRecipeImagePath($basename);
+            if ($path !== null) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -572,16 +617,17 @@ class RecipeSeeder extends Seeder
 
     /**
      * Copy a step image from $srcPath into seeded storage and link it to the step.
+     * Returns true if an image was actually attached, false otherwise.
      */
-    private function attachStepImage(RecipeStep $step, string $srcPath): void
+    private function attachStepImage(RecipeStep $step, string $srcPath): bool
     {
         if ($step->images()->exists()) {
-            return;
+            return false;
         }
 
         $bytes = @file_get_contents($srcPath);
         if ($bytes === false || $bytes === '') {
-            return;
+            return false;
         }
 
         $ext = $this->guessImageExtension($srcPath);
@@ -592,6 +638,8 @@ class RecipeSeeder extends Seeder
             'path' => $dest,
             'sort_order' => 0,
         ]);
+
+        return true;
     }
 
     private function guessImageExtension(string $sourceHint): string
