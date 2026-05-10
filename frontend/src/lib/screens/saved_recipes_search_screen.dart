@@ -269,7 +269,7 @@ class _SavedRecipesSearchScreenState extends State<SavedRecipesSearchScreen> {
               sliver: SliverToBoxAdapter(
                 child: Text(
                   'Popular in your saves',
-                  style: wellnestPageTitleStyle(color: wellGreen).copyWith(
+                  style: wellnestPageTitleStyleFor(context).copyWith(
                     fontSize: 18,
                   ),
                 ),
@@ -286,7 +286,7 @@ class _SavedRecipesSearchScreenState extends State<SavedRecipesSearchScreen> {
               sliver: SliverToBoxAdapter(
                 child: Text(
                   'Recent searches',
-                  style: wellnestPageTitleStyle(color: wellGreen).copyWith(
+                  style: wellnestPageTitleStyleFor(context).copyWith(
                     fontSize: 18,
                   ),
                 ),

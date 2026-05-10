@@ -19,8 +19,10 @@ class WellnestDiscoverHero extends StatefulWidget {
 class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
     with WidgetsBindingObserver {
   static const double _avatarRadius = 24;
-  static final Color _avatarBorderColor =
-      const Color(0xFFC5C5C5).withValues(alpha: 0.95);
+  Color _avatarBorderColor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.light
+          ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.22);
 
   CurrentUser? _user;
   bool _loadingUser = true;
@@ -87,34 +89,23 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarBrightness: Brightness.light,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness:
+            isLight ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: theme.scaffoldBackgroundColor,
+        systemNavigationBarIconBrightness:
+            isLight ? Brightness.dark : Brightness.light,
       ),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.heroPaleGreen,
-              AppColors.heroPaleGreen,
-              Color.lerp(
-                    AppColors.heroPaleGreen,
-                    AppColors.backgroundCream,
-                    0.42,
-                  ) ??
-                  AppColors.backgroundCream,
-              AppColors.backgroundCream,
-            ],
-            stops: const [0.0, 0.42, 0.76, 1.0],
-          ),
+          gradient: AppGradients.discoverHeroFor(context),
           borderRadius: const BorderRadius.vertical(
             bottom: Radius.circular(32),
           ),
@@ -160,7 +151,7 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 height: 1.5,
-                                color: kCaptionGray,
+                                color: wellnestCaptionColor(context),
                               ),
                             ),
                           ],
@@ -185,7 +176,7 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
     if (_loadingUser) {
       inner = CircleAvatar(
         radius: _avatarRadius,
-        backgroundColor: Colors.white.withValues(alpha: 0.65),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
         child: const SizedBox(
           width: 22,
           height: 22,
@@ -199,7 +190,9 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
       final photoUrl = _user?.displayProfilePhotoUrl;
       inner = CircleAvatar(
         radius: _avatarRadius,
-        backgroundColor: const Color(0xFFFFEECC),
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? const Color(0xFFFFEECC)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         child: photoUrl != null && photoUrl.isNotEmpty
             ? ClipOval(
                 child: Image.network(
@@ -233,20 +226,21 @@ class _WellnestDiscoverHeroState extends State<WellnestDiscoverHero>
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: _avatarBorderColor, width: 1),
+        border: Border.all(color: _avatarBorderColor(context), width: 1),
       ),
       child: inner,
     );
   }
 
   Widget _initialsAvatar() {
+    final cs = Theme.of(context).colorScheme;
     return Text(
       _user == null ? '?' : _initials(),
-      style: const TextStyle(
+      style: TextStyle(
         fontFamily: kFontAppFamily,
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: AppColors.primaryGreen,
+        color: cs.primary,
       ),
     );
   }

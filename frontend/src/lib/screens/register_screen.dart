@@ -29,24 +29,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color wellGreen = kPrimaryGreen;
-    const Color nestOrange = kAccentOrange;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labelColor = wellnestHeadingGreen(context);
 
     return Scaffold(
-      backgroundColor: kBackgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          "Register",
-          style: TextStyle(fontSize: 16, color: kPrimaryGreen),
+        title: Text(
+          'Register',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            color: labelColor,
+          ),
         ),
-        backgroundColor: kBackgroundCream,
+        backgroundColor: cs.surface,
         elevation: 0,
-        foregroundColor: kPrimaryGreen,
+        foregroundColor: cs.onSurface,
+        surfaceTintColor: Colors.transparent,
         leading: Semantics(
           button: true,
           label: 'Back to login',
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
+            icon: Icon(Icons.arrow_back, color: labelColor),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -75,7 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Create Account',
                   style: georgiaProTextStyle(
                     fontSize: 32,
-                    color: kPrimaryGreen,
+                    color: labelColor,
                   ),
                 ),
               ),
@@ -86,16 +91,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildField("Fullname:", controller: _fullNameController),
+                    _buildField(
+                      context,
+                      'Fullname:',
+                      controller: _fullNameController,
+                    ),
                     AppSpacing.gapV16,
                     _buildField(
-                      "Email:",
+                      context,
+                      'Email:',
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                     ),
                     AppSpacing.gapV16,
                     _buildField(
-                      "Password:",
+                      context,
+                      'Password:',
                       controller: _passwordController,
                       obscureText: true,
                     ),
@@ -105,15 +116,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: _buildTermsAgreementRow(context, wellGreen),
+                child: _buildTermsAgreementRow(context, labelColor),
               ),
               AppSpacing.gapV24,
               // Sign-up Button
               SizedBox(
                 width: double.infinity,
                 child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: kPrimaryGreen),
+                    ? Center(
+                        child: CircularProgressIndicator(color: cs.primary),
                       )
                     : ElevatedButton(
                         onPressed: !_agreedToTerms
@@ -164,10 +175,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 );
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: nestOrange,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey.shade300,
-                          disabledForegroundColor: Colors.grey.shade600,
+                          backgroundColor: cs.secondary,
+                          foregroundColor: cs.onSecondary,
+                          disabledBackgroundColor:
+                              cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                          disabledForegroundColor: cs.onSurfaceVariant,
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -187,9 +199,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "Already have an account? ",
+                    'Already have an account? ',
                     style: TextStyle(
-                      color: wellGreen,
+                      color: wellnestCaptionColor(context),
                       fontFamily: 'HelveticaNow',
                     ),
                   ),
@@ -197,9 +209,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onTap: () =>
                         Navigator.pushReplacementNamed(context, '/login'),
                     child: Text(
-                      "Login",
+                      'Login',
                       style: TextStyle(
-                        color: wellGreen,
+                        color: labelColor,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'HelveticaNow',
                       ),
@@ -215,9 +227,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTermsAgreementRow(BuildContext context, Color wellGreen) {
+  Widget _buildTermsAgreementRow(BuildContext context, Color labelColor) {
+    final cs = Theme.of(context).colorScheme;
     final baseStyle = TextStyle(
-      color: wellGreen,
+      color: labelColor,
       fontFamily: 'HelveticaNow',
       fontSize: 15,
       height: 1.35,
@@ -236,12 +249,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               splashRadius: 18,
               fillColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return kPrimaryGreen;
+                  return cs.primary;
                 }
                 return null;
               }),
-              checkColor: Colors.white,
-              side: BorderSide(color: wellGreen.withValues(alpha: 0.85)),
+              checkColor: cs.onPrimary,
+              side: BorderSide(color: labelColor.withValues(alpha: 0.85)),
               onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
             ),
             Expanded(
@@ -259,7 +272,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: baseStyle.copyWith(
                           fontWeight: FontWeight.w700,
                           decoration: TextDecoration.underline,
-                          decorationColor: wellGreen,
+                          decorationColor: labelColor,
                         ),
                       ),
                     ),
@@ -275,7 +288,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Text(
               'Please read and accept the Terms & Conditions to create an account.',
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: wellnestCaptionColor(context),
                 fontFamily: 'HelveticaNow',
                 fontSize: 13,
               ),
@@ -287,18 +300,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildField(
+    BuildContext context,
     String label, {
     bool obscureText = false,
     TextEditingController? controller,
     TextInputType? keyboardType,
   }) {
+    final cs = Theme.of(context).colorScheme;
+    final labelColor = wellnestHeadingGreen(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            color: kPrimaryGreen,
+            color: labelColor,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -308,9 +325,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          style: TextStyle(color: cs.onSurface),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: cs.surfaceContainerHigh,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -322,11 +340,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: label == 'Fullname:'
                 ? 'Your full name'
                 : label == 'Email:'
-                ? 'Your email'
-                : 'Your password',
+                    ? 'Your email'
+                    : 'Your password',
             hintStyle: TextStyle(
               fontFamily: 'HelveticaNow',
-              color: Colors.grey.shade600,
+              color: wellnestCaptionColor(context),
             ),
           ),
         ),

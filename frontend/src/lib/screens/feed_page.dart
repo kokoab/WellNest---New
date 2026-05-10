@@ -240,7 +240,7 @@ class _FeedPageState extends State<FeedPage> {
                                 Expanded(
                                   child: Text(
                                     'Feed',
-                                    style: wellnestPageTitleStyle(),
+                                    style: wellnestPageTitleStyleFor(context),
                                   ),
                                 ),
                                 IconButton(
@@ -463,6 +463,11 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildCreatePostBox() {
+    final cs = Theme.of(context).colorScheme;
+    final placeholderBg = Theme.of(context).brightness == Brightness.light
+        ? AppColors.imagePlaceholderGreen
+        : cs.surfaceContainerHigh;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -489,14 +494,14 @@ class _FeedPageState extends State<FeedPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.imagePlaceholderGreen,
+                      color: placeholderBg,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Text(
                       "What's on your mind?",
                       style: TextStyle(
                         fontSize: 17,
-                        color: kPrimaryGreen.withOpacity(0.5),
+                        color: wellnestCaptionColor(context),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -507,7 +512,7 @@ class _FeedPageState extends State<FeedPage> {
           ),
 
           const SizedBox(height: 12),
-          const Divider(height: 1),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -552,7 +557,7 @@ class _FeedPageState extends State<FeedPage> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -652,9 +657,10 @@ class _FeedPageState extends State<FeedPage> {
                       children: [
                         Text(
                           post.userName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -662,7 +668,7 @@ class _FeedPageState extends State<FeedPage> {
                           formatPostTime(post.createdAt),
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[600],
+                            color: wellnestCaptionColor(context),
                           ),
                         ),
                       ],
@@ -698,7 +704,12 @@ class _FeedPageState extends State<FeedPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(post.content),
+                  child: Text(
+                    post.content,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
                 ),
                 if (post.galleryDisplayUrls.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.md),

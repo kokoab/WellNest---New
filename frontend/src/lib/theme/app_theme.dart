@@ -158,50 +158,145 @@ ThemeData get lightTheme => ThemeData(
   highlightColor: kPrimaryGreen.withValues(alpha: 0.2),
 );
 
-/// Dark theme
-ThemeData get darkTheme => ThemeData(
-  useMaterial3: true,
-  brightness: Brightness.dark,
-  fontFamily: kFontHelveticaNow,
-  colorScheme: ColorScheme.fromSeed(
+/// Dark surfaces — green-gray harmony with [kPrimaryGreen]; avoid harsh pure blacks.
+const Color kDarkScaffold = Color(0xFF161F1B);
+const Color kDarkSurface = Color(0xFF1E2A25);
+const Color kDarkSurfaceContainer = Color(0xFF2C3D35);
+const Color kDarkSurfaceContainerHigh = Color(0xFF253830);
+const Color kDarkSurfaceContainerMid = Color(0xFF213028);
+
+/// Brand-tinted mint for headings on dark backgrounds (readable vs raw [kPrimaryGreen]).
+const Color kDarkHeadingGreen = Color(0xFF82DCB0);
+
+/// Dark theme — mirrors [lightTheme] structure so components resolve colors from [ThemeData].
+ThemeData get darkTheme {
+  final colorScheme = ColorScheme.fromSeed(
     seedColor: kPrimaryGreen,
     brightness: Brightness.dark,
     primary: kPrimaryGreen,
     onPrimary: Colors.white,
+    primaryContainer: const Color(0xFF133528),
+    onPrimaryContainer: const Color(0xFFC8F5DD),
     secondary: kAccentOrange,
     onSecondary: Colors.white,
-    surface: const Color(0xFF1E1E1E),
-    onSurface: Colors.white,
-    onSurfaceVariant: const Color(0xFFB0B0B0),
-    outline: const Color(0xFF888888),
-  ),
-  scaffoldBackgroundColor: const Color(0xFF121212),
-  cardColor: const Color(0xFF2C2C2C),
-  bottomAppBarTheme: BottomAppBarThemeData(
-    elevation: 0,
-    height: 56,
-    padding: EdgeInsets.zero,
-    color: const Color(0xFF1E1E1E),
-    surfaceTintColor: Colors.transparent,
-    shadowColor: Colors.black.withValues(alpha: 0.35),
-  ),
-  floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    elevation: 0,
-    focusElevation: 0,
-    hoverElevation: 2,
-    highlightElevation: 4,
-    backgroundColor: kAccentOrange,
-    foregroundColor: Colors.white,
-    shape: CircleBorder(),
-    sizeConstraints: BoxConstraints.tightFor(width: 56, height: 56),
-  ),
-  appBarTheme: AppBarTheme(
-    backgroundColor: const Color(0xFF1E1E1E),
-    foregroundColor: Colors.white,
-    elevation: 0,
-    titleTextStyle: georgiaProDisplayStyle(fontSize: 20, color: Colors.white),
-  ),
-);
+    secondaryContainer: const Color(0xFF6B2E1A),
+    onSecondaryContainer: const Color(0xFFFFE0D9),
+    surface: kDarkSurface,
+    onSurface: const Color(0xFFE8EDE9),
+    onSurfaceVariant: const Color(0xFFB0C4BB),
+    outline: const Color(0xFF5C6B64),
+    outlineVariant: const Color(0xFF3D4A44),
+  ).copyWith(
+    surfaceContainerHighest: kDarkSurfaceContainer,
+    surfaceContainerHigh: kDarkSurfaceContainerHigh,
+    surfaceContainer: kDarkSurfaceContainerMid,
+  );
+
+  final headlineGreen = kDarkHeadingGreen;
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    fontFamily: kFontHelveticaNow,
+    colorScheme: colorScheme,
+    scaffoldBackgroundColor: kDarkScaffold,
+    cardColor: kDarkSurfaceContainer,
+    canvasColor: kDarkScaffold,
+    dividerColor: const Color(0xFF3D4A44).withValues(alpha: 0.85),
+    bottomAppBarTheme: BottomAppBarThemeData(
+      elevation: 0,
+      height: 56,
+      padding: EdgeInsets.zero,
+      color: kDarkSurface,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: const Color(0xFF0A100D).withValues(alpha: 0.45),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 2,
+      highlightElevation: 4,
+      backgroundColor: kAccentOrange,
+      foregroundColor: Colors.white,
+      shape: CircleBorder(),
+      sizeConstraints: BoxConstraints.tightFor(width: 56, height: 56),
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: kDarkSurface,
+      foregroundColor: colorScheme.onSurface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      iconTheme: IconThemeData(color: colorScheme.onSurface),
+      titleTextStyle: georgiaProDisplayStyle(
+        fontSize: 20,
+        color: colorScheme.onSurface,
+      ),
+    ),
+    textTheme: TextTheme(
+      displayLarge: georgiaProDisplayStyle(fontSize: 32, color: headlineGreen),
+      headlineMedium: georgiaProDisplayStyle(fontSize: 28, color: headlineGreen),
+      titleLarge: georgiaProDisplayStyle(fontSize: 18, color: headlineGreen),
+      titleMedium: georgiaProDisplayStyle(fontSize: 18, color: headlineGreen),
+      bodyLarge: TextStyle(
+        fontFamily: kFontHelveticaNow,
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+        color: colorScheme.onSurface,
+      ),
+      bodyMedium: TextStyle(
+        fontFamily: kFontHelveticaNow,
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        color: colorScheme.onSurface,
+      ),
+      labelSmall: TextStyle(
+        fontFamily: kFontHelveticaNow,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: colorScheme.onSurface,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: kDarkSurfaceContainer,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shadowColor: const Color(0xFF0A100D).withValues(alpha: 0.5),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: kPrimaryGreen,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(double.infinity, 48),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(
+          fontFamily: kFontHelveticaNow,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: colorScheme.surfaceContainerHigh,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      hintStyle: TextStyle(
+        color: headlineGreen.withValues(alpha: 0.65),
+        fontSize: 16,
+      ),
+    ),
+    focusColor: kPrimaryGreen,
+    highlightColor: kPrimaryGreen.withValues(alpha: 0.28),
+  );
+}
 
 /// Brand colors and shared design tokens
 class AppColors {
@@ -257,6 +352,30 @@ class AppGradients {
         ],
         stops: const [0.0, 0.42, 0.76, 1.0],
       );
+
+  /// Discover top hero — light uses pale green wash; dark uses a deep green-tinted blend to scaffold.
+  static LinearGradient discoverHeroFor(BuildContext context) {
+    final theme = Theme.of(context);
+    final surface = theme.scaffoldBackgroundColor;
+    if (theme.brightness == Brightness.light) {
+      return discoverHeroFadeTo(surface);
+    }
+    final cs = theme.colorScheme;
+    final top = Color.lerp(cs.primaryContainer, surface, 0.12) ?? cs.surface;
+    final mid =
+        Color.lerp(top, surface, 0.55) ?? surface;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        top,
+        top,
+        mid,
+        surface,
+      ],
+      stops: const [0.0, 0.42, 0.76, 1.0],
+    );
+  }
 
   /// Blend stop shared with [discoverHeroFadeTo] — use for seams (hero → sheet).
   static Color discoverHeroBlendTowardSurface(Color surface) =>
@@ -333,11 +452,29 @@ TextStyle helveticaNow({
 
 /// Grey hairline stroke aligned with Discover search, cards, and bottom nav.
 Color wellnestOutlineColor(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
   final isLight = Theme.of(context).brightness == Brightness.light;
   return isLight
       ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
-      : Colors.white.withValues(alpha: 0.18);
+      : cs.outline.withValues(alpha: 0.65);
 }
+
+/// Card / elevated strip surface from theme (light: white card; dark: elevated container).
+Color wellnestCardSurface(BuildContext context) {
+  final t = Theme.of(context);
+  return t.cardTheme.color ?? t.colorScheme.surface;
+}
+
+/// Section headlines — brand green in light; lighter green on dark for contrast.
+Color wellnestHeadingGreen(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.light
+      ? kPrimaryGreen
+      : kDarkHeadingGreen;
+}
+
+/// Muted body / caption line that tracks theme (replaces fixed [kCaptionGray] in new code).
+Color wellnestCaptionColor(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurfaceVariant;
 
 /// White (or [color]) surface with outline — no drop shadow (Discover / Feed branding).
 BoxDecoration wellnestCardDecoration(
@@ -346,12 +483,12 @@ BoxDecoration wellnestCardDecoration(
   Color? color,
 }) =>
     BoxDecoration(
-      color: color ?? Colors.white,
+      color: color ?? wellnestCardSurface(context),
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(color: wellnestOutlineColor(context), width: 1),
     );
 
-/// Full-bleed strip (feed posts / composer): white surface with grey rules on
+/// Full-bleed strip (feed posts / composer): themed surface with grey rules on
 /// [top] and/or [bottom] only — no left/right stroke so the card reaches screen edges.
 BoxDecoration wellnestFeedStripDecoration(
   BuildContext context, {
@@ -360,7 +497,7 @@ BoxDecoration wellnestFeedStripDecoration(
   bool bottom = true,
 }) =>
     BoxDecoration(
-      color: color ?? Colors.white,
+      color: color ?? wellnestCardSurface(context),
       border: Border(
         top: top
             ? BorderSide(color: wellnestOutlineColor(context), width: 1)
@@ -379,6 +516,10 @@ TextStyle wellnestSectionTitleStyle({Color? color}) =>
       color: color ?? kPrimaryGreen,
     ).copyWith(letterSpacing: 0);
 
+/// Prefer this at call sites so dark mode picks a readable heading color.
+TextStyle wellnestSectionTitleStyleFor(BuildContext context) =>
+    wellnestSectionTitleStyle(color: wellnestHeadingGreen(context));
+
 /// Large tab titles (Feed, Saved, etc.) — normal tracking (not editorial squeeze).
 TextStyle wellnestPageTitleStyle({Color? color}) =>
     georgiaProTextStyle(
@@ -386,3 +527,6 @@ TextStyle wellnestPageTitleStyle({Color? color}) =>
       fontWeight: FontWeight.bold,
       color: color ?? kPrimaryGreen,
     ).copyWith(letterSpacing: 0);
+
+TextStyle wellnestPageTitleStyleFor(BuildContext context) =>
+    wellnestPageTitleStyle(color: wellnestHeadingGreen(context));

@@ -212,8 +212,9 @@ class _DockNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = AppColors.primaryGreen;
-    final inactive = AppColors.primaryGreen.withValues(alpha: 0.42);
+    final cs = Theme.of(context).colorScheme;
+    final active = cs.primary;
+    final inactive = cs.onSurfaceVariant;
     final color = selected ? active : inactive;
 
     return Semantics(

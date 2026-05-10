@@ -33,10 +33,12 @@ class WellnestRecipeCard extends StatelessWidget {
     this.heroTag,
   });
 
-  Color _outlineColor(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.light
-      ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
-      : Colors.white.withValues(alpha: 0.18);
+  Color _outlineColor(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFFC5C5C5).withValues(alpha: 0.95)
+        : cs.outline.withValues(alpha: 0.55);
+  }
 
   /// Slight per-recipe jitter so image band heights vary in masonry columns.
   double _imageBandAspectRatio() {
@@ -58,7 +60,7 @@ class WellnestRecipeCard extends StatelessWidget {
 
     Widget card = Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: wellnestCardSurface(context),
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(color: _outlineColor(context), width: 1),
       ),
@@ -77,7 +79,7 @@ class WellnestRecipeCard extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(_radius),
                     ),
-                    child: _buildImage(),
+                    child: _buildImage(context),
                   ),
                 ),
                 Positioned(
@@ -142,16 +144,19 @@ class WellnestRecipeCard extends StatelessWidget {
                                 isBookmarked
                                     ? Icons.bookmark
                                     : Icons.bookmark_border,
-                                color: isBookmarked
+                                color:                                 isBookmarked
                                     ? AppColors.accentOrange
-                                    : AppColors.primaryGreen,
+                                    : Theme.of(context).colorScheme.primary,
                                 size: 18,
                               ),
                         tooltip: isBookmarked
                             ? 'Remove favorite'
                             : 'Save favorite',
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.9),
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: 0.94),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           padding: EdgeInsets.zero,
                           minimumSize: Size.zero,
@@ -180,7 +185,7 @@ class WellnestRecipeCard extends StatelessWidget {
                   style: helveticaNow(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade900,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ).copyWith(height: 1.25),
                 ),
                 const SizedBox(height: 6),
@@ -194,7 +199,7 @@ class WellnestRecipeCard extends StatelessWidget {
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -207,13 +212,13 @@ class WellnestRecipeCard extends StatelessWidget {
                         Icon(
                           Icons.schedule_rounded,
                           size: 13,
-                          color: AppColors.primaryGreen.withValues(alpha: 0.85),
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           recipe.displayPrepLabel,
                           style: TextStyle(
-                            color: Colors.grey.shade800,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.1,
@@ -230,7 +235,7 @@ class WellnestRecipeCard extends StatelessWidget {
                     Icon(
                       Icons.flatware_rounded,
                       size: 13,
-                      color: AppColors.primaryGreen.withValues(alpha: 0.85),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: 4),
                     Expanded(
@@ -240,7 +245,7 @@ class WellnestRecipeCard extends StatelessWidget {
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                         ),
                       ),
@@ -252,13 +257,14 @@ class WellnestRecipeCard extends StatelessWidget {
                         Icon(
                           Icons.visibility_outlined,
                           size: 13,
-                          color: Colors.grey.shade600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           '$viewsCount',
                           style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -284,7 +290,12 @@ class WellnestRecipeCard extends StatelessWidget {
     return card;
   }
 
-  Widget _buildImage() {
+  Widget _buildImage(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final placeholderBg = Theme.of(context).brightness == Brightness.light
+        ? AppColors.imagePlaceholderGreen
+        : cs.surfaceContainerHigh;
+
     if (recipe.displayImageUrl != null && recipe.displayImageUrl!.isNotEmpty) {
       return Image.network(
         recipe.displayImageUrl!,
@@ -296,26 +307,31 @@ class WellnestRecipeCard extends StatelessWidget {
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
-            color: AppColors.imagePlaceholderGreen,
-            child: const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryGreen),
+            color: placeholderBg,
+            child: Center(
+              child: CircularProgressIndicator(color: cs.primary),
             ),
           );
         },
-        errorBuilder: (_, _, _) => _placeholder(),
+        errorBuilder: (_, _, _) => _placeholder(context),
       );
     }
-    return _placeholder();
+    return _placeholder(context);
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final placeholderBg = Theme.of(context).brightness == Brightness.light
+        ? AppColors.imagePlaceholderGreen
+        : cs.surfaceContainerHigh;
+
     return ColoredBox(
-      color: AppColors.imagePlaceholderGreen,
+      color: placeholderBg,
       child: Center(
         child: Icon(
           Icons.restaurant_menu_rounded,
           size: 38,
-          color: AppColors.primaryGreen.withValues(alpha: 0.35),
+          color: cs.primary.withValues(alpha: 0.42),
         ),
       ),
     );

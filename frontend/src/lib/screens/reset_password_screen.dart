@@ -69,16 +69,24 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labelColor = wellnestHeadingGreen(context);
+
     return Scaffold(
-      backgroundColor: kBackgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Reset Password',
-          style: TextStyle(fontSize: 16, color: kPrimaryGreen),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            color: labelColor,
+          ),
         ),
-        backgroundColor: kBackgroundCream,
+        backgroundColor: cs.surface,
         elevation: 0,
-        foregroundColor: kPrimaryGreen,
+        foregroundColor: cs.onSurface,
+        surfaceTintColor: Colors.transparent,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -93,7 +101,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   'Set a new password',
                   style: georgiaProTextStyle(
                     fontSize: 30,
-                    color: kPrimaryGreen,
+                    color: labelColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -102,7 +110,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               Text(
                 'Enter the 6-digit code sent to your email address.',
                 style: TextStyle(
-                  color: kPrimaryGreen.withValues(alpha: 0.8),
+                  color: wellnestCaptionColor(context),
                   fontFamily: 'HelveticaNow',
                 ),
                 textAlign: TextAlign.center,
@@ -115,9 +123,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 child: TextFormField(
                   controller: _codeController,
                   keyboardType: TextInputType.number,
+                  style: TextStyle(color: cs.onSurface),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: cs.surfaceContainerHigh,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -129,7 +138,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     hintText: '000000',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
-                      color: Colors.grey.shade600,
+                      color: wellnestCaptionColor(context),
                     ),
                   ),
                 ),
@@ -142,9 +151,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 child: TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  style: TextStyle(color: cs.onSurface),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: cs.surfaceContainerHigh,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -156,7 +166,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     hintText: 'Registered email',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
-                      color: Colors.grey.shade600,
+                      color: wellnestCaptionColor(context),
                     ),
                   ),
                 ),
@@ -169,9 +179,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 child: TextFormField(
                   controller: _passwordController,
                   obscureText: true,
+                  style: TextStyle(color: cs.onSurface),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: cs.surfaceContainerHigh,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -183,7 +194,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     hintText: 'New password',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
-                      color: Colors.grey.shade600,
+                      color: wellnestCaptionColor(context),
                     ),
                   ),
                 ),
@@ -196,9 +207,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 child: TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: true,
+                  style: TextStyle(color: cs.onSurface),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: cs.surfaceContainerHigh,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -210,7 +222,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     hintText: 'Confirm password',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
-                      color: Colors.grey.shade600,
+                      color: wellnestCaptionColor(context),
                     ),
                   ),
                 ),
@@ -221,13 +233,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     _message!,
                     style: TextStyle(
-                      color: kPrimaryGreen,
+                      color: cs.onSurface,
                       fontFamily: 'HelveticaNow',
                     ),
                   ),
@@ -236,14 +248,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               SizedBox(
                 width: double.infinity,
                 child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: kPrimaryGreen),
+                    ? Center(
+                        child: CircularProgressIndicator(color: cs.primary),
                       )
                     : ElevatedButton(
                         onPressed: _resetPassword,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kAccentOrange,
-                          foregroundColor: Colors.white,
+                          backgroundColor: cs.secondary,
+                          foregroundColor: cs.onSecondary,
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -260,6 +272,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               AppSpacing.gapV24,
               TextButton(
                 onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(foregroundColor: cs.secondary),
                 child: const Text('Back to login'),
               ),
             ],

@@ -45,24 +45,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color wellGreen = kPrimaryGreen;
-    const Color nestOrange = kAccentOrange;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labelColor = wellnestHeadingGreen(context);
 
     return Scaffold(
-      backgroundColor: kBackgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          "Login",
-          style: TextStyle(fontSize: 16, color: kPrimaryGreen),
+        title: Text(
+          'Login',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            color: labelColor,
+          ),
         ),
-        backgroundColor: kBackgroundCream,
+        backgroundColor: cs.surface,
         elevation: 0,
-        foregroundColor: kPrimaryGreen,
+        foregroundColor: cs.onSurface,
+        surfaceTintColor: Colors.transparent,
         leading: Semantics(
           button: true,
           label: 'Back',
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: kPrimaryGreen),
+            icon: Icon(Icons.arrow_back, color: labelColor),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -91,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Log In',
                   style: georgiaProTextStyle(
                     fontSize: 32,
-                    color: kPrimaryGreen,
+                    color: labelColor,
                   ),
                 ),
               ),
@@ -102,10 +107,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Email:",
+                    Text(
+                      'Email:',
                       style: TextStyle(
-                        color: wellGreen,
+                        color: labelColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -121,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textInputAction: TextInputAction.next,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: cs.surfaceContainerHigh,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -133,16 +138,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           hintText: 'Enter your email',
                           hintStyle: TextStyle(
                             fontFamily: 'HelveticaNow',
-                            color: Colors.grey.shade600,
+                            color: wellnestCaptionColor(context),
                           ),
                         ),
+                        style: TextStyle(color: cs.onSurface),
                       ),
                     ),
                     AppSpacing.gapV16,
-                    const Text(
-                      "Password:",
+                    Text(
+                      'Password:',
                       style: TextStyle(
-                        color: wellGreen,
+                        color: labelColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -161,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: cs.surfaceContainerHigh,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -173,9 +179,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           hintText: 'Enter your password',
                           hintStyle: TextStyle(
                             fontFamily: 'HelveticaNow',
-                            color: Colors.grey.shade600,
+                            color: wellnestCaptionColor(context),
                           ),
                         ),
+                        style: TextStyle(color: cs.onSurface),
                       ),
                     ),
                   ],
@@ -190,16 +197,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
-                            color: kPrimaryGreen,
+                            color: cs.primary,
                           ),
                         )
                       : ElevatedButton(
                           onPressed: _submitLogin,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: nestOrange,
-                            foregroundColor: Colors.white,
+                            backgroundColor: cs.secondary,
+                            foregroundColor: cs.onSecondary,
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -221,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () =>
                       Navigator.pushNamed(context, '/forgot-password'),
                   style: TextButton.styleFrom(
-                    foregroundColor: kAccentOrange,
+                    foregroundColor: cs.secondary,
                     textStyle: const TextStyle(
                       fontFamily: 'HelveticaNow',
                       fontWeight: FontWeight.w700,
@@ -238,16 +245,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     "Don't have an account? ",
                     style: TextStyle(
-                      color: wellGreen,
+                      color: wellnestCaptionColor(context),
                       fontFamily: 'HelveticaNow',
                     ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, '/register'),
                     child: Text(
-                      "Signup",
+                      'Signup',
                       style: TextStyle(
-                        color: wellGreen,
+                        color: labelColor,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'HelveticaNow',
                       ),

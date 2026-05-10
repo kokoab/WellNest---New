@@ -255,7 +255,7 @@ class _FeedSearchScreenState extends State<FeedSearchScreen> {
               sliver: SliverToBoxAdapter(
                 child: Text(
                   'Popular right now',
-                  style: wellnestPageTitleStyle(color: wellGreen).copyWith(
+                  style: wellnestPageTitleStyleFor(context).copyWith(
                     fontSize: 18,
                   ),
                 ),
@@ -272,7 +272,7 @@ class _FeedSearchScreenState extends State<FeedSearchScreen> {
               sliver: SliverToBoxAdapter(
                 child: Text(
                   'Recent searches',
-                  style: wellnestPageTitleStyle(color: wellGreen).copyWith(
+                  style: wellnestPageTitleStyleFor(context).copyWith(
                     fontSize: 18,
                   ),
                 ),

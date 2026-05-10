@@ -167,13 +167,13 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware
                 Expanded(
                   child: Text(
                     'Saved Recipes',
-                    style: wellnestPageTitleStyle(color: wellGreen),
+                    style: wellnestPageTitleStyleFor(context),
                   ),
                 ),
                 IconButton(
                   tooltip: 'Search saved recipes',
                   icon: const Icon(Icons.search),
-                  color: wellGreen,
+                  color: Theme.of(context).colorScheme.primary,
                   onPressed: () {
                     Navigator.push<void>(
                       context,

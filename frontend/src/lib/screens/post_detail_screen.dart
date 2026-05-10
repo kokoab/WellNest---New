@@ -262,7 +262,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final fullscreen = ModalRoute.of(context)?.fullscreenDialog ?? false;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Post',
@@ -271,7 +271,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             color: cs.onSurface,
           ),
         ),
-        backgroundColor: AppColors.backgroundCream,
+        backgroundColor: theme.colorScheme.surface,
         foregroundColor: cs.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -336,7 +336,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                             style: theme.textTheme.titleMedium
                                                 ?.copyWith(
                                                   fontWeight: FontWeight.w700,
-                                                  color: kPrimaryGreen,
+                                                  color:
+                                                      wellnestHeadingGreen(
+                                                          context),
                                                   fontFamily:
                                                       kFontHelveticaNow,
                                                 ),
@@ -347,7 +349,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
                                                 fontWeight: FontWeight.w700,
-                                                color: kPrimaryGreen,
+                                                color: wellnestHeadingGreen(
+                                                  context,
+                                                ),
                                                 fontFamily: kFontHelveticaNow,
                                               ),
                                         ),
@@ -355,7 +359,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   Text(
                                     formatPostTime(_post.createdAt),
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: kCaptionGray,
+                                      color: wellnestCaptionColor(context),
                                     ),
                                   ),
                                 ],
@@ -365,9 +369,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
                                 tooltip: 'More options',
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.more_vert_rounded,
-                                  color: kPrimaryGreen,
+                                  color: wellnestHeadingGreen(context),
                                 ),
                                 onSelected: (v) async {
                                   if (v == 'edit') {
@@ -521,10 +525,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           ),
                           child: Text(
                             _post.content,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'HelveticaNow',
                               fontSize: 18,
-                              color: kBodyTextDark,
+                              color: Theme.of(context).colorScheme.onSurface,
                               height: 1.4,
                             ),
                           ),
@@ -701,20 +705,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     children: [
                                       Text(
                                         c.userName,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: 'HelveticaNow',
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
-                                          color: kBodyTextDark,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         c.comment,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: 'HelveticaNow',
                                           fontSize: 14,
-                                          color: kBodyTextDark,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                           height: 1.35,
                                         ),
                                       ),
@@ -728,7 +736,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             Divider(
                               height: 1,
                               thickness: 0.5,
-                              color: Colors.grey[300],
+                              color: Theme.of(context).dividerColor,
                             ),
                         ],
                       );
@@ -768,7 +776,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   AppSpacing.md,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundCream,
+                  color: Theme.of(context).colorScheme.surface,
                   border: Border(
                     top: BorderSide(color: wellnestOutlineColor(context), width: 1),
                   ),

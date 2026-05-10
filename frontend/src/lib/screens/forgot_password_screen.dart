@@ -97,16 +97,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labelColor = wellnestHeadingGreen(context);
+
     return Scaffold(
-      backgroundColor: kBackgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Forgot Password',
-          style: TextStyle(fontSize: 16, color: kPrimaryGreen),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            color: labelColor,
+          ),
         ),
-        backgroundColor: kBackgroundCream,
+        backgroundColor: cs.surface,
         elevation: 0,
-        foregroundColor: kPrimaryGreen,
+        foregroundColor: cs.onSurface,
+        surfaceTintColor: Colors.transparent,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -121,7 +129,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   'Reset your password',
                   style: georgiaProTextStyle(
                     fontSize: 30,
-                    color: kPrimaryGreen,
+                    color: labelColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -130,7 +138,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Text(
                 'We will send a reset code to the address on file.',
                 style: TextStyle(
-                  color: kPrimaryGreen.withValues(alpha: 0.8),
+                  color: wellnestCaptionColor(context),
                   fontFamily: 'HelveticaNow',
                 ),
                 textAlign: TextAlign.center,
@@ -143,9 +151,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  style: TextStyle(color: cs.onSurface),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: cs.surfaceContainerHigh,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -157,7 +166,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     hintText: 'Enter your email',
                     hintStyle: TextStyle(
                       fontFamily: 'HelveticaNow',
-                      color: Colors.grey.shade600,
+                      color: wellnestCaptionColor(context),
                     ),
                   ),
                 ),
@@ -168,13 +177,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     _message!,
                     style: TextStyle(
-                      color: kPrimaryGreen,
+                      color: cs.onSurface,
                       fontFamily: 'HelveticaNow',
                     ),
                   ),
@@ -188,9 +197,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: TextFormField(
                     controller: _codeController,
                     keyboardType: TextInputType.number,
+                    style: TextStyle(color: cs.onSurface),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: cs.surfaceContainerHigh,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -202,7 +212,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       hintText: '6-digit code',
                       hintStyle: TextStyle(
                         fontFamily: 'HelveticaNow',
-                        color: Colors.grey.shade600,
+                        color: wellnestCaptionColor(context),
                       ),
                     ),
                   ),
@@ -215,9 +225,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: TextFormField(
                     controller: _passwordController,
                     obscureText: true,
+                    style: TextStyle(color: cs.onSurface),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: cs.surfaceContainerHigh,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -229,7 +240,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       hintText: 'New password',
                       hintStyle: TextStyle(
                         fontFamily: 'HelveticaNow',
-                        color: Colors.grey.shade600,
+                        color: wellnestCaptionColor(context),
                       ),
                     ),
                   ),
@@ -242,9 +253,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: true,
+                    style: TextStyle(color: cs.onSurface),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: cs.surfaceContainerHigh,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -256,7 +268,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       hintText: 'Confirm password',
                       hintStyle: TextStyle(
                         fontFamily: 'HelveticaNow',
-                        color: Colors.grey.shade600,
+                        color: wellnestCaptionColor(context),
                       ),
                     ),
                   ),
@@ -265,16 +277,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
-                            color: kPrimaryGreen,
+                            color: cs.primary,
                           ),
                         )
                       : ElevatedButton(
                           onPressed: _resetPassword,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: kAccentOrange,
-                            foregroundColor: Colors.white,
+                            backgroundColor: cs.secondary,
+                            foregroundColor: cs.onSecondary,
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -293,14 +305,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               SizedBox(
                 width: double.infinity,
                 child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: kPrimaryGreen),
+                    ? Center(
+                        child: CircularProgressIndicator(color: cs.primary),
                       )
                     : ElevatedButton(
                         onPressed: _codeSent ? null : _sendResetLink,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kAccentOrange,
-                          foregroundColor: Colors.white,
+                          backgroundColor: cs.secondary,
+                          foregroundColor: cs.onSecondary,
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),

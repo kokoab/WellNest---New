@@ -966,7 +966,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             Expanded(
               child: Text(
                 'Ratings & Reviews',
-                style: wellnestSectionTitleStyle(color: wellGreen),
+                style: wellnestSectionTitleStyle(
+              color: wellnestHeadingGreen(context),
+            ),
               ),
             ),
             Icon(Icons.chevron_right_rounded, color: wellGreen, size: 26),
@@ -1358,7 +1360,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         Expanded(
           child: Text(
             title,
-            style: wellnestSectionTitleStyle(color: wellGreen),
+            style: wellnestSectionTitleStyle(
+              color: wellnestHeadingGreen(context),
+            ),
           ),
         ),
         if (showSeeAll)

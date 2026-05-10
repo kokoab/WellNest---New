@@ -29,7 +29,7 @@ class WellnestHeader extends StatelessWidget {
               'Wellnest',
               style: georgiaProTextStyle(
                 fontSize: fontSize,
-                color: AppColors.primaryGreen,
+                color: wellnestHeadingGreen(context),
               ).copyWith(letterSpacing: 0),
             ),
           ],

@@ -149,9 +149,12 @@ class _UserDashboardState extends State<UserDashboard> with RouteAware {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: wellnestCardSurface(sheetContext),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+              border: Border.all(
+                color: wellnestOutlineColor(sheetContext),
+                width: 1,
+              ),
             ),
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
@@ -185,7 +188,7 @@ class _UserDashboardState extends State<UserDashboard> with RouteAware {
                 Divider(
                   height: 1,
                   thickness: 0.7,
-                  color: const Color(0xFFE8E8E8),
+                  color: Theme.of(sheetContext).dividerColor,
                   indent: 16,
                   endIndent: 16,
                 ),
@@ -205,7 +208,7 @@ class _UserDashboardState extends State<UserDashboard> with RouteAware {
                 Divider(
                   height: 1,
                   thickness: 0.7,
-                  color: const Color(0xFFE8E8E8),
+                  color: Theme.of(sheetContext).dividerColor,
                   indent: 16,
                   endIndent: 16,
                 ),
@@ -900,7 +903,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                           ],
                                           Text(
                                             'Discover',
-                                            style: wellnestSectionTitleStyle(),
+                                            style:
+                                                wellnestSectionTitleStyleFor(
+                                              context,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                         ] else ...[
@@ -908,7 +914,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                           const SizedBox(height: 16),
                                           Text(
                                             'Search Results',
-                                            style: wellnestSectionTitleStyle(),
+                                            style:
+                                                wellnestSectionTitleStyleFor(
+                                              context,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                         ],
@@ -982,6 +991,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   Widget _buildMobileSearchTrigger() {
     final value = _searchController.text.trim();
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openMobileSearch,
@@ -989,13 +999,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: wellnestCardSurface(context),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: wellnestOutlineColor(context), width: 1),
         ),
         child: Row(
           children: [
-            const Icon(Icons.search, color: kPrimaryGreen, size: 22),
+            Icon(Icons.search, color: cs.primary, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -1004,7 +1014,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 16,
-                  color: value.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                  color: value.isEmpty
+                      ? wellnestCaptionColor(context)
+                      : cs.onSurface,
                 ),
               ),
             ),
@@ -1032,7 +1044,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               IconButton(
                 onPressed: _closeMobileSearch,
                 icon: const Icon(Icons.arrow_back_rounded),
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
                 tooltip: 'Back to dashboard',
               ),
               const SizedBox(width: 4),
@@ -1055,17 +1067,23 @@ class _RecipeGridViewState extends State<RecipeGridView> {
     required bool searchOnlyMode,
     bool autofocus = false,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return TextField(
       controller: _searchController,
       focusNode: _searchFocusNode,
       autofocus: autofocus,
+      style: TextStyle(color: cs.onSurface),
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: 'Search by name or ingredients...',
-        prefixIcon: const Icon(Icons.search, color: kPrimaryGreen, size: 22),
+        prefixIcon: Icon(Icons.search, color: cs.primary, size: 22),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+                icon: Icon(
+                  Icons.clear,
+                  color: wellnestCaptionColor(context),
+                  size: 20,
+                ),
                 onPressed: () {
                   _searchController.clear();
                   _searchDebounce?.cancel();
@@ -1079,7 +1097,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
               )
             : null,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
         border: _recipeSearchOutline(context),
         enabledBorder: _recipeSearchOutline(context),
         focusedBorder: _recipeSearchOutline(context),
@@ -1106,9 +1124,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   }
 
   Widget _buildMealPlannerSection() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: wellnestCardSurface(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
@@ -1119,17 +1138,20 @@ class _RecipeGridViewState extends State<RecipeGridView> {
           horizontal: 14,
           vertical: 10,
         ),
-        leading: const Icon(Icons.calendar_month, color: kPrimaryGreen),
-        title: const Text(
+        leading: Icon(Icons.calendar_month, color: cs.primary),
+        title: Text(
           'Weekly Meal Planner',
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: kPrimaryGreen,
+            color: wellnestHeadingGreen(context),
           ),
         ),
         subtitle: Text(
           'Plan breakfast, lunch, and dinner for the week.',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(
+            fontSize: 12,
+            color: wellnestCaptionColor(context),
+          ),
         ),
         trailing: Icon(Icons.chevron_right, color: nestOrange),
         onTap: () {
@@ -1619,7 +1641,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: wellnestCardSurface(context),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: wellnestOutlineColor(context), width: 1),
           ),
@@ -1641,9 +1663,18 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                               fit: BoxFit.cover,
                             )
                           : Container(
-                              color: const Color(0xFFE6F0EA),
-                              child: const Center(
-                                child: Icon(Icons.restaurant, size: 38),
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? const Color(0xFFE6F0EA)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHigh,
+                              child: Center(
+                                child: Icon(
+                                  Icons.restaurant,
+                                  size: 38,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ),
                     ),
@@ -1709,7 +1740,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                               ),
                         tooltip: isSaved ? 'Remove favorite' : 'Save favorite',
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.9),
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: 0.94),
                         ),
                       ),
                     ),
@@ -1748,7 +1782,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       style: georgiaProTextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
-                                        color: Colors.grey.shade900,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                       ).copyWith(letterSpacing: 0.35),
                                     ),
                                     const SizedBox(height: 2),
@@ -1757,7 +1793,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: Colors.grey.shade700,
+                                        color: wellnestCaptionColor(context),
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.22,
@@ -1771,9 +1807,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                         Icon(
                                           Icons.flatware_rounded,
                                           size: 13,
-                                          color: wellGreen.withValues(
-                                            alpha: 0.85,
-                                          ),
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
                                         ),
                                         const SizedBox(width: 4),
                                         Expanded(
@@ -1785,7 +1821,9 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              color: Colors.grey.shade700,
+                                              color: wellnestCaptionColor(
+                                                context,
+                                              ),
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 0.2,
@@ -1813,7 +1851,10 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                 color: badge.bgColor,
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: Colors.black.withValues(alpha: 0.18),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.5),
                                 ),
                               ),
                               child: Row(
@@ -1844,13 +1885,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                 Icon(
                                   Icons.schedule_rounded,
                                   size: 13,
-                                  color: wellGreen.withValues(alpha: 0.85),
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${r.prepTime} min',
                                   style: TextStyle(
-                                    color: Colors.grey.shade800,
+                                    color: wellnestCaptionColor(context),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.18,
@@ -1860,13 +1901,13 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                                 Icon(
                                   Icons.visibility_outlined,
                                   size: 13,
-                                  color: Colors.grey.shade600,
+                                  color: wellnestCaptionColor(context),
                                 ),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${r.viewsCount}',
                                   style: TextStyle(
-                                    color: Colors.grey.shade700,
+                                    color: wellnestCaptionColor(context),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.18,
@@ -2454,19 +2495,22 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           'No ingredients listed.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: TextStyle(
+            color: wellnestCaptionColor(context),
+            fontSize: 13,
+          ),
         ),
       );
     }
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -2492,7 +2536,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
                     ing.displayLine,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade800,
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.35,
                     ),
                   ),
@@ -2510,7 +2554,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -2518,7 +2562,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         style: TextStyle(
           fontSize: 14,
           height: 1.5,
-          color: Colors.grey.shade800,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -2536,10 +2580,9 @@ class _FilterChip extends StatelessWidget {
     required this.onTap,
   });
 
-  static const Color wellGreen = Color(0xFF097333);
-
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
@@ -2548,15 +2591,18 @@ class _FilterChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? wellGreen : Colors.grey.shade200,
+            color: selected ? cs.primary : cs.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(20),
+            border: selected
+                ? null
+                : Border.all(color: wellnestOutlineColor(context)),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Colors.grey.shade700,
+              color: selected ? cs.onPrimary : cs.onSurfaceVariant,
             ),
           ),
         ),

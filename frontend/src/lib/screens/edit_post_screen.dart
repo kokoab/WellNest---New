@@ -157,16 +157,20 @@ class _EditPostScreenState extends State<EditPostScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final outline = wellnestOutlineColor(context);
+    final heading = wellnestHeadingGreen(context);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        backgroundColor: cs.surface,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           'Edit post',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: kPrimaryGreen,
+            color: heading,
             fontFamily: kFontHelveticaNow,
           ),
         ),
@@ -174,19 +178,19 @@ class _EditPostScreenState extends State<EditPostScreen> {
           TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: kPrimaryGreen,
+                      color: cs.primary,
                     ),
                   )
                 : Text(
                     'Save',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: kPrimaryGreen,
+                      color: heading,
                       fontFamily: kFontHelveticaNow,
                     ),
                   ),
@@ -202,7 +206,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: wellnestCardSurface(context),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: outline),
                 ),
@@ -219,11 +223,11 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   maxLines: null,
                   minLines: 1,
                   textAlignVertical: TextAlignVertical.top,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: kFontHelveticaNow,
                     fontSize: 17,
                     height: 1.45,
-                    color: kBodyTextDark,
+                    color: cs.onSurface,
                   ),
                   decoration: InputDecoration(
                     isDense: true,

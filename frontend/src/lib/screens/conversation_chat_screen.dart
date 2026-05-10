@@ -491,23 +491,27 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     final screenW = MediaQuery.sizeOf(context).width;
 
     final statusTop = MediaQuery.paddingOf(context).top;
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness:
+            isLight ? Brightness.dark : Brightness.light,
+        statusBarBrightness:
+            isLight ? Brightness.light : Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.discoverHeroFadeTo(AppColors.backgroundCream),
+            gradient: AppGradients.discoverHeroFor(context),
           ),
           child: Column(
             children: [
               ColoredBox(
-                color: AppColors.backgroundCream,
+                color: theme.scaffoldBackgroundColor,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -814,7 +818,10 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      style: const TextStyle(fontSize: 16),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: colorScheme.onSurface,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
@@ -823,7 +830,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                               .withValues(alpha: 0.75),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: colorScheme.surfaceContainerHigh,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadii.lg),
                           borderSide: BorderSide(color: outline),

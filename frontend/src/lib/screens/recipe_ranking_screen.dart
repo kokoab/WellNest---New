@@ -315,7 +315,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -585,7 +585,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
     final cs = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Recipe Rankings',
@@ -594,7 +594,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
             color: cs.onSurface,
           ),
         ),
-        backgroundColor: AppColors.backgroundCream,
+        backgroundColor: cs.surface,
         foregroundColor: cs.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,

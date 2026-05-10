@@ -286,20 +286,22 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget build(BuildContext context) {
     final unread = _notifications.where((n) => !n.isRead).toList();
     final read = _notifications.where((n) => n.isRead).toList();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
-        foregroundColor: Colors.black,
+        foregroundColor: cs.onSurface,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black, size: 24),
-        title: const Text(
+        iconTheme: IconThemeData(color: cs.onSurface, size: 24),
+        title: Text(
           'Notifications',
-          style: TextStyle(
-            color: Colors.black,
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: cs.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
@@ -312,27 +314,27 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               child: TextButton(
                 onPressed: _markingRead ? null : _markAllAsRead,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.black,
+                  foregroundColor: cs.primary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
                   ),
                 ),
                 child: _markingRead
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(
-                          color: Colors.black87,
+                          color: cs.primary,
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Mark all read',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          color: cs.primary,
                         ),
                       ),
               ),
@@ -340,14 +342,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: wellGreen))
+          ? Center(child: CircularProgressIndicator(color: cs.primary))
           : _notifications.isEmpty
           ? _buildEmptyState()
           : FadeTransition(
               opacity: _fadeAnimation,
               child: RefreshIndicator(
                 onRefresh: _load,
-                color: Colors.black54,
+                color: cs.primary,
                 child: CustomScrollView(
                   controller: _scrollController,
                   slivers: [

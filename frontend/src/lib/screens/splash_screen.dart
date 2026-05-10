@@ -7,8 +7,10 @@ class WellnestSplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final heading = wellnestHeadingGreen(context);
     return Scaffold(
-      backgroundColor: kBackgroundCream,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -32,9 +34,15 @@ class WellnestSplashScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   text: TextSpan(
                     style: georgiaProDisplayStyle(fontSize: 40),
-                    children: const [
-                      TextSpan(text: 'well', style: TextStyle(color: kPrimaryGreen)),
-                      TextSpan(text: 'nest', style: TextStyle(color: kAccentOrange)),
+                    children: [
+                      TextSpan(
+                        text: 'well',
+                        style: TextStyle(color: heading),
+                      ),
+                      TextSpan(
+                        text: 'nest',
+                        style: TextStyle(color: cs.secondary),
+                      ),
                     ],
                   ),
                 ),
@@ -43,7 +51,11 @@ class WellnestSplashScreen extends StatelessWidget {
               Text(
                 'A Free healthy Recipe Mobile App\nfor Everyday Wellness',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: kPrimaryGreen.withValues(alpha: 0.9), height: 1.4),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: wellnestCaptionColor(context),
+                  height: 1.4,
+                ),
               ),
               const Spacer(flex: 2),
               Semantics(
@@ -54,8 +66,8 @@ class WellnestSplashScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pushNamed(context, '/register'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: kAccentOrange,
-                      foregroundColor: Colors.white,
+                      backgroundColor: cs.secondary,
+                      foregroundColor: cs.onSecondary,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
@@ -73,8 +85,8 @@ class WellnestSplashScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pushNamed(context, '/login'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      foregroundColor: Colors.white,
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       textStyle: const TextStyle(fontFamily: 'HelveticaNow', fontWeight: FontWeight.bold, fontSize: 18),
