@@ -14,6 +14,8 @@ import 'package:my_app/models/recipe_rating.dart';
 import 'package:my_app/services/rating_service.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
+import 'package:my_app/widgets/full_screen_photo_gallery.dart';
+import 'package:my_app/widgets/wellnest_popup_menu.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -507,7 +509,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 actions: [
                   if (_recipe != null && AuthService.instance.isLoggedIn)
                     PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
+                      tooltip: 'More options',
+                      icon: Icon(
+                        Icons.more_vert_rounded,
+                        color: wellGreen,
+                      ),
                       onSelected: (v) async {
                         if (v == 'edit') {
                           Navigator.push(
@@ -525,20 +531,24 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         }
                       },
                       itemBuilder: (context) => [
-                        if (_isOwner)
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        if (_isOwner)
-                          const PopupMenuItem(
+                        if (_isOwner) ...[
+                          wellnestPopupMenuItem(
                             value: 'edit',
-                            child: Text('Edit'),
+                            icon: Icons.edit_outlined,
+                            label: 'Edit',
                           ),
-                        if (AuthService.instance.isLoggedIn)
-                          const PopupMenuItem(
+                          wellnestPopupMenuItem(
+                            value: 'delete',
+                            icon: Icons.delete_outline_rounded,
+                            label: 'Delete',
+                            iconColor: nestOrange,
+                          ),
+                        ],
+                        if (AuthService.instance.isLoggedIn && !_isOwner)
+                          wellnestPopupMenuItem(
                             value: 'report',
-                            child: Text('Report'),
+                            icon: Icons.flag_outlined,
+                            label: 'Report',
                           ),
                       ],
                     ),
@@ -794,7 +804,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
-        builder: (context) => _RecipePhotoGalleryViewer(
+        builder: (context) => FullScreenPhotoGallery(
           urls: urls,
           initialIndex: start,
         ),
@@ -1885,131 +1895,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               ],
             )
           : plainColumn,
-    );
-  }
-}
-
-/// Full-screen recipe cover gallery (opened from hero tap).
-class _RecipePhotoGalleryViewer extends StatefulWidget {
-  final List<String> urls;
-  final int initialIndex;
-
-  const _RecipePhotoGalleryViewer({
-    required this.urls,
-    required this.initialIndex,
-  });
-
-  @override
-  State<_RecipePhotoGalleryViewer> createState() =>
-      _RecipePhotoGalleryViewerState();
-}
-
-class _RecipePhotoGalleryViewerState extends State<_RecipePhotoGalleryViewer> {
-  late final PageController _pageController;
-  late int _index;
-
-  @override
-  void initState() {
-    super.initState();
-    final len = widget.urls.length;
-    final safeLen = len > 0 ? len - 1 : 0;
-    final start = widget.initialIndex.clamp(0, safeLen);
-    _index = start;
-    _pageController = PageController(initialPage: start);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              itemCount: widget.urls.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) {
-                return Center(
-                  child: Image.network(
-                    widget.urls[i],
-                    fit: BoxFit.contain,
-                    alignment: Alignment.center,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white.withValues(alpha: 0.75),
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.white.withValues(alpha: 0.45),
-                        size: 72,
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 8, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white),
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const Spacer(),
-                    if (widget.urls.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            child: Text(
-                              '${_index + 1} / ${widget.urls.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

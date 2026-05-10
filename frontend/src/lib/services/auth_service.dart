@@ -84,7 +84,11 @@ class AuthService {
           final user = data['user'] as Map<String, dynamic>?;
           final userId = user?['id'] as int?;
           setUserId(userId);
-          await SessionPersistence.write(token, isAdmin: false);
+          await SessionPersistence.write(
+            token,
+            isAdmin: false,
+            userId: userId,
+          );
         }
         return null;
       }

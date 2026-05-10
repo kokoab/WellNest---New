@@ -98,36 +98,38 @@ class PostCommentController extends Controller
     }
 
     /**
-     * List comments for a post.
+     * List comments for a post (paginated; query: page, per_page max 50).
      */
     public function index(Request $request, Post $post): JsonResponse
     {
         $viewer = $request->user('sanctum');
         $hasImageUrl = Schema::hasColumn('post_comments', 'image_url');
 
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 50));
+
         $query = $post->comments()
             ->with('user:id,first_name,last_name,profile_photo_url')
-            ->orderBy('created_at', 'asc')
-            ->limit(50);
+            ->orderBy('created_at', 'asc');
 
         // Only filter by active users if not admin
         if (!$viewer || !$viewer->is_admin) {
             $query->whereHas('user', fn ($q) => $q->where('account_status', 'active'));
         }
 
-        $comments = $query->get()
-            ->map(fn (PostComment $c) => [
-                'id'        => $c->id,
-                'comment'   => $c->comment,
-                'image_url' => $hasImageUrl ? $this->toAbsoluteImageUrl($c->image_url) : null,
-                'user'      => [
-                    'id' => $c->user->id,
-                    'name' => $c->user->name,
-                ],
-                'created_at' => $c->created_at->toIso8601String(),
-            ]);
+        $paginator = $query->paginate($perPage)->through(fn (PostComment $c) => [
+            'id'        => $c->id,
+            'comment'   => $c->comment,
+            'image_url' => $hasImageUrl ? $this->toAbsoluteImageUrl($c->image_url) : null,
+            'user'      => [
+                'id'                => $c->user->id,
+                'name'              => $c->user->name,
+                'profile_photo_url' => $c->user->profile_photo_url,
+            ],
+            'created_at' => $c->created_at->toIso8601String(),
+        ]);
 
-        return response()->json(['comments' => $comments]);
+        return response()->json($paginator);
     }
 
     private function fixMediaUrl(string $url): string

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Detail-only photo grid (Facebook-style): up to **five** visible tiles; extra photos summarized as "+N".
+/// Photo grid (Facebook-style): up to **five** visible tiles; when there are more
+/// than five, the fifth tile keeps the fifth image with a “View more photos” overlay.
 class PostPhotoCollage extends StatelessWidget {
   const PostPhotoCollage({
     super.key,
@@ -18,13 +19,23 @@ class PostPhotoCollage extends StatelessWidget {
     if (urls.isEmpty) return const SizedBox.shrink();
 
     final n = urls.length;
-    final showOverflow = n > 5;
-    final visible = showOverflow ? urls.take(4).toList() : urls.take(n.clamp(0, 5)).toList();
-    final overflowCount = showOverflow ? n - 4 : 0;
+    final moreThanFive = n > 5;
+    final visible = moreThanFive
+        ? urls.take(5).toList()
+        : urls.take(n.clamp(0, 5)).toList();
 
-    Widget tile(String url, {bool overlayMore = false, int moreCount = 0}) {
+    Widget tile(
+      String url, {
+      bool overlayMore = false,
+      int moreCount = 0,
+      bool overlayViewMore = false,
+      int extraBeyondFive = 0,
+    }) {
+      final r = borderRadius > 0
+          ? BorderRadius.circular(borderRadius)
+          : BorderRadius.zero;
       return ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: r,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -32,7 +43,7 @@ class PostPhotoCollage extends StatelessWidget {
               url,
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 color: const Color(0xFFEFF3EF),
                 alignment: Alignment.center,
                 child: const Icon(Icons.broken_image_outlined),
@@ -51,6 +62,38 @@ class PostPhotoCollage extends StatelessWidget {
                   ),
                 ),
               ),
+            if (overlayViewMore)
+              Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                color: Colors.black.withValues(alpha: 0.5),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View more photos',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: borderRadius < 8 ? 12 : 14,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (extraBeyondFive > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '+$extraBeyondFive',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          fontWeight: FontWeight.w600,
+                          fontSize: borderRadius < 8 ? 18 : 22,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
           ],
         ),
       );
@@ -58,9 +101,11 @@ class PostPhotoCollage extends StatelessWidget {
 
     const height = 280.0;
 
-    if (visible.length == 1 && !showOverflow) {
+    if (visible.length == 1 && !moreThanFive) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: borderRadius > 0
+            ? BorderRadius.circular(borderRadius)
+            : BorderRadius.zero,
         child: SizedBox(
           height: height,
           width: double.infinity,
@@ -69,7 +114,7 @@ class PostPhotoCollage extends StatelessWidget {
       );
     }
 
-    if (visible.length == 2 && !showOverflow) {
+    if (visible.length == 2 && !moreThanFive) {
       return SizedBox(
         height: height,
         child: Row(
@@ -83,7 +128,7 @@ class PostPhotoCollage extends StatelessWidget {
       );
     }
 
-    if (visible.length == 3 && !showOverflow) {
+    if (visible.length == 3 && !moreThanFive) {
       return SizedBox(
         height: height,
         child: Row(
@@ -107,8 +152,9 @@ class PostPhotoCollage extends StatelessWidget {
       );
     }
 
-    // Exactly five photos — two on top, three on bottom.
-    if (visible.length == 5 && !showOverflow) {
+    // Five thumbnails — two on top, three on bottom (same when total > 5, overlay on last).
+    if (visible.length == 5) {
+      final lastExtra = moreThanFive ? (n - 5) : 0;
       return SizedBox(
         height: height,
         child: Column(
@@ -133,7 +179,15 @@ class PostPhotoCollage extends StatelessWidget {
                   SizedBox(width: spacing),
                   Expanded(child: tile(visible[3])),
                   SizedBox(width: spacing),
-                  Expanded(child: tile(visible[4])),
+                  Expanded(
+                    child: moreThanFive
+                        ? tile(
+                            visible[4],
+                            overlayViewMore: true,
+                            extraBeyondFive: lastExtra,
+                          )
+                        : tile(visible[4]),
+                  ),
                 ],
               ),
             ),
@@ -142,7 +196,7 @@ class PostPhotoCollage extends StatelessWidget {
       );
     }
 
-    // Four photos (2×2), or four thumbnails + overflow on the fourth cell when >5 total
+    // Four photos (2×2)
     return SizedBox(
       height: height,
       child: Column(
@@ -165,15 +219,7 @@ class PostPhotoCollage extends StatelessWidget {
               children: [
                 Expanded(child: tile(visible[2])),
                 SizedBox(width: spacing),
-                Expanded(
-                  child: showOverflow
-                      ? tile(
-                          visible[3],
-                          overlayMore: true,
-                          moreCount: overflowCount,
-                        )
-                      : tile(visible[3]),
-                ),
+                Expanded(child: tile(visible[3])),
               ],
             ),
           ),

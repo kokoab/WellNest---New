@@ -1,21 +1,25 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/services/user_service.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/post_service.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/feed_search_screen.dart';
+import 'package:my_app/screens/edit_post_screen.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/screens/user_profile_screen.dart';
+import 'package:my_app/services/post_service.dart';
+import 'package:my_app/widgets/wellnest_popup_menu.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:my_app/widgets/post_photo_collage.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/vote_service.dart';
 
@@ -47,13 +51,7 @@ class _FeedPageState extends State<FeedPage> {
   final Map<int, int> _postCommentsCount = {};
   // Loading indicators per post
   final Map<int, bool> _liking = {};
-  final Map<int, bool> _commenting = {}; // loading comments (expand)
-  final Map<int, bool> _submitting = {}; // submitting a comment
-  final Map<int, XFile?> _commentImages = {};
   CurrentUser? _currentUser;
-  final Map<int, List<PostComment>> _postComments = {};
-  final Map<int, bool> _commentsExpanded = {};
-  final Map<int, TextEditingController> _commentControllers = {};
   _FeedScope _feedScope = _FeedScope.all;
 
   @override
@@ -67,9 +65,6 @@ class _FeedPageState extends State<FeedPage> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    for (final c in _commentControllers.values) {
-      c.dispose();
-    }
     super.dispose();
   }
 
@@ -246,14 +241,16 @@ class _FeedPageState extends State<FeedPage> {
                           if (AuthService.instance.isLoggedIn) ...[
                             _buildFeedScopeToggle(colorScheme),
                             const SizedBox(height: 16),
-                            _buildCreatePostBox(),
-                            const SizedBox(height: 20),
                           ],
                         ],
                       ),
                     ),
                   ),
                 ),
+                if (AuthService.instance.isLoggedIn) ...[
+                  SliverToBoxAdapter(child: _buildCreatePostBox()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
                 if (posts.isEmpty && !AuthService.instance.isLoggedIn)
                   const SliverFillRemaining(
                     hasScrollBody: false,
@@ -292,17 +289,12 @@ class _FeedPageState extends State<FeedPage> {
                     ),
                   )
                 else
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                    ),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => RepaintBoundary(
-                          child: _buildFeedCard(posts[index]),
-                        ),
-                        childCount: posts.length,
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => RepaintBoundary(
+                        child: _buildFeedCard(posts[index], index),
                       ),
+                      childCount: posts.length,
                     ),
                   ),
                 if (_isLoadingMore)
@@ -445,11 +437,9 @@ class _FeedPageState extends State<FeedPage> {
 
   Widget _buildCreatePostBox() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: wellnestCardDecoration(
-        context,
-        borderRadius: AppRadii.lg,
-      ),
+      decoration: wellnestFeedStripDecoration(context),
       child: Column(
         children: [
           InkWell(
@@ -573,17 +563,15 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  Widget _buildFeedCard(Post post) {
+  Widget _buildFeedCard(Post post, int index) {
     final liked = _postLiked[post.id] ?? false;
     final isLiking = _liking[post.id] ?? false;
-    final isCommenting = _commenting[post.id] ?? false;
-    final expanded = _commentsExpanded[post.id] ?? false;
-    final comments = _postComments[post.id] ?? [];
     final likesCount = _postLikesCount[post.id] ?? 0;
-    final commentsCount = expanded
-        ? comments.length
-        : (_postCommentsCount[post.id] ?? post.commentsCount);
-    _commentControllers[post.id] ??= TextEditingController();
+    final commentsCount =
+        _postCommentsCount[post.id] ?? post.commentsCount;
+    final myId = AuthService.instance.userId ?? _currentUser?.id;
+    final isOwner =
+        post.userId != null && myId != null && post.userId == myId;
 
     void goToDetail() {
       Navigator.push(
@@ -606,13 +594,14 @@ class _FeedPageState extends State<FeedPage> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: wellnestCardDecoration(
+      width: double.infinity,
+      decoration: wellnestFeedStripDecoration(
         context,
-        borderRadius: AppRadii.lg,
+        top: index == 0,
+        bottom: true,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
@@ -678,35 +667,21 @@ class _FeedPageState extends State<FeedPage> {
           GestureDetector(
             onTap: goToDetail,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(post.content),
                 ),
-                if (post.displayImageUrl != null &&
-                    post.displayImageUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 15),
-                  ClipRRect(
-                    borderRadius: post.content.isEmpty
-                        ? const BorderRadius.vertical(top: Radius.circular(20))
-                        : BorderRadius.zero,
-                    child: Image.network(
-                      post.displayImageUrl!,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      cacheWidth: 800,
-                      cacheHeight: 360,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: AppColors.imagePlaceholderGreen,
-                        height: 180,
-                        child: Icon(
-                          Icons.restaurant_menu,
-                          size: 48,
-                          color: wellGreen,
-                        ),
-                      ),
+                if (post.galleryDisplayUrls.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
+                    child: PostPhotoCollage(
+                      urls: post.galleryDisplayUrls,
+                      spacing: 4,
                     ),
                   ),
                 ],
@@ -723,75 +698,119 @@ class _FeedPageState extends State<FeedPage> {
                     onTap: () => _toggleLike(post.id),
                     loading: isLiking,
                     icon: liked ? Icons.favorite : Icons.favorite_border,
-                    label: 'Like ($likesCount)',
+                    label: likesCount == 1 ? '1 like' : '$likesCount likes',
                     color: nestOrange,
                   ),
                   const SizedBox(width: 8),
                   _ActionButton(
-                    onTap: () => _toggleComments(post.id),
-                    loading: isCommenting,
+                    onTap: goToDetail,
+                    loading: false,
                     icon: Icons.comment_outlined,
-                    label: 'Comment ($commentsCount)',
+                    label: commentsCount == 1
+                        ? '1 comment'
+                        : '$commentsCount comments',
                     color: wellGreen,
                   ),
                   const Spacer(),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.black54),
-                    onSelected: (v) =>
-                        v == 'report' ? _reportPost(post.id) : null,
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'report', child: Text('Report')),
+                    tooltip: 'More options',
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: wellGreen,
+                    ),
+                    onSelected: (v) async {
+                      if (v == 'edit') {
+                        final updated = await Navigator.push<Post>(
+                          context,
+                          MaterialPageRoute<Post>(
+                            builder: (context) =>
+                                EditPostScreen(post: post),
+                          ),
+                        );
+                        if (updated != null && mounted) {
+                          await _loadPosts();
+                        }
+                      } else if (v == 'delete') {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete post'),
+                            content: const Text(
+                              'Remove this post permanently?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: nestOrange,
+                                ),
+                                onPressed: () =>
+                                    Navigator.pop(ctx, true),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok == true && mounted) {
+                          try {
+                            await PostService.instance.deletePost(post.id);
+                            if (!mounted) return;
+                            await _loadPosts();
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Post deleted'),
+                                backgroundColor: wellGreen,
+                              ),
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      } else if (v == 'report') {
+                        await _reportPost(post.id);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (isOwner) ...[
+                        wellnestPopupMenuItem(
+                          value: 'edit',
+                          icon: Icons.edit_outlined,
+                          label: 'Edit',
+                        ),
+                        wellnestPopupMenuItem(
+                          value: 'delete',
+                          icon: Icons.delete_outline_rounded,
+                          label: 'Delete',
+                          iconColor: nestOrange,
+                        ),
+                      ],
+                      if (!isOwner)
+                        wellnestPopupMenuItem(
+                          value: 'report',
+                          icon: Icons.flag_outlined,
+                          label: 'Report',
+                        ),
                     ],
                   ),
                 ],
               ),
             ),
-            if (expanded) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    ...comments.map(
-                      (c) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            InitialsAvatar(
-                              name: c.userName,
-                              size: 32,
-                              imageUrl: c.displayProfilePhotoUrl,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 14,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: '${c.userName}: ',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    TextSpan(text: c.comment),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    _buildCommentInput(post.id, _submitting[post.id] ?? false),
-                  ],
-                ),
-              ),
-            ],
             const SizedBox(height: 12),
           ],
         ],
@@ -830,176 +849,6 @@ class _FeedPageState extends State<FeedPage> {
       }
     } finally {
       if (mounted) setState(() => _liking[postId] = false);
-    }
-  }
-
-  Future<void> _toggleComments(int postId) async {
-    final expanded = _commentsExpanded[postId] ?? false;
-    if (!expanded) {
-      setState(() => _commenting[postId] = true);
-      try {
-        final comments = await PostService.instance.fetchComments(postId);
-        if (mounted) {
-          setState(() {
-            _commentsExpanded[postId] = true;
-            _postComments[postId] = comments;
-          });
-        }
-      } finally {
-        if (mounted) setState(() => _commenting[postId] = false);
-      }
-    } else {
-      if (mounted) setState(() => _commentsExpanded[postId] = false);
-    }
-  }
-
-  Widget _buildCommentInput(int postId, bool isCommenting) {
-    final pendingImage = _commentImages[postId];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Image preview
-        if (pendingImage != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: FutureBuilder<List<int>>(
-                    future: pendingImage.readAsBytes().then((b) => b.toList()),
-                    builder: (_, snap) => snap.hasData
-                        ? Image.memory(
-                            Uint8List.fromList(snap.data!),
-                            height: 100,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          )
-                        : const SizedBox(height: 100),
-                  ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () => setState(() => _commentImages[postId] = null),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        Row(
-          children: [
-            // Image pick button
-            GestureDetector(
-              onTap: () async {
-                final picker = ImagePicker();
-                final x = await picker.pickImage(source: ImageSource.gallery);
-                if (x != null && mounted) {
-                  setState(() => _commentImages[postId] = x);
-                }
-              },
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: nestOrange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.photo_library_outlined,
-                  color: nestOrange,
-                  size: 18,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _commentControllers[postId],
-                decoration: InputDecoration(
-                  hintText: 'Add a comment...',
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0xFFF5F5F5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 36,
-              height: 36,
-              child: isCommenting
-                  ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: wellGreen,
-                      ),
-                    )
-                  : IconButton(
-                      onPressed: () => _addComment(postId),
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(
-                        Icons.send_rounded,
-                        color: wellGreen,
-                        size: 22,
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Future<void> _addComment(int postId) async {
-    final ctrl = _commentControllers[postId];
-    final image = _commentImages[postId];
-    if ((ctrl == null || ctrl.text.trim().isEmpty) && image == null) return;
-    setState(() => _submitting[postId] = true);
-    try {
-      final comment = await PostService.instance.addComment(
-        postId,
-        ctrl?.text ?? '',
-        image: image,
-      );
-      if (comment != null && mounted) {
-        ctrl?.clear();
-        setState(() {
-          _commentImages[postId] = null;
-          _postComments[postId] = [...(_postComments[postId] ?? []), comment];
-          _postCommentsCount[postId] = (_postCommentsCount[postId] ?? 0) + 1;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _submitting[postId] = false);
     }
   }
 

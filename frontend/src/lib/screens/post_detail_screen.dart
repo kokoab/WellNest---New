@@ -3,9 +3,14 @@ import 'package:my_app/models/post.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/screens/user_profile_screen.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/post_service.dart';
+import 'package:my_app/services/user_service.dart';
+import 'package:my_app/screens/edit_post_screen.dart';
 import 'package:my_app/widgets/post_photo_collage.dart';
+import 'package:my_app/widgets/full_screen_photo_gallery.dart';
+import 'package:my_app/widgets/wellnest_popup_menu.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/services/vote_service.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
@@ -20,9 +25,6 @@ class PostDetailScreen extends StatefulWidget {
 }
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-
   late Post _post;
   bool _liked = false;
   List<PostComment> _comments = [];
@@ -30,21 +32,83 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _loadingMoreComments = false;
   bool _commentsHasMore = true;
   int _commentsPage = 1;
-  static const int _commentsPerPage = 20;
+  /// Total comment count from the API (pagination `total`); kept in sync when adding.
+  int _commentsTotal = 0;
+  static const int _commentsPerPage = 10;
+  static const double _loadMoreCommentsScrollThreshold = 280;
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _commentController = TextEditingController();
+
+  /// Used when [AuthService.userId] is missing (older sessions) so owner menu still shows.
+  CurrentUser? _currentUserMe;
 
   @override
   void initState() {
     super.initState();
     _post = widget.post;
+    _commentsTotal = widget.post.commentsCount;
+    _scrollController.addListener(_onCommentsScroll);
     _refreshPost();
     _loadComments();
+    _loadCurrentUserForOwnership();
+  }
+
+  Future<void> _loadCurrentUserForOwnership() async {
+    if (!AuthService.instance.isLoggedIn) return;
+    try {
+      final me = await UserService.instance.fetchCurrentUser();
+      if (mounted) setState(() => _currentUserMe = me);
+    } catch (_) {
+      // Menu falls back to AuthService.userId only.
+    }
+  }
+
+  bool _ownsThisPost() {
+    final authorId = _post.userId;
+    if (authorId == null) return false;
+    final tokenUid = AuthService.instance.userId;
+    if (tokenUid != null && tokenUid == authorId) return true;
+    final meId = _currentUserMe?.id;
+    if (meId != null && meId == authorId) return true;
+    return false;
+  }
+
+  void _openAuthorProfile() {
+    final id = _post.userId;
+    if (id == null) return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => UserProfileScreen(userId: id),
+      ),
+    );
+  }
+
+  /// Same full-screen gallery UX as [RecipeDetailScreen] hero photos.
+  void _openPostPhotoGallery({int initialIndex = 0}) {
+    final urls = _post.galleryDisplayUrls;
+    if (urls.isEmpty) return;
+    final start = initialIndex.clamp(0, urls.length - 1);
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (context) => FullScreenPhotoGallery(
+          urls: urls,
+          initialIndex: start,
+        ),
+      ),
+    );
   }
 
   Future<void> _refreshPost() async {
     try {
       final fresh = await PostService.instance.fetchPost(widget.post.id);
-      if (mounted) setState(() => _post = fresh);
+      if (mounted) {
+        setState(() {
+          _post = fresh;
+          _commentsTotal = fresh.commentsCount;
+        });
+      }
     } catch (_) {
       // Keep navigation payload if offline / error.
     }
@@ -52,8 +116,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onCommentsScroll);
+    _scrollController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  void _onCommentsScroll() {
+    if (!_commentsLoaded || !_commentsHasMore || _loadingMoreComments) return;
+    final position = _scrollController.position;
+    if (!position.hasViewportDimension || position.maxScrollExtent <= 0) return;
+    if (position.pixels >=
+        position.maxScrollExtent - _loadMoreCommentsScrollThreshold) {
+      _loadMoreComments();
+    }
+  }
+
+  /// If the page is tall enough that the list does not scroll, still fetch more
+  /// comments until the user can scroll or the API has no next page.
+  void _scheduleFillViewportIfShort() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!_commentsLoaded || !_commentsHasMore || _loadingMoreComments) return;
+      if (!_scrollController.hasClients) {
+        _scheduleFillViewportIfShort();
+        return;
+      }
+      final position = _scrollController.position;
+      if (!position.hasViewportDimension) return;
+      if (position.maxScrollExtent > _loadMoreCommentsScrollThreshold) return;
+      await _loadMoreComments();
+      if (mounted) _scheduleFillViewportIfShort();
+    });
   }
 
   Future<void> _loadComments() async {
@@ -68,8 +162,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           _comments = response.comments;
           _commentsPage = response.currentPage;
           _commentsHasMore = response.currentPage < response.lastPage;
+          _commentsTotal = response.total;
           _commentsLoaded = true;
         });
+        _scheduleFillViewportIfShort();
       }
     } catch (_) {
       if (mounted) setState(() => _commentsLoaded = true);
@@ -94,6 +190,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         _comments.addAll(incoming);
         _commentsPage = response.currentPage;
         _commentsHasMore = response.currentPage < response.lastPage;
+        if (response.total > 0) _commentsTotal = response.total;
         _loadingMoreComments = false;
       });
     } catch (_) {
@@ -109,11 +206,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final comment = await PostService.instance.addComment(_post.id, text);
       if (comment != null && mounted) {
         _commentController.clear();
-        setState(() => _comments = [..._comments, comment]);
+        setState(() {
+          _comments = [..._comments, comment];
+          _commentsTotal = _commentsTotal + 1;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Comment added'),
-            backgroundColor: wellGreen,
+            backgroundColor: kPrimaryGreen,
           ),
         );
       }
@@ -126,29 +226,78 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  InputDecoration _commentFieldDecoration(BuildContext context) {
+    final outline = wellnestOutlineColor(context);
+    return InputDecoration(
+      hintText: 'Add a comment...',
+      hintStyle: TextStyle(
+        color: kPrimaryGreen.withValues(alpha: 0.55),
+        fontSize: 15,
+        fontFamily: kFontHelveticaNow,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(24),
+        borderSide: BorderSide(color: outline),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(24),
+        borderSide: BorderSide(color: outline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(24),
+        borderSide: const BorderSide(color: kPrimaryGreen, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final fullscreen = ModalRoute.of(context)?.fullscreenDialog ?? false;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundCream,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Post',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: cs.onSurface,
+          ),
         ),
-        backgroundColor: wellGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 26),
+        backgroundColor: AppColors.backgroundCream,
+        foregroundColor: cs.onSurface,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: IconThemeData(color: cs.onSurface, size: 26),
+        leading: fullscreen
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'Close',
+                onPressed: () => Navigator.maybePop(context),
+              )
+            : null,
       ),
       body: Column(
         children: [
           Expanded(
             child: CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 // Main post
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -156,30 +305,55 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InitialsAvatar(
-                              name: _post.userName,
-                              size: 48,
-                              imageUrl: _post.displayAuthorProfilePhotoUrl,
-                            ),
+                            _post.userId != null
+                                ? GestureDetector(
+                                    onTap: _openAuthorProfile,
+                                    child: InitialsAvatar(
+                                      name: _post.userName,
+                                      size: 48,
+                                      imageUrl:
+                                          _post.displayAuthorProfilePhotoUrl,
+                                    ),
+                                  )
+                                : InitialsAvatar(
+                                    name: _post.userName,
+                                    size: 48,
+                                    imageUrl:
+                                        _post.displayAuthorProfilePhotoUrl,
+                                  ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _post.userName,
-                                    style: georgiaProTextStyle(
-                                      fontSize: 16,
-                                      color: wellGreen,
-                                    ).copyWith(letterSpacing: 0),
-                                  ),
+                                  _post.userId != null
+                                      ? GestureDetector(
+                                          onTap: _openAuthorProfile,
+                                          child: Text(
+                                            _post.userName,
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: kPrimaryGreen,
+                                                  fontFamily:
+                                                      kFontHelveticaNow,
+                                                ),
+                                          ),
+                                        )
+                                      : Text(
+                                          _post.userName,
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                color: kPrimaryGreen,
+                                                fontFamily: kFontHelveticaNow,
+                                              ),
+                                        ),
                                   const SizedBox(height: 2),
                                   Text(
                                     formatPostTime(_post.createdAt),
-                                    style: TextStyle(
-                                      fontFamily: 'HelveticaNow',
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: kCaptionGray,
                                     ),
                                   ),
                                 ],
@@ -188,12 +362,75 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             if (AuthService.instance.isLoggedIn)
                               PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  Icons.more_vert,
-                                  color: Colors.grey[600],
+                                tooltip: 'More options',
+                                icon: const Icon(
+                                  Icons.more_vert_rounded,
+                                  color: kPrimaryGreen,
                                 ),
                                 onSelected: (v) async {
-                                  if (v == 'report') {
+                                  if (v == 'edit') {
+                                    final updated =
+                                        await Navigator.push<Post>(
+                                      context,
+                                      MaterialPageRoute<Post>(
+                                        builder: (context) =>
+                                            EditPostScreen(post: _post),
+                                      ),
+                                    );
+                                    if (updated != null && mounted) {
+                                      setState(() => _post = updated);
+                                    }
+                                  } else if (v == 'delete') {
+                                    final ok = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Delete post'),
+                                        content: const Text(
+                                          'Remove this post permanently?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          FilledButton(
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: kAccentOrange,
+                                            ),
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (ok == true && mounted) {
+                                      try {
+                                        await PostService.instance.deletePost(
+                                          _post.id,
+                                        );
+                                        if (mounted) {
+                                          Navigator.of(context).pop();
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                e.toString().replaceFirst(
+                                                  'Exception: ',
+                                                  '',
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  } else if (v == 'report') {
                                     final ok = await showDialog<bool>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
@@ -248,12 +485,30 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     }
                                   }
                                 },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'report',
-                                    child: Text('Report'),
-                                  ),
-                                ],
+                                itemBuilder: (context) {
+                                  final owner = _ownsThisPost();
+                                  return [
+                                    if (owner) ...[
+                                      wellnestPopupMenuItem(
+                                        value: 'edit',
+                                        icon: Icons.edit_outlined,
+                                        label: 'Edit',
+                                      ),
+                                      wellnestPopupMenuItem(
+                                        value: 'delete',
+                                        icon: Icons.delete_outline_rounded,
+                                        label: 'Delete',
+                                        iconColor: kAccentOrange,
+                                      ),
+                                    ],
+                                    if (!owner)
+                                      wellnestPopupMenuItem(
+                                        value: 'report',
+                                        icon: Icons.flag_outlined,
+                                        label: 'Report',
+                                      ),
+                                  ];
+                                },
                               ),
                           ],
                         ),
@@ -273,7 +528,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           ),
                         ),
                         if (_post.galleryDisplayUrls.isNotEmpty) ...[
-                          PostPhotoCollage(urls: _post.galleryDisplayUrls),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openPostPhotoGallery(),
+                            child: PostPhotoCollage(
+                              urls: _post.galleryDisplayUrls,
+                            ),
+                          ),
                           const SizedBox(height: AppSpacing.md),
                         ],
                         // Action bar
@@ -310,24 +571,26 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   _liked
                                       ? Icons.favorite
                                       : Icons.favorite_border,
-                                  color: nestOrange,
+                                  color: AppColors.accentOrange,
                                   size: 22,
                                 ),
                                 label: Text(
                                   _liked ? 'Liked' : 'Like',
                                   style: const TextStyle(
-                                    color: nestOrange,
+                                    color: AppColors.accentOrange,
                                     fontWeight: FontWeight.w600,
+                                    fontFamily: kFontHelveticaNow,
                                   ),
                                 ),
                                 style: TextButton.styleFrom(
-                                  foregroundColor: nestOrange,
+                                  foregroundColor: AppColors.accentOrange,
                                 ),
                               ),
                             const Spacer(),
                             if (_post.recipeId != null)
                               Material(
-                                color: const Color(0x1A097333),
+                                color:
+                                    AppColors.primaryGreen.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
                                 child: InkWell(
                                   onTap: () => Navigator.push(
@@ -340,18 +603,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     ),
                                   ),
                                   borderRadius: BorderRadius.circular(20),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 10,
                                     ),
                                     child: Text(
                                       'View Recipe',
-                                      style: TextStyle(
-                                        color: wellGreen,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: kPrimaryGreen,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: kFontHelveticaNow,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -363,11 +627,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   ),
                 ),
                 // Divider between post and comments
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Divider(
                     height: 1,
                     thickness: 1,
-                    color: Color(0xFFEAE6DF),
+                    color: wellnestOutlineColor(context).withValues(alpha: 0.5),
                   ),
                 ),
                 // Comments header
@@ -380,12 +644,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       AppSpacing.sm,
                     ),
                     child: Text(
-                      'Comments (${_comments.length})',
-                      style: TextStyle(
-                        fontFamily: 'HelveticaNow',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                      'Comments ($_commentsTotal)',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: kPrimaryGreen,
+                        fontFamily: kFontHelveticaNow,
                       ),
                     ),
                   ),
@@ -397,7 +660,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     child: Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
-                        child: CircularProgressIndicator(color: wellGreen),
+                        child: CircularProgressIndicator(color: kPrimaryGreen),
                       ),
                     ),
                   )
@@ -469,28 +732,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       );
                     }, childCount: _comments.length),
                   ),
-                if (_commentsHasMore)
+                if (_commentsLoaded &&
+                    _commentsHasMore &&
+                    _loadingMoreComments)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 24),
+                      padding: const EdgeInsets.only(top: 8, bottom: 28),
                       child: Center(
-                        child: OutlinedButton.icon(
-                          onPressed: _loadingMoreComments
-                              ? null
-                              : _loadMoreComments,
-                          icon: _loadingMoreComments
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.expand_more_rounded),
-                          label: Text(
-                            _loadingMoreComments
-                                ? 'Loading…'
-                                : 'Load more comments',
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: kPrimaryGreen,
                           ),
                         ),
                       ),
@@ -512,7 +766,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   AppSpacing.md,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.backgroundCream,
                   border: Border(
                     top: BorderSide(color: wellnestOutlineColor(context), width: 1),
                   ),
@@ -523,28 +777,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: _commentController,
-                        decoration: InputDecoration(
-                          hintText: 'Add a comment...',
-                          hintStyle: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 15,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFF0F0F0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                        ),
+                        style: theme.textTheme.bodyLarge,
+                        decoration: _commentFieldDecoration(context),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Material(
-                      color: wellGreen,
+                      color: kPrimaryGreen,
                       shape: const CircleBorder(),
                       child: InkWell(
                         onTap: _addComment,

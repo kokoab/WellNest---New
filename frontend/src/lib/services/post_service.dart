@@ -182,6 +182,46 @@ class PostService {
     if (c == null) return null;
     return PostComment.fromJson(c);
   }
+
+  /// PUT /api/posts/{id}
+  Future<Post> updatePost(
+    int postId, {
+    required String content,
+    String? title,
+    int? recipeId,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/posts/$postId'),
+      headers: _headers,
+      body: jsonEncode({
+        'content': content,
+        if (title != null) 'title': title,
+        if (recipeId != null) 'recipe_id': recipeId,
+      }),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final postJson = data['post'] as Map<String, dynamic>?;
+      if (postJson != null) {
+        return Post.fromJson(postJson);
+      }
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>?;
+    throw Exception(err?['message'] as String? ?? 'Failed to update post');
+  }
+
+  /// DELETE /api/posts/{id}
+  Future<void> deletePost(int postId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/posts/$postId'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return;
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>?;
+    throw Exception(err?['message'] as String? ?? 'Failed to delete post');
+  }
 }
 
 class PostCommentsResponse {

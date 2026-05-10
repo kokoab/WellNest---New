@@ -141,7 +141,9 @@ class UserService {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return CurrentUser.fromJson(data);
+        final user = CurrentUser.fromJson(data);
+        AuthService.instance.setUserId(user.id);
+        return user;
       }
       return null;
     } catch (_) {

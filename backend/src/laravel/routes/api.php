@@ -79,6 +79,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::get('recipes/{recipe}/ratings/me', [RecipeRatingController::class, 'userRating']);
 
     Route::post('posts', [PostController::class, 'store']);
+    Route::put('posts/{post}', [PostController::class, 'update']);
+    Route::delete('posts/{post}', [PostController::class, 'destroy']);
     Route::post('posts/{post}/images', [PostController::class, 'uploadImage']);
     Route::delete('posts/{post}/images/{image}', [PostController::class, 'deleteImage']);
     Route::put('posts/{post}/images/reorder', [PostController::class, 'reorderImages']);

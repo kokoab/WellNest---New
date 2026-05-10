@@ -347,6 +347,26 @@ BoxDecoration wellnestCardDecoration(
       border: Border.all(color: wellnestOutlineColor(context), width: 1),
     );
 
+/// Full-bleed strip (feed posts / composer): white surface with grey rules on
+/// [top] and/or [bottom] only — no left/right stroke so the card reaches screen edges.
+BoxDecoration wellnestFeedStripDecoration(
+  BuildContext context, {
+  Color? color,
+  bool top = true,
+  bool bottom = true,
+}) =>
+    BoxDecoration(
+      color: color ?? Colors.white,
+      border: Border(
+        top: top
+            ? BorderSide(color: wellnestOutlineColor(context), width: 1)
+            : BorderSide.none,
+        bottom: bottom
+            ? BorderSide(color: wellnestOutlineColor(context), width: 1)
+            : BorderSide.none,
+      ),
+    );
+
 /// In-column section titles (e.g. "Discover", "My Recipes").
 TextStyle wellnestSectionTitleStyle({Color? color}) =>
     georgiaProTextStyle(

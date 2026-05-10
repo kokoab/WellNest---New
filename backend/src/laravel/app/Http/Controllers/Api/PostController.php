@@ -181,7 +181,10 @@ class PostController extends Controller
     {
         $viewer = $request->user('sanctum');
 
-        $query = Post::with('user:id,first_name,last_name,profile_photo_url')
+        $query = Post::with([
+            'user:id,first_name,last_name,profile_photo_url',
+            'images',
+        ])
             ->withCount([
                 'votes as likes_count',
                 'comments as comments_count',
@@ -250,7 +253,7 @@ class PostController extends Controller
 
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
-        $posts = $paginator->getCollection()->map(fn (Post $post) => $this->postPayload($post));
+        $posts = $paginator->getCollection()->map(fn (Post $post) => $this->postDetailPayload($post));
 
         return response()->json([
             'data' => $posts,
@@ -314,5 +317,56 @@ class PostController extends Controller
         $escaped = addcslashes($t, '%_\\');
 
         return '%'.$escaped.'%';
+    }
+
+    public function update(Request $request, Post $post): JsonResponse
+    {
+        if ((int) $request->user()->id !== (int) $post->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'content' => 'required|string|max:5000',
+            'title' => 'nullable|string|max:255',
+            'recipe_id' => 'nullable|exists:recipes,id',
+        ]);
+
+        $post->update($validated);
+
+        $post->refresh();
+        $post->load(['user:id,first_name,last_name,profile_photo_url', 'images']);
+        $post->loadCount([
+            'votes as likes_count',
+            'comments as comments_count',
+        ]);
+
+        $viewer = $request->user('sanctum');
+        if ($viewer !== null) {
+            $post->loadExists([
+                'votes as is_liked' => fn ($q) => $q->where('user_id', $viewer->id),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Post updated',
+            'post' => $this->postDetailPayload($post),
+        ]);
+    }
+
+    public function destroy(Request $request, Post $post): JsonResponse
+    {
+        if ((int) $request->user()->id !== (int) $post->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $post->load('images');
+        foreach ($post->images as $image) {
+            Storage::disk('public')->delete($image->path);
+            $image->delete();
+        }
+
+        $post->delete();
+
+        return response()->json(['message' => 'Post deleted']);
     }
 }
