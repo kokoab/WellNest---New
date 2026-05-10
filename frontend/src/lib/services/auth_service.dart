@@ -55,12 +55,14 @@ class AuthService {
 
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
-  /// POST /api/register with first_name, last_name, email, password. Returns null on success.
+  /// POST /api/register with first_name, last_name, email, password, accepted_terms.
+  /// Returns null on success.
   Future<String?> register({
     required String firstName,
     required String lastName,
     required String email,
     required String password,
+    required bool acceptedTerms,
   }) async {
     try {
       final response = await http.post(
@@ -74,6 +76,7 @@ class AuthService {
           'last_name': lastName.trim(),
           'email': email.trim(),
           'password': password,
+          'accepted_terms': acceptedTerms,
         }),
       );
       if (response.statusCode == 201) {
@@ -84,11 +87,7 @@ class AuthService {
           final user = data['user'] as Map<String, dynamic>?;
           final userId = user?['id'] as int?;
           setUserId(userId);
-          await SessionPersistence.write(
-            token,
-            isAdmin: false,
-            userId: userId,
-          );
+          await SessionPersistence.write(token, isAdmin: false, userId: userId);
         }
         return null;
       }

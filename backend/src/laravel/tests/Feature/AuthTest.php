@@ -20,6 +20,7 @@ class AuthTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'jane@example.com',
             'password' => 'password123',
+            'accepted_terms' => true,
         ]);
 
         $response->assertCreated()
@@ -45,10 +46,25 @@ class AuthTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'duplicate@example.com',
             'password' => 'password123',
+            'accepted_terms' => true,
         ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_register_fails_when_terms_not_accepted(): void
+    {
+        $response = $this->postJson('api/register', [
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
+            'email' => 'no-terms@example.com',
+            'password' => 'password123',
+            'accepted_terms' => false,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['accepted_terms']);
     }
 
     public function test_login_returns_token_for_valid_credentials(): void
