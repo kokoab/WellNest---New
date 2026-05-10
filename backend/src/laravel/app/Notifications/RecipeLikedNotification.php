@@ -10,7 +10,9 @@ class RecipeLikedNotification extends Notification
     public function __construct(
         public int $recipeId,
         public string $recipeTitle,
-        public string $likerName
+        public string $likerName,
+        public int $actorId,
+        public ?string $actorProfilePhotoUrl,
     ) {}
 
     public function via(object $notifiable): array
@@ -26,6 +28,8 @@ class RecipeLikedNotification extends Notification
             'recipe_id' => $this->recipeId,
             'recipe_title' => $this->recipeTitle,
             'liker_name' => $this->likerName,
+            'actor_id' => $this->actorId,
+            'actor_profile_photo_url' => $this->actorProfilePhotoUrl,
         ];
     }
 }

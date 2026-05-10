@@ -369,12 +369,31 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  InitialsAvatar(
-                                    name: c.otherUser.name,
-                                    size: 52,
-                                    imageUrl:
-                                        c.otherUser.displayProfilePhotoUrl,
-                                  ),
+                                  c.isAssistant
+                                      ? ClipOval(
+                                          child: SizedBox(
+                                            width: 52,
+                                            height: 52,
+                                            child: Image.asset(
+                                              kWellnestAssistantLogoAsset,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) =>
+                                                      InitialsAvatar(
+                                                name: c.otherUser.name,
+                                                size: 52,
+                                                imageUrl: c.otherUser
+                                                    .displayProfilePhotoUrl,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : InitialsAvatar(
+                                          name: c.otherUser.name,
+                                          size: 52,
+                                          imageUrl: c.otherUser
+                                              .displayProfilePhotoUrl,
+                                        ),
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(

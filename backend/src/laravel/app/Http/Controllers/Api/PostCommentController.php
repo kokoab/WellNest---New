@@ -77,7 +77,9 @@ class PostCommentController extends Controller
                 $post->id,
                 $user->name,
                 $validated['comment'] ?? '📷 Image',
-                $post->recipe_id
+                $post->recipe_id,
+                (int) $user->id,
+                $user->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($owner->id));
         }

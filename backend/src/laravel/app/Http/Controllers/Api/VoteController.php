@@ -41,7 +41,9 @@ class VoteController extends Controller
             $owner->notify(new RecipeLikedNotification(
                 $recipe->id,
                 $recipe->title,
-                $user->name
+                $user->name,
+                (int) $user->id,
+                $user->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($owner->id));
         }
@@ -86,7 +88,12 @@ class VoteController extends Controller
 
         $owner = $post->user;
         if ($owner && $owner->id !== $user->id) {
-            $owner->notify(new PostLikedNotification($post->id, $user->name));
+            $owner->notify(new PostLikedNotification(
+                $post->id,
+                $user->name,
+                (int) $user->id,
+                $user->profile_photo_url,
+            ));
             event(new UnreadNotificationBadgeUpdated($owner->id));
         }
 

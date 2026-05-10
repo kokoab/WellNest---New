@@ -1,8 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/utils/media_url.dart';
+import 'package:my_app/widgets/initials_avatar.dart';
 import '../models/notification.dart';
 import '../services/notification_service.dart';
 import 'recipe_detail_screen.dart';
+
+String _notificationActorDisplayName(AppNotification n) {
+  final d = n.data;
+  for (final key in <String>[
+    'sender_name',
+    'liker_name',
+    'commenter_name',
+    'rater_name',
+    'reporter_name',
+  ]) {
+    final v = d[key];
+    if (v is String && v.trim().isNotEmpty) return v.trim();
+  }
+  return '';
+}
+
+bool _notificationIsWellnestAi(AppNotification n) {
+  if (n.type != 'new_message') return false;
+  final v = n.data['is_wellnest_assistant'];
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) {
+    return v == '1' || v.toLowerCase() == 'true';
+  }
+  return false;
+}
+
+/// True when this row should show the bundled assistant logo (API flag or legacy payload by name).
+bool _notificationShowsAssistantLogo(AppNotification n) {
+  if (_notificationIsWellnestAi(n)) return true;
+  if (n.type != 'new_message') return false;
+  final raw = _notificationActorDisplayName(n).toLowerCase();
+  return raw.contains('wellnest') && raw.contains('assistant');
+}
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -237,59 +273,32 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        backgroundColor: wellGreen,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white, size: 24),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: Colors.black,
         elevation: 0,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-            if (_unreadCount > 0) ...[
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: nestOrange,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$_unreadCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ],
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black, size: 24),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
         ),
         actions: [
           if (_unreadCount > 0)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 4),
               child: TextButton(
                 onPressed: _markingRead ? null : _markAllAsRead,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
                   ),
                 ),
                 child: _markingRead
@@ -297,7 +306,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
+                          color: Colors.black87,
                           strokeWidth: 2,
                         ),
                       )
@@ -306,6 +315,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
+                          color: Colors.black,
                         ),
                       ),
               ),
@@ -320,7 +330,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               opacity: _fadeAnimation,
               child: RefreshIndicator(
                 onRefresh: _load,
-                color: wellGreen,
+                color: Colors.black54,
                 child: CustomScrollView(
                   controller: _scrollController,
                   slivers: [
@@ -412,7 +422,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: wellGreen,
+                    color: Color(0xFF097333),
                   ),
                 ),
               ),
@@ -526,15 +536,10 @@ class _NotificationCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon container
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: colors.bg,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(icon, color: colors.icon, size: 22),
+                _NotificationLeadAvatar(
+                  notification: notification,
+                  colors: colors,
+                  fallbackIcon: icon,
                 ),
                 const SizedBox(width: 14),
                 // Content
@@ -596,5 +601,81 @@ class _NotificationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _NotificationLeadAvatar extends StatelessWidget {
+  const _NotificationLeadAvatar({
+    required this.notification,
+    required this.colors,
+    required this.fallbackIcon,
+  });
+
+  final AppNotification notification;
+  final ({Color bg, Color icon, Color dot}) colors;
+  final IconData fallbackIcon;
+
+  Widget _fallbackIconBox() {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: colors.bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(fallbackIcon, color: colors.icon, size: 22),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_notificationShowsAssistantLogo(notification)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Image.asset(
+            kWellnestAssistantLogoAsset,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: const InitialsAvatar(name: 'WellNest AI', size: 46),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final raw = notification.data['actor_profile_photo_url'] as String?;
+    final photoUrl = resolveStorageDisplayUrl(raw);
+    final name = _notificationActorDisplayName(notification);
+
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          photoUrl,
+          width: 46,
+          height: 46,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => name.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: InitialsAvatar(name: name, size: 46),
+                )
+              : _fallbackIconBox(),
+        ),
+      );
+    }
+
+    if (name.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: InitialsAvatar(name: name, size: 46),
+      );
+    }
+
+    return _fallbackIconBox();
   }
 }

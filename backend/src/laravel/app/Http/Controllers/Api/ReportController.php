@@ -40,7 +40,9 @@ class ReportController extends Controller
                 $recipe->id,
                 $user->name,
                 $validated['reason'] ?? null,
-                $validated['details'] ?? null
+                $validated['details'] ?? null,
+                (int) $user->id,
+                $user->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($admin->id));
         }
@@ -74,7 +76,9 @@ class ReportController extends Controller
                 $post->id,
                 $user->name,
                 $validated['reason'] ?? null,
-                $validated['details'] ?? null
+                $validated['details'] ?? null,
+                (int) $user->id,
+                $user->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($admin->id));
         }
@@ -103,12 +107,15 @@ class ReportController extends Controller
 
         $admins = User::where('is_admin', true)->get();
         foreach ($admins as $admin) {
+            $reporter = $request->user();
             $admin->notify(new ContentReportedNotification(
                 'user',
                 $user->id,
-                $request->user()->name,
+                $reporter->name,
                 $validated['reason'],
                 $validated['details'] ?? null,
+                (int) $reporter->id,
+                $reporter->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($admin->id));
         }

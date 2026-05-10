@@ -11,7 +11,9 @@ class RecipeRatedNotification extends Notification
         public string $recipeTitle,
         public string $raterName,
         public int $rating,
-        public ?string $comment = null
+        public ?string $comment = null,
+        public ?int $actorId = null,
+        public ?string $actorProfilePhotoUrl = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -37,6 +39,8 @@ class RecipeRatedNotification extends Notification
             'rater_name' => $this->raterName,
             'rating' => $this->rating,
             'comment' => $this->comment,
+            'actor_id' => $this->actorId,
+            'actor_profile_photo_url' => $this->actorProfilePhotoUrl,
         ];
     }
 }

@@ -10,6 +10,10 @@ const Color kImagePlaceholderGreen = Color(0xFFE8F1EC);
 const Color kBodyTextDark = Color(0xFF333333);
 const Color kCaptionGray = Color(0xFF666666);
 
+/// Bundled WellNest Assistant mark (same image as `storage/profile-photos/logo.jpg` on the API).
+const String kWellnestAssistantLogoAsset =
+    'lib/assets/images/wellnest_assistant_logo.jpg';
+
 /// Discover hero wash (soft pale green — matches status band behind notch).
 const Color kHeroPaleGreen = Color(0xFFF0F7F0);
 

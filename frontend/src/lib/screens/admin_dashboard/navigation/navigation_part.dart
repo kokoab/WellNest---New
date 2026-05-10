@@ -498,31 +498,10 @@ class _TopBar extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 2),
-          NotificationsDropdown(
+          NotificationsBellButton(
+            borderedToolbar: true,
             iconColor: kAccentOrange,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _TopBarIconBtn(
-                  icon: Icons.notifications_outlined,
-                  onPressed: null,
-                  tooltip: 'Notifications',
-                  color: kAccentOrange,
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: kAccentOrange,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            icon: Icons.notifications_outlined,
           ),
           const SizedBox(width: 8),
           Container(

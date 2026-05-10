@@ -235,10 +235,6 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     _send();
   }
 
-  /// Public URL for the WellNest mark served from Laravel `storage/app/public`.
-  String get _assistantBrandLogoUrl =>
-      '${AppConfig.baseUrl}/storage/profile-photos/logo.jpg';
-
   Widget _buildAssistantLogoAvatar(BuildContext context, double size) {
     return Container(
       width: size,
@@ -249,13 +245,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
         border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: ClipOval(
-        child: Image.network(
-          _assistantBrandLogoUrl,
+        child: Image.asset(
+          kWellnestAssistantLogoAsset,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          cacheWidth: (size * 2).toInt(),
-          cacheHeight: (size * 2).toInt(),
           errorBuilder: (_, _, _) => InitialsAvatar(
             name: widget.otherUserName,
             size: size,

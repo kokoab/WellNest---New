@@ -9,7 +9,7 @@ import 'package:my_app/models/admin_user.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/models/recipe_ranking_item.dart';
 import 'package:my_app/models/report.dart';
-import 'package:my_app/widgets/notifications_dropdown.dart';
+import 'package:my_app/widgets/notifications_bell_button.dart';
 import 'package:my_app/services/admin_auth_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/admin_user_service.dart';

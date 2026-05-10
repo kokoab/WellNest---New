@@ -12,7 +12,9 @@ class ContentReportedNotification extends Notification
         public int $reportableId,
         public string $reporterName,
         public ?string $reason = null,
-        public ?string $details = null
+        public ?string $details = null,
+        public ?int $reporterId = null,
+        public ?string $reporterProfilePhotoUrl = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -32,6 +34,8 @@ class ContentReportedNotification extends Notification
             'reporter_name' => $this->reporterName,
             'reason' => $this->reason,
             'details' => $this->details,
+            'actor_id' => $this->reporterId,
+            'actor_profile_photo_url' => $this->reporterProfilePhotoUrl,
         ];
     }
 }

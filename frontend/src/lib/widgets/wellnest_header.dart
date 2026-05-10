@@ -3,7 +3,7 @@ import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/services/reverb_service.dart';
 import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/notifications_dropdown.dart';
+import 'package:my_app/widgets/notifications_bell_button.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
 /// Logo + "Wellnest" on the left, notification bell + chat on the right.
@@ -60,13 +60,9 @@ class WellnestHeaderActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ChatBadgeButton(iconSize: WellnestHeader.iconSize),
-        NotificationsDropdown(
+        NotificationsBellButton(
           iconColor: AppColors.accentOrange,
-          child: Icon(
-            Icons.notifications,
-            color: AppColors.accentOrange,
-            size: WellnestHeader.iconSize,
-          ),
+          iconSize: WellnestHeader.iconSize,
         ),
       ],
     );
@@ -82,13 +78,9 @@ class WellnestHeaderActions extends StatelessWidget {
           Flexible(
             child: _ChatBadgeButton(iconSize: WellnestHeader.iconSize),
           ),
-          NotificationsDropdown(
+          NotificationsBellButton(
             iconColor: AppColors.accentOrange,
-            child: Icon(
-              Icons.notifications,
-              color: AppColors.accentOrange,
-              size: WellnestHeader.iconSize,
-            ),
+            iconSize: WellnestHeader.iconSize,
           ),
         ],
       ),

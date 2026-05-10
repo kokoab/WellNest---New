@@ -10,7 +10,10 @@ class NewMessageNotification extends Notification
         public int $conversationId,
         public int $messageId,
         public string $senderName,
-        public string $content
+        public string $content,
+        public int $senderId,
+        public ?string $senderProfilePhotoUrl,
+        public bool $isWellnestAssistant = false,
     ) {}
 
     public function via(object $notifiable): array
@@ -21,7 +24,7 @@ class NewMessageNotification extends Notification
     public function toArray(object $notifiable): array
     {
         $preview = strlen($this->content) > 50
-            ? substr($this->content, 0, 50) . '...'
+            ? substr($this->content, 0, 50).'...'
             : $this->content;
 
         return [
@@ -31,6 +34,9 @@ class NewMessageNotification extends Notification
             'message_id' => $this->messageId,
             'sender_name' => $this->senderName,
             'body_preview' => $preview,
+            'actor_id' => $this->senderId,
+            'actor_profile_photo_url' => $this->senderProfilePhotoUrl,
+            'is_wellnest_assistant' => $this->isWellnestAssistant,
         ];
     }
 }

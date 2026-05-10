@@ -119,7 +119,10 @@ class GenerateAssistantReply
                 $conversation->id,
                 $assistantMessage->id,
                 $botUser?->name ?? 'WellNest Assistant',
-                strlen($full) > 120 ? substr($full, 0, 120).'...' : $full
+                strlen($full) > 120 ? substr($full, 0, 120).'...' : $full,
+                (int) ($botUser?->id ?? 0),
+                $botUser?->profile_photo_url,
+                true,
             ));
             event(new UnreadNotificationBadgeUpdated($human->id));
         }

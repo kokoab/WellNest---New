@@ -11,7 +11,9 @@ class CommentReceivedNotification extends Notification
         public int $postId,
         public string $commenterName,
         public string $commentPreview,
-        public ?int $recipeId = null
+        public ?int $recipeId,
+        public int $actorId,
+        public ?string $actorProfilePhotoUrl,
     ) {}
 
     public function via(object $notifiable): array
@@ -31,6 +33,8 @@ class CommentReceivedNotification extends Notification
             'post_id' => $this->postId,
             'recipe_id' => $this->recipeId,
             'commenter_name' => $this->commenterName,
+            'actor_id' => $this->actorId,
+            'actor_profile_photo_url' => $this->actorProfilePhotoUrl,
         ];
     }
 }

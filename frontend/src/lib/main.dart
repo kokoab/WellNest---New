@@ -12,6 +12,7 @@ import 'package:my_app/screens/register_screen.dart';
 import 'package:my_app/screens/splash_screen.dart';
 import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/conversations_list_screen.dart';
+import 'package:my_app/screens/notifications_screen.dart';
 import 'package:my_app/services/admin_auth_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/session_restore.dart';
@@ -65,6 +66,7 @@ class MyApp extends StatelessWidget {
             '/dashboard': (context) => const UserDashboard(),
             '/saved-recipes': (context) => const SavedRecipesScreen(),
             '/conversations': (context) => const ConversationsListScreen(),
+            '/notifications': (context) => const NotificationsScreen(),
           },
         ),
       ),

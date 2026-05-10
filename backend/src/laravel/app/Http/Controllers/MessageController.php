@@ -81,11 +81,15 @@ class MessageController extends Controller
         $botId = Assistant::botUserId();
         if (! $botId || (int) $otherUser->id !== (int) $botId) {
             $notificationContent = $content !== '' ? $content : '[Image]';
+            $sender = $request->user();
             $otherUser->notify(new NewMessageNotification(
                 $conv->id,
                 $message->id,
-                $request->user()->name,
-                $notificationContent
+                $sender->name,
+                $notificationContent,
+                (int) $sender->id,
+                $sender->profile_photo_url,
+                false,
             ));
             event(new UnreadNotificationBadgeUpdated($otherUser->id));
         }

@@ -39,7 +39,9 @@ class RecipeRatingController extends Controller
                     $recipe->title,
                     $user->name,
                     $validated['rating'],
-                    $comment
+                    $comment,
+                    (int) $user->id,
+                    $user->profile_photo_url,
                 ));
                 event(new UnreadNotificationBadgeUpdated($owner->id));
             }
@@ -65,7 +67,9 @@ class RecipeRatingController extends Controller
                 $recipe->title,
                 $user->name,
                 $validated['rating'],
-                $validated['comment'] ?? null
+                $validated['comment'] ?? null,
+                (int) $user->id,
+                $user->profile_photo_url,
             ));
             event(new UnreadNotificationBadgeUpdated($owner->id));
         }
