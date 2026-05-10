@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Recipe;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -68,6 +70,7 @@ class RecipeSeeder extends Seeder
                     $data
                 );
 
+                $this->stampRecipeCreatedAt($recipe);
                 $this->syncRecipeIngredients($recipe, $categoryName, $row['title'], $ingredientPools);
                 $this->ensureRecipeSeedImages($recipe, $templates, $remoteUrls, $index, $categoryName);
                 $index++;
@@ -83,6 +86,36 @@ class RecipeSeeder extends Seeder
             $categoryName = $recipe->category?->name ?? '_default';
             $this->syncRecipeIngredients($recipe, $categoryName, $recipe->title, $ingredientPools);
         }
+
+        foreach (Recipe::query()->cursor() as $recipe) {
+            $this->stampRecipeCreatedAt($recipe);
+        }
+    }
+
+    /**
+     * Force created_at/updated_at to a deterministic random moment between
+     * Jan 1 2025 00:00 UTC and "now". Same recipe title -> same timestamp on
+     * re-seeds, so dates stay stable across runs (matches how ingredients and
+     * image lanes are picked via crc32).
+     */
+    private function stampRecipeCreatedAt(Recipe $recipe): void
+    {
+        $ts = $this->recipeSeedTimestamp($recipe->title);
+
+        DB::table('recipes')->where('id', $recipe->id)->update([
+            'created_at' => $ts->toDateTimeString(),
+            'updated_at' => $ts->toDateTimeString(),
+        ]);
+    }
+
+    private function recipeSeedTimestamp(string $title): CarbonImmutable
+    {
+        $start = CarbonImmutable::create(2025, 1, 1, 0, 0, 0, 'UTC');
+        $end = CarbonImmutable::now('UTC');
+        $rangeSeconds = max(1, $end->getTimestamp() - $start->getTimestamp());
+        $offset = (int) (abs(crc32('recipe-date|'.$title)) % $rangeSeconds);
+
+        return $start->addSeconds($offset);
     }
 
     /**
