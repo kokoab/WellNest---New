@@ -158,15 +158,15 @@ ThemeData get lightTheme => ThemeData(
   highlightColor: kPrimaryGreen.withValues(alpha: 0.2),
 );
 
-/// Dark surfaces — green-gray harmony with [kPrimaryGreen]; avoid harsh pure blacks.
-const Color kDarkScaffold = Color(0xFF161F1B);
-const Color kDarkSurface = Color(0xFF1E2A25);
-const Color kDarkSurfaceContainer = Color(0xFF2C3D35);
-const Color kDarkSurfaceContainerHigh = Color(0xFF253830);
-const Color kDarkSurfaceContainerMid = Color(0xFF213028);
+/// Dark surfaces — neutral slate (minimal green cast); brand stays on primary controls.
+const Color kDarkScaffold = Color(0xFF121418);
+const Color kDarkSurface = Color(0xFF1A1D22);
+const Color kDarkSurfaceContainer = Color(0xFF2A2F36);
+const Color kDarkSurfaceContainerHigh = Color(0xFF24292F);
+const Color kDarkSurfaceContainerMid = Color(0xFF20252B);
 
-/// Brand-tinted mint for headings on dark backgrounds (readable vs raw [kPrimaryGreen]).
-const Color kDarkHeadingGreen = Color(0xFF82DCB0);
+/// Headlines / section titles on dark — soft neutral (not mint) so UI feels less green overall.
+const Color kDarkHeadingGreen = Color(0xFFE2E6EA);
 
 /// Dark theme — mirrors [lightTheme] structure so components resolve colors from [ThemeData].
 ThemeData get darkTheme {
@@ -175,21 +175,22 @@ ThemeData get darkTheme {
     brightness: Brightness.dark,
     primary: kPrimaryGreen,
     onPrimary: Colors.white,
-    primaryContainer: const Color(0xFF133528),
-    onPrimaryContainer: const Color(0xFFC8F5DD),
+    primaryContainer: const Color(0xFF252A31),
+    onPrimaryContainer: const Color(0xFFDDE2E8),
     secondary: kAccentOrange,
     onSecondary: Colors.white,
     secondaryContainer: const Color(0xFF6B2E1A),
     onSecondaryContainer: const Color(0xFFFFE0D9),
     surface: kDarkSurface,
-    onSurface: const Color(0xFFE8EDE9),
-    onSurfaceVariant: const Color(0xFFB0C4BB),
-    outline: const Color(0xFF5C6B64),
-    outlineVariant: const Color(0xFF3D4A44),
+    onSurface: const Color(0xFFE8EAED),
+    onSurfaceVariant: const Color(0xFFA8ADB5),
+    outline: const Color(0xFF5C6169),
+    outlineVariant: const Color(0xFF3D424A),
   ).copyWith(
     surfaceContainerHighest: kDarkSurfaceContainer,
     surfaceContainerHigh: kDarkSurfaceContainerHigh,
     surfaceContainer: kDarkSurfaceContainerMid,
+    surfaceTint: Colors.transparent,
   );
 
   final headlineGreen = kDarkHeadingGreen;
@@ -202,14 +203,14 @@ ThemeData get darkTheme {
     scaffoldBackgroundColor: kDarkScaffold,
     cardColor: kDarkSurfaceContainer,
     canvasColor: kDarkScaffold,
-    dividerColor: const Color(0xFF3D4A44).withValues(alpha: 0.85),
+    dividerColor: const Color(0xFF3D424A).withValues(alpha: 0.85),
     bottomAppBarTheme: BottomAppBarThemeData(
       elevation: 0,
       height: 56,
       padding: EdgeInsets.zero,
       color: kDarkSurface,
       surfaceTintColor: Colors.transparent,
-      shadowColor: const Color(0xFF0A100D).withValues(alpha: 0.45),
+      shadowColor: const Color(0xFF0A0B0E).withValues(alpha: 0.45),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       elevation: 0,
@@ -261,7 +262,7 @@ ThemeData get darkTheme {
       color: kDarkSurfaceContainer,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shadowColor: const Color(0xFF0A100D).withValues(alpha: 0.5),
+      shadowColor: const Color(0xFF0A0B0E).withValues(alpha: 0.5),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.md),
@@ -353,17 +354,15 @@ class AppGradients {
         stops: const [0.0, 0.42, 0.76, 1.0],
       );
 
-  /// Discover top hero — light uses pale green wash; dark uses a deep green-tinted blend to scaffold.
+  /// Discover top hero — light uses pale green wash; dark uses a neutral lift into scaffold.
   static LinearGradient discoverHeroFor(BuildContext context) {
     final theme = Theme.of(context);
     final surface = theme.scaffoldBackgroundColor;
     if (theme.brightness == Brightness.light) {
       return discoverHeroFadeTo(surface);
     }
-    final cs = theme.colorScheme;
-    final top = Color.lerp(cs.primaryContainer, surface, 0.12) ?? cs.surface;
-    final mid =
-        Color.lerp(top, surface, 0.55) ?? surface;
+    final top = Color.lerp(surface, Colors.white, 0.055) ?? surface;
+    final mid = Color.lerp(top, surface, 0.52) ?? surface;
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -465,7 +464,7 @@ Color wellnestCardSurface(BuildContext context) {
   return t.cardTheme.color ?? t.colorScheme.surface;
 }
 
-/// Section headlines — brand green in light; lighter green on dark for contrast.
+/// Section headlines — brand green in light; neutral light text on dark.
 Color wellnestHeadingGreen(BuildContext context) {
   return Theme.of(context).brightness == Brightness.light
       ? kPrimaryGreen
