@@ -13,6 +13,9 @@ class AppSpacing {
   static const double xl = 32.0;
   static const double xxl = 48.0;
 
+  /// Login, register, and similar auth-style forms (caps width on web/desktop).
+  static const double authFormMaxWidth = 460;
+
   // Horizontal gaps (SizedBox width)
   static const Widget gapH4 = SizedBox(width: xs);
   static const Widget gapH8 = SizedBox(width: sm);

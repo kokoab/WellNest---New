@@ -57,170 +57,183 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 10),
-              // Logo, re-use existing
-              SizedBox(
-                height: 80,
-                width: 80,
-                child: Image.asset(
-                  'lib/assets/images/logo1.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 8),
-              GeorgiaProDisplaySquish(
-                alignment: Alignment.center,
-                child: Text(
-                  'Create Account',
-                  style: georgiaProTextStyle(
-                    fontSize: 32,
-                    color: labelColor,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.authFormMaxWidth,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 10),
+                  // Logo, re-use existing
+                  SizedBox(
+                    height: 80,
+                    width: 80,
+                    child: Image.asset(
+                      'lib/assets/images/logo1.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Form Fields (labels left-aligned)
-              SizedBox(
-                width: double.infinity,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildField(
-                      context,
-                      'Fullname:',
-                      controller: _fullNameController,
+                  const SizedBox(height: 8),
+                  GeorgiaProDisplaySquish(
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Create Account',
+                      style: georgiaProTextStyle(
+                        fontSize: 32,
+                        color: labelColor,
+                      ),
                     ),
-                    AppSpacing.gapV16,
-                    _buildField(
-                      context,
-                      'Email:',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 32),
+                  // Form Fields (labels left-aligned)
+                  SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildField(
+                          context,
+                          'Fullname:',
+                          controller: _fullNameController,
+                        ),
+                        AppSpacing.gapV16,
+                        _buildField(
+                          context,
+                          'Email:',
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        AppSpacing.gapV16,
+                        _buildField(
+                          context,
+                          'Password:',
+                          controller: _passwordController,
+                          obscureText: true,
+                        ),
+                      ],
                     ),
-                    AppSpacing.gapV16,
-                    _buildField(
-                      context,
-                      'Password:',
-                      controller: _passwordController,
-                      obscureText: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: _buildTermsAgreementRow(context, labelColor),
-              ),
-              AppSpacing.gapV24,
-              // Sign-up Button
-              SizedBox(
-                width: double.infinity,
-                child: _isLoading
-                    ? Center(
-                        child: CircularProgressIndicator(color: cs.primary),
-                      )
-                    : ElevatedButton(
-                        onPressed: !_agreedToTerms
-                            ? null
-                            : () async {
-                                final fullName = _fullNameController.text
-                                    .trim();
-                                final email = _emailController.text.trim();
-                                final password = _passwordController.text;
-                                if (fullName.isEmpty ||
-                                    email.isEmpty ||
-                                    password.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Fill in Fullname, Email and Password',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                final parts = fullName.split(RegExp(r'\s+'));
-                                final firstName = parts.first;
-                                final lastName = parts.length > 1
-                                    ? parts.sublist(1).join(' ')
-                                    : '';
-                                setState(() => _isLoading = true);
-                                final error = await AuthService.instance
-                                    .register(
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildTermsAgreementRow(context, labelColor),
+                  ),
+                  AppSpacing.gapV24,
+                  // Sign-up Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: _isLoading
+                        ? Center(
+                            child:
+                                CircularProgressIndicator(color: cs.primary),
+                          )
+                        : ElevatedButton(
+                            onPressed: !_agreedToTerms
+                                ? null
+                                : () async {
+                                    final fullName = _fullNameController.text
+                                        .trim();
+                                    final email = _emailController.text.trim();
+                                    final password = _passwordController.text;
+                                    if (fullName.isEmpty ||
+                                        email.isEmpty ||
+                                        password.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Fill in Fullname, Email and Password',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    final parts =
+                                        fullName.split(RegExp(r'\s+'));
+                                    final firstName = parts.first;
+                                    final lastName = parts.length > 1
+                                        ? parts.sublist(1).join(' ')
+                                        : '';
+                                    setState(() => _isLoading = true);
+                                    final error = await AuthService.instance
+                                        .register(
                                       firstName: firstName,
                                       lastName: lastName,
                                       email: email,
                                       password: password,
                                       acceptedTerms: _agreedToTerms,
                                     );
-                                if (!context.mounted) return;
-                                setState(() => _isLoading = false);
-                                if (error != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(error)),
-                                  );
-                                  return;
-                                }
-                                if (!context.mounted) return;
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/dashboard',
-                                );
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: cs.secondary,
-                          foregroundColor: cs.onSecondary,
-                          disabledBackgroundColor:
-                              cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                          disabledForegroundColor: cs.onSurfaceVariant,
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                                    if (!context.mounted) return;
+                                    setState(() => _isLoading = false);
+                                    if (error != null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(content: Text(error)),
+                                      );
+                                      return;
+                                    }
+                                    if (!context.mounted) return;
+                                    Navigator.pushReplacementNamed(
+                                      context,
+                                      '/dashboard',
+                                    );
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cs.secondary,
+                              foregroundColor: cs.onSecondary,
+                              disabledBackgroundColor: cs
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              disabledForegroundColor: cs.onSurfaceVariant,
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontFamily: 'HelveticaNow',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            child: const Text('Sign Up'),
                           ),
-                          textStyle: const TextStyle(
-                            fontFamily: 'HelveticaNow',
+                  ),
+                  AppSpacing.gapV24,
+                  // Connect: Navigate back to Login
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: TextStyle(
+                          color: wellnestCaptionColor(context),
+                          fontFamily: 'HelveticaNow',
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () =>
+                            Navigator.pushReplacementNamed(context, '/login'),
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            color: labelColor,
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontFamily: 'HelveticaNow',
                           ),
                         ),
-                        child: const Text('Sign Up'),
                       ),
-              ),
-              AppSpacing.gapV24,
-              // Connect: Navigate back to Login
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Already have an account? ',
-                    style: TextStyle(
-                      color: wellnestCaptionColor(context),
-                      fontFamily: 'HelveticaNow',
-                    ),
+                    ],
                   ),
-                  GestureDetector(
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/login'),
-                    child: Text(
-                      'Login',
-                      style: TextStyle(
-                        color: labelColor,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'HelveticaNow',
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
       ),

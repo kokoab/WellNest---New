@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
+import 'package:my_app/screens/splash_screen.dart';
 import 'package:my_app/widgets/georgia_pro_display_squish.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,6 +16,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+
+  /// Splash may be under this route, or the stack may be only `/login` (e.g. after logout).
+  void _exitToSplashOrPop() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    nav.pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const WellnestSplashScreen(),
+      ),
+      (route) => false,
+    );
+  }
 
   @override
   void dispose() {
@@ -49,33 +65,45 @@ class _LoginScreenState extends State<LoginScreen> {
     final cs = theme.colorScheme;
     final labelColor = wellnestHeadingGreen(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Login',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontSize: 16,
-            color: labelColor,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _exitToSplashOrPop();
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: Text(
+            'Login',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontSize: 16,
+              color: labelColor,
+            ),
+          ),
+          backgroundColor: cs.surface,
+          elevation: 0,
+          foregroundColor: cs.onSurface,
+          surfaceTintColor: Colors.transparent,
+          leading: Semantics(
+            button: true,
+            label: 'Back',
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: labelColor),
+              onPressed: _exitToSplashOrPop,
+            ),
           ),
         ),
-        backgroundColor: cs.surface,
-        elevation: 0,
-        foregroundColor: cs.onSurface,
-        surfaceTintColor: Colors.transparent,
-        leading: Semantics(
-          button: true,
-          label: 'Back',
-          child: IconButton(
-            icon: Icon(Icons.arrow_back, color: labelColor),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
+        body: SingleChildScrollView(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.authFormMaxWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -264,6 +292,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
             ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
