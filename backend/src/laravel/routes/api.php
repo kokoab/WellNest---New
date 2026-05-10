@@ -35,9 +35,6 @@ Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('reset-password', [AuthController::class, 'resetPassword']);
 Route::post('login-admin', [AdminAuthController::class, 'login']);
 
-Route::get('/hello', function () {
-    return response()->json(['message' => 'hello']);
-});
 
 // Public: feed posts (no auth required)
 Route::get('posts', [PostController::class, 'index']);

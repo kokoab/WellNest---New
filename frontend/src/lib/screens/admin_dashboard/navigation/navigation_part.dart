@@ -40,84 +40,113 @@ class _Sidebar extends StatelessWidget {
           SizedBox(
             height: _kTopBarHeight,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'lib/assets/images/logo1.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: kPrimaryGreen,
-                        child: const Icon(
-                          Icons.eco_rounded,
-                          color: Colors.white,
-                          size: 16,
+              padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 16),
+              child: collapsed
+                  ? Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Image.asset(
+                                'lib/assets/images/logo1.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: kPrimaryGreen,
+                                  child: const Icon(
+                                    Icons.eco_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: onToggleCollapsed,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  if (!collapsed) ...[
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'WellNest',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -0.3,
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Image.asset(
+                            'lib/assets/images/logo1.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: kPrimaryGreen,
+                              child: const Icon(
+                                Icons.eco_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           ),
-                          Text(
-                            'Admin Console',
-                            style: TextStyle(
-                              fontSize: 10,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'WellNest',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onSurface,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              Text(
+                                'Admin Console',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: onToggleCollapsed,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.chevron_left_rounded,
+                              size: 18,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    InkWell(
-                      onTap: onToggleCollapsed,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.chevron_left_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ),
+                      ],
                     ),
-                  ] else ...[
-                    const Spacer(),
-                    InkWell(
-                      onTap: onToggleCollapsed,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
             ),
           ),
           Divider(height: 0.5, color: borderColor),
