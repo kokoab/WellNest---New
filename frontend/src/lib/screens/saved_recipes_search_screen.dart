@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/services/content_update_notifier.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 import 'package:my_app/services/search_history_service.dart';
 import 'package:my_app/theme/app_spacing.dart';
@@ -39,8 +40,29 @@ class _SavedRecipesSearchScreenState extends State<SavedRecipesSearchScreen> {
   @override
   void initState() {
     super.initState();
+    ContentUpdateNotifier.instance.addListener(_onContentUpdate);
     _scrollController.addListener(_onScroll);
     _bootstrap();
+  }
+
+  void _onContentUpdate() {
+    final update = ContentUpdateNotifier.instance.lastUpdate;
+    if (!mounted ||
+        update == null ||
+        update.kind != ContentUpdateKind.recipe ||
+        update.action != ContentUpdateAction.saveChanged) {
+      return;
+    }
+
+    if (update.isActive) {
+      _bootstrap();
+      return;
+    }
+
+    setState(() {
+      _popular.removeWhere((recipe) => recipe.id == update.id);
+      _results.removeWhere((recipe) => recipe.id == update.id);
+    });
   }
 
   Future<void> _bootstrap() async {
@@ -179,6 +201,7 @@ class _SavedRecipesSearchScreenState extends State<SavedRecipesSearchScreen> {
 
   @override
   void dispose() {
+    ContentUpdateNotifier.instance.removeListener(_onContentUpdate);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _queryController.dispose();

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:my_app/app_route_observer.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
@@ -14,6 +15,7 @@ import 'package:my_app/screens/custom_bottom_nav.dart';
 import 'package:my_app/screens/profile_page.dart';
 import 'package:my_app/screens/recipe_form_screen.dart';
 import 'package:my_app/services/category_service.dart';
+import 'package:my_app/services/content_update_notifier.dart';
 import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/rating_service.dart';
@@ -37,7 +39,7 @@ class UserDashboard extends StatefulWidget {
   State<UserDashboard> createState() => _UserDashboardState();
 }
 
-class _UserDashboardState extends State<UserDashboard> {
+class _UserDashboardState extends State<UserDashboard> with RouteAware {
   static const Color wellGreen = Color(0xFF097333);
 
   int _currentIndex = 0;
@@ -46,6 +48,43 @@ class _UserDashboardState extends State<UserDashboard> {
   final GlobalKey<_RecipeGridViewState> _recipeGridViewKey =
       GlobalKey<_RecipeGridViewState>();
   final List<bool> _tabHasBeenBuilt = [false, false, false, false];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.unsubscribe(this);
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  /// When a detail (or other) route pops, the tab under it still holds stale list state.
+  @override
+  void didPopNext() {
+    if (!mounted) return;
+    switch (_currentIndex) {
+      case 0:
+        _recipeGridViewKey.currentState?.refreshAfterRoutePop();
+        break;
+      case 1:
+        setState(() => _feedRefreshKey++);
+        break;
+      case 2:
+        setState(() => _savedRefreshKey++);
+        break;
+      case 3:
+        // Profile listens to ContentUpdateNotifier and updates in place, so keep
+        // its selected activity tab intact when returning from detail screens.
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -334,6 +373,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
 
   @override
   void dispose() {
+    ContentUpdateNotifier.instance.removeListener(_onContentUpdate);
     for (final c in _reviewControllers.values) {
       c.dispose();
     }
@@ -349,6 +389,7 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   @override
   void initState() {
     super.initState();
+    ContentUpdateNotifier.instance.addListener(_onContentUpdate);
     _load();
     _loadTopRanked();
     _loadPopularCuisines();
@@ -357,6 +398,33 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       if (mounted) setState(() {});
     });
     _scrollController.addListener(_onScroll);
+  }
+
+  void _onContentUpdate() {
+    final update = ContentUpdateNotifier.instance.lastUpdate;
+    if (!mounted ||
+        update == null ||
+        update.kind != ContentUpdateKind.recipe) {
+      return;
+    }
+
+    setState(() {
+      switch (update.action) {
+        case ContentUpdateAction.likeChanged:
+          if (_expandedRecipe?.id == update.id) {
+            _expandedLiked = update.isActive;
+          }
+          break;
+        case ContentUpdateAction.saveChanged:
+          if (_recipeSaving.contains(update.id)) return;
+          _recipeSaved[update.id] = update.isActive;
+          _topRankedSaved[update.id] = update.isActive;
+          if (_expandedRecipe?.id == update.id) {
+            _expandedSaved = update.isActive;
+          }
+          break;
+      }
+    });
   }
 
   Future<void> _loadRecentSearches() async {
@@ -446,6 +514,11 @@ class _RecipeGridViewState extends State<RecipeGridView> {
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  /// Reload discover tab after returning from recipe detail (likes/saves/etc.).
+  Future<void> refreshAfterRoutePop() async {
+    await _load();
   }
 
   Future<void> _loadPopularCuisines() async {

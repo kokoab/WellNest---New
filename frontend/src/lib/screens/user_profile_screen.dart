@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/app_route_observer.dart';
 import 'package:my_app/models/post.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/post_detail_screen.dart';
@@ -20,7 +21,7 @@ class UserProfileScreen extends StatefulWidget {
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen> {
+class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
 
@@ -46,6 +47,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.unsubscribe(this);
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
     _load();
   }
 

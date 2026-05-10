@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/app_route_observer.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/utils/media_url.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
@@ -48,7 +49,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen>
-    with SingleTickerProviderStateMixin {
+    with RouteAware, SingleTickerProviderStateMixin {
   static const Color wellGreen = Color(0xFF097333);
   static const Color wellGreenLight = Color(0xFFE8F5EE);
   static const Color nestOrange = Color(0xFFEF5026);
@@ -82,6 +83,16 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     _load();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.unsubscribe(this);
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
   void _onScroll() {
     if (_loading || _loadingMore || !_hasMore) return;
     final pos = _scrollController.position;
@@ -92,10 +103,16 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _fadeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _load();
   }
 
   Future<void> _load() async {

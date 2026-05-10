@@ -10,6 +10,7 @@ import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/services/content_update_notifier.dart';
 import 'package:my_app/services/report_service.dart';
 import 'package:my_app/screens/feed_search_screen.dart';
 import 'package:my_app/screens/edit_post_screen.dart';
@@ -57,15 +58,41 @@ class _FeedPageState extends State<FeedPage> {
   @override
   void initState() {
     super.initState();
+    ContentUpdateNotifier.instance.addListener(_onContentUpdate);
     _scrollController.addListener(_onScroll);
     _loadUserThenPosts();
   }
 
   @override
   void dispose() {
+    ContentUpdateNotifier.instance.removeListener(_onContentUpdate);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onContentUpdate() {
+    final update = ContentUpdateNotifier.instance.lastUpdate;
+    if (!mounted ||
+        update == null ||
+        update.kind != ContentUpdateKind.post ||
+        update.action != ContentUpdateAction.likeChanged ||
+        _liking[update.id] == true) {
+      return;
+    }
+
+    final postExists = _posts.any((post) => post.id == update.id);
+    if (!postExists && !_postLiked.containsKey(update.id)) return;
+
+    setState(() {
+      final previous = _postLiked[update.id];
+      _postLiked[update.id] = update.isActive;
+      if (previous != null && previous != update.isActive) {
+        final delta = update.isActive ? 1 : -1;
+        _postLikesCount[update.id] =
+            ((_postLikesCount[update.id] ?? 0) + delta).clamp(0, 999999);
+      }
+    });
   }
 
   /// Load user first so isOwnPost and isLiked are correct when posts render.

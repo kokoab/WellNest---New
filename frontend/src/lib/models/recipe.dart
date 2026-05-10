@@ -116,6 +116,8 @@ class Recipe {
   final double? averageRating;
   final int? ratingsCount;
   final int? viewsCount;
+  /// Whether the current user has liked this recipe (detail endpoint when authenticated).
+  final bool isLiked;
 
   Recipe({
     required this.id,
@@ -137,6 +139,7 @@ class Recipe {
     this.averageRating,
     this.ratingsCount,
     this.viewsCount,
+    this.isLiked = false,
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
@@ -206,6 +209,7 @@ class Recipe {
       averageRating: (json['average_rating'] as num?)?.toDouble(),
       ratingsCount: json['ratings_count'] as int?,
       viewsCount: (json['views_count'] as num?)?.toInt(),
+      isLiked: json['is_liked'] as bool? ?? false,
     );
   }
 

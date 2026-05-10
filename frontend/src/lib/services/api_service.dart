@@ -107,6 +107,7 @@ class ApiService {
   Future<PostListResponse> fetchPostsPaginated({
     int? userId,
     bool followingOnly = false,
+    bool liked = false,
     int page = 1,
     int perPage = 10,
     String? search,
@@ -115,6 +116,9 @@ class ApiService {
     final queryParameters = <String, String>{};
     if (userId != null) {
       queryParameters['user_id'] = '$userId';
+    }
+    if (liked) {
+      queryParameters['liked'] = '1';
     }
     if (followingOnly) {
       queryParameters['feed'] = 'following';
@@ -199,6 +203,7 @@ class ApiService {
   Future<List<Post>> fetchPosts({
     int? userId,
     bool followingOnly = false,
+    bool liked = false,
     int page = 1,
     int perPage = 10,
     String? search,
@@ -207,6 +212,7 @@ class ApiService {
     final res = await fetchPostsPaginated(
       userId: userId,
       followingOnly: followingOnly,
+      liked: liked,
       page: page,
       perPage: perPage,
       search: search,

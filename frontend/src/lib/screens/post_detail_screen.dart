@@ -46,6 +46,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void initState() {
     super.initState();
     _post = widget.post;
+    _liked = widget.post.isLiked;
     _commentsTotal = widget.post.commentsCount;
     _scrollController.addListener(_onCommentsScroll);
     _refreshPost();
@@ -106,6 +107,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       if (mounted) {
         setState(() {
           _post = fresh;
+          _liked = fresh.isLiked;
           _commentsTotal = fresh.commentsCount;
         });
       }

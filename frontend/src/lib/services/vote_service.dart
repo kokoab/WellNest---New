@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'auth_service.dart';
+import 'content_update_notifier.dart';
 
 class VoteService {
   VoteService._();
@@ -24,6 +25,14 @@ class VoteService {
     if (response.statusCode != 201 && response.statusCode != 200) {
       _throwFromResponse(response);
     }
+    ContentUpdateNotifier.instance.publish(
+      ContentUpdate(
+        kind: ContentUpdateKind.recipe,
+        action: ContentUpdateAction.likeChanged,
+        id: recipeId,
+        isActive: true,
+      ),
+    );
   }
 
   Future<void> unlikeRecipe(int recipeId) async {
@@ -34,6 +43,14 @@ class VoteService {
     if (response.statusCode != 200) {
       _throwFromResponse(response);
     }
+    ContentUpdateNotifier.instance.publish(
+      ContentUpdate(
+        kind: ContentUpdateKind.recipe,
+        action: ContentUpdateAction.likeChanged,
+        id: recipeId,
+        isActive: false,
+      ),
+    );
   }
 
   Future<void> likePost(int postId) async {
@@ -44,6 +61,14 @@ class VoteService {
     if (response.statusCode != 201 && response.statusCode != 200) {
       _throwFromResponse(response);
     }
+    ContentUpdateNotifier.instance.publish(
+      ContentUpdate(
+        kind: ContentUpdateKind.post,
+        action: ContentUpdateAction.likeChanged,
+        id: postId,
+        isActive: true,
+      ),
+    );
   }
 
   Future<void> unlikePost(int postId) async {
@@ -54,6 +79,14 @@ class VoteService {
     if (response.statusCode != 200) {
       _throwFromResponse(response);
     }
+    ContentUpdateNotifier.instance.publish(
+      ContentUpdate(
+        kind: ContentUpdateKind.post,
+        action: ContentUpdateAction.likeChanged,
+        id: postId,
+        isActive: false,
+      ),
+    );
   }
 
   /// Returns how many likes a post has and whether the current user liked it.

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/app_route_observer.dart';
+import 'package:my_app/screens/user_dashboard.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/widgets/animated_press_scale.dart';
@@ -6,6 +8,7 @@ import 'package:my_app/models/recipe.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/saved_recipes_search_screen.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/services/content_update_notifier.dart';
 import 'package:my_app/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
@@ -15,7 +18,7 @@ class SavedRecipesScreen extends StatefulWidget {
   State<SavedRecipesScreen> createState() => _SavedRecipesScreenState();
 }
 
-class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
+class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware {
   static const Color wellGreen = Color(0xFF097333);
   static const Color nestOrange = Color(0xFFEF5026);
   static const Color accentYellow = Color(0xFFFDB813);
@@ -31,15 +34,54 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> {
   @override
   void initState() {
     super.initState();
+    ContentUpdateNotifier.instance.addListener(_onContentUpdate);
     _scrollController.addListener(_onScroll);
     _load();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    appRouteObserver.unsubscribe(this);
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    final embeddedInDashboard =
+        context.findAncestorWidgetOfExactType<UserDashboard>() != null;
+    if (embeddedInDashboard) return;
+    appRouteObserver.subscribe(this, route);
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    ContentUpdateNotifier.instance.removeListener(_onContentUpdate);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onContentUpdate() {
+    final update = ContentUpdateNotifier.instance.lastUpdate;
+    if (!mounted ||
+        update == null ||
+        update.kind != ContentUpdateKind.recipe ||
+        update.action != ContentUpdateAction.saveChanged) {
+      return;
+    }
+
+    if (update.isActive) {
+      _load();
+      return;
+    }
+
+    setState(() {
+      _recipes.removeWhere((recipe) => recipe.id == update.id);
+    });
+  }
+
+  @override
+  void didPopNext() {
+    _load();
   }
 
   void _onScroll() {

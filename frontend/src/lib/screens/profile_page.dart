@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:my_app/models/post.dart';
 import 'package:my_app/theme/app_spacing.dart';
 import 'package:my_app/theme/app_theme.dart';
 import 'package:my_app/providers/theme_provider.dart';
 import 'package:my_app/models/recipe.dart';
 import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:my_app/widgets/edit_profile_overlay.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
+import 'package:my_app/screens/post_detail_screen.dart';
 import 'package:my_app/services/api_service.dart';
 import 'package:my_app/services/auth_service.dart';
+import 'package:my_app/services/content_update_notifier.dart';
 import 'package:my_app/services/recipe_service.dart';
 import 'package:my_app/services/user_service.dart';
+import 'package:my_app/screens/profile_activity_screen.dart';
+import 'package:my_app/widgets/profile_activity_helpers.dart';
+import 'package:my_app/widgets/profile_landscape_preview_card.dart';
+
+enum _ActivityTab { recipes, posts, liked }
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,27 +29,64 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  static const Color wellGreen = Color(0xFF097333);
-  static const Color nestOrange = Color(0xFFEF5026);
-  static const Color accentYellow = Color(0xFFFDB813);
+  /// Liked-tab icon accent (distinct from primary green / accent orange).
+  static const Color kLikedHeartRed = Color(0xFFE53935);
+
+  static const double _horizontalPadding = 20;
+  static const double _bottomScrollPadding = 96;
+  static const int _activityPreviewLimit = 5;
 
   CurrentUser? _user;
   List<Recipe> _myRecipes = [];
-  int _myRecipesPage = 1;
-  int _myRecipesLastPage = 1;
   int _myRecipesTotal = 0;
+  List<Post> _myPosts = [];
   int _myPostsTotal = 0;
-  bool _myRecipesLoadingMore = false;
+  /// Heart-liked recipes (not bookmarks).
+  List<Recipe> _likedHeartRecipes = [];
+  /// Heart-liked posts.
+  List<Post> _likedHeartPosts = [];
+
   bool _loading = true;
   bool _uploadingPhoto = false;
   bool _loggingOut = false;
   bool _deactivatingAccount = false;
   String? _error;
 
+  _ActivityTab _activityTab = _ActivityTab.recipes;
+
   @override
   void initState() {
     super.initState();
+    ContentUpdateNotifier.instance.addListener(_onContentUpdate);
     _load();
+  }
+
+  @override
+  void dispose() {
+    ContentUpdateNotifier.instance.removeListener(_onContentUpdate);
+    super.dispose();
+  }
+
+  void _onContentUpdate() {
+    final update = ContentUpdateNotifier.instance.lastUpdate;
+    if (!mounted || update == null) return;
+    if (update.action != ContentUpdateAction.likeChanged) return;
+
+    if (update.isActive) {
+      _load();
+      return;
+    }
+
+    setState(() {
+      switch (update.kind) {
+        case ContentUpdateKind.recipe:
+          _likedHeartRecipes.removeWhere((recipe) => recipe.id == update.id);
+          break;
+        case ContentUpdateKind.post:
+          _likedHeartPosts.removeWhere((post) => post.id == update.id);
+          break;
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -59,10 +105,11 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _user = null;
           _myRecipes = [];
-          _myRecipesPage = 1;
-          _myRecipesLastPage = 1;
           _myRecipesTotal = 0;
+          _myPosts = [];
           _myPostsTotal = 0;
+          _likedHeartRecipes = [];
+          _likedHeartPosts = [];
           _loading = false;
           _error =
               'Could not load your profile from the server. Pull to refresh, or run backend migrations (php artisan migrate) if you recently updated the API.';
@@ -72,27 +119,42 @@ class _ProfilePageState extends State<ProfilePage> {
 
       RecipeListResponse? recipesResponse;
       PostListResponse? postsResponse;
+      RecipeListResponse? likedRecipesHeartResponse;
+      PostListResponse? likedPostsHeartResponse;
+
       if (user != null) {
-        final results = await Future.wait([
+        final futures = <Future<dynamic>>[
           RecipeService.instance.fetchRecipes(userId: user.id, page: 1),
           ApiService().fetchPostsPaginated(
             userId: user.id,
             page: 1,
             perPage: 10,
           ),
-        ]);
+        ];
+        if (AuthService.instance.isLoggedIn) {
+          futures.add(RecipeService.instance.fetchRecipes(liked: true, page: 1));
+          futures.add(
+            ApiService().fetchPostsPaginated(liked: true, page: 1, perPage: 10),
+          );
+        }
+        final results = await Future.wait(futures);
         recipesResponse = results[0] as RecipeListResponse;
         postsResponse = results[1] as PostListResponse;
+        if (AuthService.instance.isLoggedIn && results.length > 3) {
+          likedRecipesHeartResponse = results[2] as RecipeListResponse;
+          likedPostsHeartResponse = results[3] as PostListResponse;
+        }
       }
 
       if (!mounted) return;
       setState(() {
         _user = user;
         _myRecipes = recipesResponse?.recipes ?? [];
-        _myRecipesPage = recipesResponse?.currentPage ?? 1;
-        _myRecipesLastPage = recipesResponse?.lastPage ?? 1;
         _myRecipesTotal = recipesResponse?.total ?? 0;
+        _myPosts = postsResponse?.posts ?? [];
         _myPostsTotal = postsResponse?.total ?? 0;
+        _likedHeartRecipes = likedRecipesHeartResponse?.recipes ?? [];
+        _likedHeartPosts = likedPostsHeartResponse?.posts ?? [];
         _loading = false;
       });
     } catch (e) {
@@ -104,75 +166,58 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _loadMoreMyRecipes() async {
-    if (_myRecipesLoadingMore || _myRecipesPage >= _myRecipesLastPage) return;
-    final user = _user;
-    if (user == null) return;
-    setState(() => _myRecipesLoadingMore = true);
-    try {
-      final response = await RecipeService.instance.fetchRecipes(
-        userId: user.id,
-        page: _myRecipesPage + 1,
-      );
-      if (!mounted) return;
-      final existingIds = _myRecipes.map((r) => r.id).toSet();
-      final incoming = response.recipes
-          .where((r) => !existingIds.contains(r.id))
-          .toList();
-      setState(() {
-        _myRecipes.addAll(incoming);
-        _myRecipesPage = response.currentPage;
-        _myRecipesLastPage = response.lastPage;
-        _myRecipesTotal = response.total;
-        _myRecipesLoadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _myRecipesLoadingMore = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final surfaceMuted = colorScheme.brightness == Brightness.dark
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+        : const Color(0xFFF0EDE8);
+
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _load,
-        color: wellGreen,
+        color: kPrimaryGreen,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            _horizontalPadding,
+            AppSpacing.sm,
+            _horizontalPadding,
+            _bottomScrollPadding,
+          ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               const WellnestHeader(),
-              const SizedBox(height: 30),
+              const SizedBox(height: AppSpacing.lg),
 
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 60),
                   child: Center(
-                    child: CircularProgressIndicator(color: wellGreen),
+                    child: CircularProgressIndicator(color: kPrimaryGreen),
                   ),
                 )
               else ...[
                 if (_error != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: nestOrange.withValues(alpha: 0.1),
-                        border: Border.all(color: nestOrange),
+                        color: kAccentOrange.withValues(alpha: 0.1),
+                        border: Border.all(color: kAccentOrange),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.error_outline,
-                            color: nestOrange,
+                            color: kAccentOrange,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -180,11 +225,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             child: Text(
                               _error!,
                               style: const TextStyle(
-                                color: nestOrange,
+                                color: kAccentOrange,
                                 fontSize: 13,
                               ),
                               overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
+                              maxLines: 3,
                             ),
                           ),
                         ],
@@ -192,26 +237,36 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                _buildProfileAvatar(),
-                const SizedBox(height: 10),
-                Text(
-                  _user?.displayName ?? 'Guest',
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: wellGreen,
-                  ),
-                ),
-                if (_user != null)
-                  Text(
-                    _user!.email,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                // Profile header — centered
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildProfileAvatar(),
+                    const SizedBox(height: 16),
+                    Text(
+                      _user?.displayName ?? 'Guest',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryGreen,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    if (_user != null)
+                      Text(
+                        _user!.email,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+
                 if ((_user?.accountStatus ?? 'active') != 'active') ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -219,187 +274,75 @@ class _ProfilePageState extends State<ProfilePage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: nestOrange.withValues(alpha: 0.10),
+                      color: kAccentOrange.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: nestOrange.withValues(alpha: 0.35),
+                        color: kAccentOrange.withValues(alpha: 0.35),
                       ),
                     ),
                     child: Text(
                       'Your account is ${_statusLabel(_user!.accountStatus)}.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: nestOrange,
+                        color: kAccentOrange,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
 
-                // Theme toggle
-                _buildThemeToggle(context),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.lg),
+                _buildStatsRow(),
+                const SizedBox(height: AppSpacing.xl),
 
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildStatColumn('$_myRecipesTotal', 'Recipes'),
-                    const SizedBox(width: 40),
-                    _buildStatColumn('$_myPostsTotal', 'Posts'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildStatColumn(
-                      '${_user?.followersCount ?? 0}',
-                      'Followers',
-                    ),
-                    const SizedBox(width: 40),
-                    _buildStatColumn(
-                      '${_user?.followingCount ?? 0}',
-                      'Following',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-
-                if (AuthService.instance.isLoggedIn) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _deactivatingAccount
-                          ? null
-                          : _confirmDeactivateAccount,
-                      icon: _deactivatingAccount
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                color: nestOrange,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(Icons.pause_circle_outline),
-                      label: Text(
-                        _deactivatingAccount
-                            ? 'Deactivating...'
-                            : 'Deactivate account',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: nestOrange,
-                        side: const BorderSide(color: nestOrange),
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Expanded(
+                      child: Text(
+                        'Your activity',
+                        style: georgiaProDisplayStyle(
+                          fontSize: 18,
+                          color: kPrimaryGreen,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                const SizedBox(height: 40),
-
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'My Recipes',
-                    style: wellnestSectionTitleStyle(color: wellGreen),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                if (_myRecipes.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      AuthService.instance.isLoggedIn
-                          ? 'No recipes yet. Add one to get started!'
-                          : 'Sign in to see your recipes.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    height: 200,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _myRecipes.length,
-                      itemBuilder: (context, index) => Padding(
-                        padding: EdgeInsets.only(
-                          right: index < _myRecipes.length - 1 ? 15 : 0,
-                        ),
-                        child: RepaintBoundary(
-                          child: _buildRecipeMiniCard(_myRecipes[index]),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_myRecipesPage < _myRecipesLastPage) ...[
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _myRecipesLoadingMore
-                        ? null
-                        : _loadMoreMyRecipes,
-                    icon: _myRecipesLoadingMore
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.expand_more_rounded),
-                    label: Text(
-                      _myRecipesLoadingMore ? 'Loading…' : 'Load more recipes',
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 32),
-                if (AuthService.instance.isLoggedIn)
-                  TextButton.icon(
-                    key: ValueKey('logout_${Theme.of(context).brightness}'),
-                    onPressed: _loggingOut
-                        ? null
-                        : () async {
-                            setState(() => _loggingOut = true);
-                            try {
-                              await AuthService.instance.logout();
-                              if (context.mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/login',
-                                  (route) => false,
-                                );
-                              }
-                            } finally {
-                              if (mounted) setState(() => _loggingOut = false);
-                            }
-                          },
-                    icon: _loggingOut
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              color: nestOrange,
-                              strokeWidth: 2,
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            fullscreenDialog: true,
+                            builder: (_) => ProfileActivityScreen(
+                              initialTabIndex: _activityTabIndex(),
                             ),
-                          )
-                        : Icon(Icons.logout, size: 18, color: nestOrange),
-                    label: Text(
-                      'Logout',
-                      style: TextStyle(
-                        fontFamily: kFontAppFamily,
-                        fontWeight: FontWeight.bold,
-                        color: nestOrange,
-                        fontSize: 16,
+                          ),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
+                      child: const Text('See all'),
                     ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm2),
+                _buildActivityTabBar(),
+                const SizedBox(height: AppSpacing.md),
+                _buildActivityContent(),
+                const SizedBox(height: AppSpacing.xl),
+
+                Text(
+                  'Settings',
+                  style: georgiaProDisplayStyle(
+                    fontSize: 18,
+                    color: kPrimaryGreen,
                   ),
-                const SizedBox(height: 100),
+                ),
+                const SizedBox(height: AppSpacing.sm2),
+                _buildSettingsCard(surfaceMuted),
               ],
             ],
           ),
@@ -408,22 +351,410 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildThemeToggle(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    return ListTile(
-      key: ValueKey('theme_${themeProvider.isDarkMode}'),
-      leading: Icon(Icons.dark_mode_outlined, color: wellGreen, size: 24),
-      title: Text(
-        'Dark Mode',
-        style: TextStyle(
-          fontFamily: kFontAppFamily,
-          fontSize: 16,
-          color: Theme.of(context).colorScheme.onSurface,
+  Widget _buildStatsRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: _buildStatCell('$_myRecipesTotal', 'Recipes'),
+        ),
+        Expanded(
+          child: _buildStatCell('$_myPostsTotal', 'Posts'),
+        ),
+        Expanded(
+          child: _buildStatCell('${_user?.followersCount ?? 0}', 'Followers'),
+        ),
+        Expanded(
+          child: _buildStatCell('${_user?.followingCount ?? 0}', 'Following'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCell(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: kPrimaryGreen,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _activitySelectedSurface(_ActivityTab tab) {
+    switch (tab) {
+      case _ActivityTab.recipes:
+        return kAccentOrange.withValues(alpha: 0.12);
+      case _ActivityTab.posts:
+        return kPrimaryGreen.withValues(alpha: 0.12);
+      case _ActivityTab.liked:
+        return kLikedHeartRed.withValues(alpha: 0.10);
+    }
+  }
+
+  Color _activityIconColor(_ActivityTab tab, bool selected) {
+    if (!selected) return kCaptionGray;
+    switch (tab) {
+      case _ActivityTab.recipes:
+        return kAccentOrange;
+      case _ActivityTab.posts:
+        return kPrimaryGreen;
+      case _ActivityTab.liked:
+        return kLikedHeartRed;
+    }
+  }
+
+  Widget _buildActivityTabBar() {
+    return Row(
+      children: [
+        _buildActivityTabButton(
+          icon: Icons.flatware_rounded,
+          tooltip: 'My Recipes',
+          tab: _ActivityTab.recipes,
+        ),
+        _buildActivityTabButton(
+          icon: Icons.article_rounded,
+          tooltip: 'My Posts',
+          tab: _ActivityTab.posts,
+        ),
+        _buildActivityTabButton(
+          icon: Icons.favorite_rounded,
+          tooltip: 'Liked',
+          tab: _ActivityTab.liked,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActivityTabButton({
+    required IconData icon,
+    required String tooltip,
+    required _ActivityTab tab,
+  }) {
+    final selected = _activityTab == tab;
+    final outline = wellnestOutlineColor(context);
+    return Expanded(
+      child: Tooltip(
+        message: tooltip,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() => _activityTab = tab),
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: selected ? _activitySelectedSurface(tab) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                  border: Border.all(
+                    color: selected ? outline : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 26,
+                  color: _activityIconColor(tab, selected),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
-      trailing: Switch(
-        value: themeProvider.isDarkMode,
-        onChanged: (_) => themeProvider.toggleTheme(),
+    );
+  }
+
+  Widget _buildActivityContent() {
+    switch (_activityTab) {
+      case _ActivityTab.recipes:
+        return _buildRecipesSection();
+      case _ActivityTab.posts:
+        return _buildPostsSection();
+      case _ActivityTab.liked:
+        return _buildLikedSection();
+    }
+  }
+
+  int _activityTabIndex() {
+    switch (_activityTab) {
+      case _ActivityTab.recipes:
+        return 0;
+      case _ActivityTab.posts:
+        return 1;
+      case _ActivityTab.liked:
+        return 2;
+    }
+  }
+
+  Widget _buildRecipesSection() {
+    if (_myRecipes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Text(
+          AuthService.instance.isLoggedIn
+              ? 'No recipes yet. Add one to get started!'
+              : 'Sign in to see your recipes.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    final visibleRecipes = _myRecipes.take(_activityPreviewLimit);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...visibleRecipes.map(
+          (recipe) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm2),
+            child: RepaintBoundary(
+              child: _buildRecipePreviewCard(recipe),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostsSection() {
+    if (!AuthService.instance.isLoggedIn) {
+      return _buildSignedOutPlaceholder('Sign in to see your posts.');
+    }
+    if (_myPosts.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Text(
+          'No posts yet.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    final visiblePosts = _myPosts.take(_activityPreviewLimit);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...visiblePosts.map(
+          (post) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm2),
+            child: RepaintBoundary(
+              child: _buildPostPreviewCard(post),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLikedSection() {
+    if (!AuthService.instance.isLoggedIn) {
+      return _buildSignedOutPlaceholder(
+        'Sign in to see recipes and posts you\'ve liked.',
+      );
+    }
+    final merged = mergeLikedActivityRows(
+      _likedHeartRecipes,
+      _likedHeartPosts,
+    );
+    if (merged.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Text(
+          'No likes yet. Tap the heart on a recipe or post.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    final visible = merged.take(_activityPreviewLimit);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...visible.map(
+          (row) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm2),
+            child: RepaintBoundary(
+              child: row.recipe != null
+                  ? _buildRecipePreviewCard(row.recipe!)
+                  : _buildPostPreviewCard(row.post!),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignedOutPlaceholder(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard(Color surfaceMuted) {
+    final borderColor = wellnestOutlineColor(context);
+    final themeProvider = context.watch<ThemeProvider>();
+
+    Widget divider() => Divider(
+          height: 1,
+          thickness: 1,
+          color: borderColor.withValues(alpha: 0.5),
+        );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceMuted,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        children: [
+          if (AuthService.instance.isLoggedIn && _user != null) ...[
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+              ),
+              leading: Icon(Icons.edit_outlined, color: kPrimaryGreen, size: 22),
+              title: Text(
+                'Edit Profile',
+                style: TextStyle(
+                  fontFamily: kFontAppFamily,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: kCaptionGray,
+              ),
+              onTap: () => showEditProfileOverlay(
+                context,
+                _user!,
+                onSaved: _load,
+              ),
+            ),
+            divider(),
+          ],
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+            ),
+            leading: Icon(Icons.dark_mode_outlined, color: kPrimaryGreen, size: 22),
+            title: Text(
+              'Dark Mode',
+              style: TextStyle(
+                fontFamily: kFontAppFamily,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            trailing: Switch(
+              value: themeProvider.isDarkMode,
+              onChanged: (_) => themeProvider.toggleTheme(),
+            ),
+          ),
+          if (AuthService.instance.isLoggedIn) ...[
+            divider(),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+              ),
+              leading: Icon(Icons.logout_rounded, color: kBodyTextDark),
+              title: Text(
+                'Log Out',
+                style: TextStyle(
+                  fontFamily: kFontAppFamily,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              onTap: _loggingOut
+                  ? null
+                  : () async {
+                      setState(() => _loggingOut = true);
+                      try {
+                        await AuthService.instance.logout();
+                        if (mounted) {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login',
+                            (route) => false,
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _loggingOut = false);
+                      }
+                    },
+              trailing: _loggingOut
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: kPrimaryGreen,
+                      ),
+                    )
+                  : Icon(Icons.chevron_right_rounded, color: kCaptionGray),
+            ),
+            divider(),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+              ),
+              leading: Icon(Icons.person_off_outlined, color: kAccentOrange),
+              title: Text(
+                _deactivatingAccount ? 'Deactivating…' : 'Deactivate Account',
+                style: const TextStyle(
+                  fontFamily: kFontAppFamily,
+                  fontWeight: FontWeight.w600,
+                  color: kAccentOrange,
+                ),
+              ),
+              onTap: _deactivatingAccount ? null : _confirmDeactivateAccount,
+              trailing: _deactivatingAccount
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: kAccentOrange,
+                      ),
+                    )
+                  : Icon(Icons.chevron_right_rounded, color: kAccentOrange),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -462,7 +793,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (loadingProgress == null) return child;
                         return const Center(
                           child: CircularProgressIndicator(
-                            color: wellGreen,
+                            color: kPrimaryGreen,
                             strokeWidth: 2,
                           ),
                         );
@@ -478,7 +809,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: wellGreen,
+                  color: kPrimaryGreen,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
@@ -519,7 +850,7 @@ class _ProfilePageState extends State<ProfilePage> {
       style: const TextStyle(
         fontSize: 36,
         fontWeight: FontWeight.bold,
-        color: wellGreen,
+        color: kPrimaryGreen,
       ),
     );
   }
@@ -549,7 +880,6 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await UserService.instance.uploadProfilePhoto(image);
       if (!mounted) return;
-      // Only refresh the user data, not the entire page
       final user = await UserService.instance.fetchCurrentUser();
       if (!mounted) return;
       setState(() {
@@ -560,7 +890,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg), backgroundColor: nestOrange),
+          SnackBar(content: Text(errorMsg), backgroundColor: kAccentOrange),
         );
       }
     } finally {
@@ -621,7 +951,7 @@ class _ProfilePageState extends State<ProfilePage> {
               'confirmed': true,
               'reason': reasonController.text,
             }),
-            style: FilledButton.styleFrom(backgroundColor: nestOrange),
+            style: FilledButton.styleFrom(backgroundColor: kAccentOrange),
             child: const Text('Deactivate'),
           ),
         ],
@@ -645,7 +975,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: nestOrange,
+          backgroundColor: kAccentOrange,
         ),
       );
     } finally {
@@ -657,33 +987,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildStatColumn(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: wellGreen,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecipeMiniCard(Recipe recipe) {
-    final colors = [wellGreen, accentYellow];
-    final bgColor = colors[recipe.id % 2];
-    return GestureDetector(
+  Widget _buildRecipePreviewCard(Recipe recipe) {
+    final creator = recipe.userDisplayName.trim().isEmpty
+        ? (_user?.displayName ?? 'Creator')
+        : recipe.userDisplayName;
+    final when = formatProfilePostedAt(recipe.createdAt);
+    return ProfileLandscapePreviewCard(
+      title: recipe.title,
+      creatorName: creator,
+      postedLabel: when.isEmpty ? '—' : when,
+      imageUrl: recipePreviewImageUrl(recipe),
+      placeholderIcon: Icons.restaurant_rounded,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
@@ -691,57 +1005,29 @@ class _ProfilePageState extends State<ProfilePage> {
           builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
         ),
       ),
-      child: Container(
-        width: 160,
-        height: 180,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: wellnestOutlineColor(context), width: 1),
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child:
-                    recipe.displayImageUrl != null &&
-                        recipe.displayImageUrl!.isNotEmpty
-                    ? Image.network(
-                        recipe.displayImageUrl!,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.center,
-                        width: double.infinity,
-                        cacheWidth: 600,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _placeholderImage(),
-                      )
-                    : _placeholderImage(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              recipe.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _placeholderImage() {
-    return Container(
-      color: Colors.white24,
-      child: const Icon(Icons.restaurant, color: Colors.white70, size: 48),
+  Widget _buildPostPreviewCard(Post post) {
+    final when = formatProfilePostedAt(post.createdAt);
+    final img = post.displayImageUrl ??
+        (post.galleryImages.isNotEmpty
+            ? post.galleryImages.first.displayUrl
+            : null);
+    return ProfileLandscapePreviewCard(
+      title: postPreviewTitle(post),
+      creatorName:
+          post.userName.trim().isEmpty ? 'Member' : post.userName.trim(),
+      postedLabel: when.isEmpty ? '—' : when,
+      imageUrl: img,
+      placeholderIcon: Icons.article_rounded,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (context) => PostDetailScreen(post: post),
+        ),
+      ),
     );
   }
 }

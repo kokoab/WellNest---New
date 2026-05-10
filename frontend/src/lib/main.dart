@@ -16,6 +16,7 @@ import 'package:my_app/screens/notifications_screen.dart';
 import 'package:my_app/services/admin_auth_service.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/session_restore.dart';
+import 'package:my_app/app_route_observer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(
           title: 'Wellnest',
+          navigatorObservers: [appRouteObserver],
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,

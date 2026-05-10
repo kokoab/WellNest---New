@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/recipe.dart';
 import 'auth_service.dart';
+import 'content_update_notifier.dart';
 import 'recipe_service.dart';
 
 /// API calls for saved/favorite recipes. Requires auth.
@@ -25,7 +26,17 @@ class SavedRecipeService {
       Uri.parse('$_baseUrl/recipes/$recipeId/save'),
       headers: _headers,
     );
-    if (response.statusCode == 201) return;
+    if (response.statusCode == 201) {
+      ContentUpdateNotifier.instance.publish(
+        ContentUpdate(
+          kind: ContentUpdateKind.recipe,
+          action: ContentUpdateAction.saveChanged,
+          id: recipeId,
+          isActive: true,
+        ),
+      );
+      return;
+    }
     _throwFromResponse(response);
   }
 
@@ -35,7 +46,17 @@ class SavedRecipeService {
       Uri.parse('$_baseUrl/recipes/$recipeId/save'),
       headers: _headers,
     );
-    if (response.statusCode == 200) return;
+    if (response.statusCode == 200) {
+      ContentUpdateNotifier.instance.publish(
+        ContentUpdate(
+          kind: ContentUpdateKind.recipe,
+          action: ContentUpdateAction.saveChanged,
+          id: recipeId,
+          isActive: false,
+        ),
+      );
+      return;
+    }
     _throwFromResponse(response);
   }
 

@@ -157,6 +157,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         _userRating = results[1] as RecipeRating?;
         _saved = results[2] as bool;
         _currentUserId = userId;
+        _liked = recipe.isLiked;
         _loading = false;
       });
     } catch (e) {

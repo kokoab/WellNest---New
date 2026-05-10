@@ -53,6 +53,17 @@ class RecipeController extends Controller
             $query->where('user_id', $request->user_id);
         }
 
+        if ($request->boolean('liked')) {
+            $viewer = $this->userFromOptionalBearer($request);
+            if ($viewer === null) {
+                return response()->json(['message' => 'Authentication required'], 401);
+            }
+
+            $query->whereHas('votes', function ($q) use ($viewer) {
+                $q->where('user_id', $viewer->id);
+            });
+        }
+
         if ($request->filled('search')) {
             $term = $request->search;
             $query->where(function ($q) use ($term) {
@@ -235,13 +246,16 @@ class RecipeController extends Controller
         })->values()->all();
 
         $viewer = $this->userFromOptionalBearer($request);
+        $isLiked = false;
         if ($viewer) {
+            $isLiked = $recipe->votes()->where('user_id', $viewer->id)->exists();
             RecipeView::firstOrCreate([
                 'recipe_id' => $recipe->id,
                 'user_id' => $viewer->id,
                 'view_date' => now()->toDateString(),
             ]);
         }
+        $data['is_liked'] = $isLiked;
 
         return response()->json($data);
     }

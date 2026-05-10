@@ -199,6 +199,16 @@ class PostController extends Controller
             $query->where('user_id', $request->integer('user_id'));
         }
 
+        if ($request->boolean('liked')) {
+            if ($viewer === null) {
+                return response()->json(['message' => 'Authentication required'], 401);
+            }
+
+            $query->whereHas('votes', function ($q) use ($viewer) {
+                $q->where('user_id', $viewer->id);
+            });
+        }
+
         $feed = strtolower((string) $request->query('feed', ''));
         if ($feed === 'following' || $request->boolean('following')) {
             $viewer = $request->user('sanctum');
