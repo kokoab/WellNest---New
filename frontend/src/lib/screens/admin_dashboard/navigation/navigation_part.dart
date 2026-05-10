@@ -20,107 +20,74 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF161616) : Colors.white;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.07);
+    final borderColor = isDark ? _kBorderDark : kPrimaryGreen.withValues(alpha: 0.15);
     final width = collapsed ? _kSidebarCollapsedWidth : _kSidebarWidth;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 200),
       width: width,
       decoration: BoxDecoration(
-        color: bg,
-        border: Border(right: BorderSide(color: borderColor, width: 0.5)),
+        color: _kSidebarDark,
+        border: Border(right: BorderSide(color: borderColor, width: 1)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
+          Container(
             height: _kTopBarHeight,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'lib/assets/images/logo1.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: kPrimaryGreen,
-                        child: const Icon(
-                          Icons.eco_rounded,
-                          color: Colors.white,
-                          size: 16,
-                        ),
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 20),
+            alignment: collapsed ? Alignment.center : Alignment.centerLeft,
+            child: collapsed
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(kWellnestAssistantLogoAsset,
+                        width: 32, height: 32),
+                  )
+                : Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(kWellnestAssistantLogoAsset,
+                            width: 32, height: 32),
                       ),
-                    ),
-                  ),
-                  if (!collapsed) ...[
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
+                      const SizedBox(width: 12),
+                      Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'WellNest',
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -0.3,
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
                             ),
                           ),
                           Text(
-                            'Admin Console',
+                            'ADMIN CONSOLE',
                             style: TextStyle(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    InkWell(
-                      onTap: onToggleCollapsed,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
+                      const Spacer(),
+                      IconButton(
+                        onPressed: onToggleCollapsed,
+                        icon: const Icon(
                           Icons.chevron_left_rounded,
+                          color: Colors.white24,
                           size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
                         ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                    ),
-                  ] else ...[
-                    const Spacer(),
-                    InkWell(
-                      onTap: onToggleCollapsed,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                    ],
+                  ),
           ),
-          Divider(height: 0.5, color: borderColor),
           const SizedBox(height: 12),
           if (!collapsed)
             Padding(
@@ -192,7 +159,7 @@ class _Sidebar extends StatelessWidget {
             theme: theme,
           ),
           const Spacer(),
-          Divider(height: 0.5, color: borderColor),
+          Divider(height: 1, color: borderColor),
           InkWell(
             onTap: onLogout,
             child: Padding(
@@ -212,8 +179,8 @@ class _Sidebar extends StatelessWidget {
                       'Logout',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: kAccentOrange,
+                        fontWeight: FontWeight.w700,
+                        color: kAccentOrange.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -256,24 +223,23 @@ class _NavItem extends StatelessWidget {
       child: InkWell(
         onTap: () => onTap(section),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 200),
           margin: EdgeInsets.symmetric(
-            horizontal: collapsed ? 8 : 10,
-            vertical: 1,
+            horizontal: 12,
+            vertical: 4,
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: collapsed ? 0 : 12,
-            vertical: 9,
+            horizontal: collapsed ? 0 : 14,
+            vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: isActive
-                ? kPrimaryGreen.withValues(alpha: isDark ? 0.18 : 0.08)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border(
-              left: isActive
-                  ? const BorderSide(color: kPrimaryGreen, width: 2.5)
-                  : const BorderSide(color: Colors.transparent, width: 2.5),
+            color: isActive ? _kSidebarActiveBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isActive
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              width: 1,
             ),
           ),
           child: Row(
@@ -285,19 +251,20 @@ class _NavItem extends StatelessWidget {
                 icon,
                 size: 20,
                 color: isActive
-                    ? kPrimaryGreen
-                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.45),
               ),
               if (!collapsed) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                     color: isActive
-                        ? kPrimaryGreen
-                        : theme.colorScheme.onSurfaceVariant,
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.45),
+                    letterSpacing: 0.1,
                   ),
                 ),
               ],
@@ -325,13 +292,11 @@ class _BottomNav extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
+        color: _kSidebarDark,
         border: Border(
           top: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.07),
-            width: 0.5,
+            color: isDark ? _kBorderDark : const Color(0xFF1F2937),
+            width: 1,
           ),
         ),
       ),
@@ -474,15 +439,13 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF161616) : Colors.white;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.07);
+    final bg = isDark ? _kSidebarDark : kPrimaryGreen;
+    final borderColor = isDark ? _kBorderDark : kPrimaryGreen.withValues(alpha: 0.2);
     return Container(
       height: _kTopBarHeight,
       decoration: BoxDecoration(
         color: bg,
-        border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+        border: Border(bottom: BorderSide(color: borderColor, width: 1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -497,11 +460,11 @@ class _TopBar extends StatelessWidget {
           else
             Text(
               _title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.2,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.4,
               ),
             ),
           const Spacer(),
@@ -509,14 +472,14 @@ class _TopBar extends StatelessWidget {
             icon: Icons.refresh_rounded,
             onPressed: onRefresh,
             tooltip: 'Refresh',
-            color: theme.colorScheme.onSurfaceVariant,
+            color: Colors.white.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 2),
           _TopBarIconBtn(
             icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
             onPressed: onToggleTheme,
             tooltip: isDark ? 'Light mode' : 'Dark mode',
-            color: theme.colorScheme.onSurfaceVariant,
+            color: Colors.white.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 2),
           NotificationsBellButton(
@@ -537,7 +500,7 @@ class _TopBar extends StatelessWidget {
                 'AD',
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w900,
                   color: kPrimaryGreen,
                 ),
               ),

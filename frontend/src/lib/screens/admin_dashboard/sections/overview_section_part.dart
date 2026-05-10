@@ -263,20 +263,21 @@ class _OverviewSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Good day, Admin',
+                          'Good day, Admin 👋',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: theme.colorScheme.onSurface,
-                            letterSpacing: -0.4,
+                            letterSpacing: -0.3,
+                            fontFamily: kFontHelveticaNow,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           'Here\'s a snapshot of your WellNest community.',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -296,20 +297,21 @@ class _OverviewSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Good day, Admin',
+                    'Good day, Admin 👋',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: theme.colorScheme.onSurface,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.3,
+                      fontFamily: kFontHelveticaNow,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     'Here\'s a snapshot of your WellNest community.',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w400,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),

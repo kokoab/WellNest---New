@@ -1,5 +1,19 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+// ─── Design Tokens: WellNest Identity ───────────────────────────────────────
+const Color _kSidebarDark = Color(0xFF042D14); // Deep Forest Green
+const Color _kSidebarActiveBg = Color(0xFF0A4D23); // Muted Brand Green
+const Color _kMainBgLight = kBackgroundCream;
+const Color _kMainBgDark = Color(0xFF0C0E12);
+const Color _kCardBgLight = Colors.white;
+const Color _kCardBgDark = Color(0xFF161922);
+const Color _kBorderLight = kSurfaceWarmGray;
+const Color _kBorderDark = Color(0xFF1E242D);
+
+Color _adminCardColor(bool isDark) => isDark ? _kCardBgDark : _kCardBgLight;
+Color _adminBorderColor(bool isDark) => isDark ? _kBorderDark : _kBorderLight;
+Color _adminScaffoldBg(bool isDark) => isDark ? _kMainBgDark : _kMainBgLight;
+
 class _StatCard extends StatelessWidget {
   final ThemeData theme;
   final String title;
@@ -22,85 +36,103 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
+    final trendColor = trendUp ? kPrimaryGreen : kAccentOrange;
+
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        borderRadius: BorderRadius.circular(_kStatCardRadius),
+        color: isDark ? _kCardBgDark : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-          width: 0.5,
+          color: isDark ? _kBorderDark : const Color(0xFFEAEFF5),
+          width: 1,
         ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, color: color, size: 16),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: trendUp
-                      ? kPrimaryGreen.withValues(alpha: 0.08)
-                      : kAccentOrange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            // Left color accent bar
+            Container(
+              width: 4,
+              color: color,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      trendUp
-                          ? Icons.trending_up_rounded
-                          : Icons.info_outline_rounded,
-                      size: 11,
-                      color: trendUp ? kPrimaryGreen : kAccentOrange,
+                    Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(icon, color: color, size: 18),
+                        ),
+                        const Spacer(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              trendUp
+                                  ? Icons.arrow_upward_rounded
+                                  : Icons.arrow_downward_rounded,
+                              size: 11,
+                              color: trendColor,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              trend,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: trendColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(height: 16),
                     Text(
-                      trend,
+                      value,
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: trendUp ? kPrimaryGreen : kAccentOrange,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onSurface,
+                        letterSpacing: -1,
+                        height: 1,
+                        fontFamily: kFontHelveticaNow,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
-              letterSpacing: -0.5,
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -121,14 +153,21 @@ class _SurfaceCard extends StatelessWidget {
       padding:
           padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        borderRadius: BorderRadius.circular(_kCardRadius),
+        color: isDark ? _kCardBgDark : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
-          width: 0.5,
+          color: isDark ? _kBorderDark : const Color(0xFFEAEFF5),
+          width: 1,
         ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: child,
     );
@@ -148,28 +187,45 @@ class _MinimalSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-            letterSpacing: -0.2,
+        // Brand green left accent
+        Container(
+          width: 3,
+          height: subtitle != null ? 36 : 20,
+          margin: const EdgeInsets.only(right: 10),
+          decoration: BoxDecoration(
+            color: kPrimaryGreen,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: TextStyle(
-              fontSize: 12,
-              color: theme.colorScheme.onSurfaceVariant,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: -0.4,
+                fontFamily: kFontHelveticaNow,
+              ),
             ),
-          ),
-        ],
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }
@@ -191,50 +247,57 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextStyle(
-          fontSize: 13,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-        ),
-        prefixIcon: Icon(
-          Icons.search_rounded,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          size: 17,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.08),
-            width: 0.5,
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.15) : kPrimaryGreen.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: 14,
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.08),
-            width: 0.5,
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(
+            fontSize: 14,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            fontWeight: FontWeight.w500,
           ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 14, right: 10),
+            child: Icon(
+              Icons.search_rounded,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              size: 20,
+            ),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _adminBorderColor(isDark), width: 1.2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _adminBorderColor(isDark), width: 1.2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kPrimaryGreen, width: 1.5),
+          ),
+          filled: true,
+          fillColor: _adminCardColor(isDark),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          isDense: true,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: kPrimaryGreen, width: 1),
-        ),
-        filled: true,
-        fillColor: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 11,
-          horizontal: 12,
-        ),
-        isDense: true,
       ),
     );
   }
@@ -310,11 +373,12 @@ class _AdvancedSearchPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Search fields',
+            'SEARCH FIELDS',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8),
@@ -733,31 +797,38 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: isActive
             ? kPrimaryGreen.withValues(alpha: 0.08)
             : kAccentOrange.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive
+              ? kPrimaryGreen.withValues(alpha: 0.12)
+              : kAccentOrange.withValues(alpha: 0.12),
+          width: 0.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 5,
-            height: 5,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
               color: isActive ? kPrimaryGreen : kAccentOrange,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Text(
             isActive ? 'Active' : 'Inactive',
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: isActive ? kPrimaryGreen : kAccentOrange,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -773,7 +844,7 @@ class _TypePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: kPrimaryGreen.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
@@ -783,11 +854,12 @@ class _TypePill extends StatelessWidget {
         ),
       ),
       child: Text(
-        type,
+        type.toUpperCase(),
         style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
           color: kPrimaryGreen,
+          letterSpacing: 0.3,
         ),
       ),
     );

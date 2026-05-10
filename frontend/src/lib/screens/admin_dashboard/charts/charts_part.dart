@@ -136,7 +136,7 @@ class _ChartsSection extends StatelessWidget {
   }
 }
 
-// ─── Chart Card Wrapper ───────────────────────────────────────────────────────
+// ─── Chart Card Wrapper ────────────────────────────────────────────────────
 class _ChartCard extends StatelessWidget {
   final ThemeData theme;
   final String title;
@@ -145,6 +145,7 @@ class _ChartCard extends StatelessWidget {
   final bool badgeGreen;
   final List<Widget> legend;
   final Widget child;
+  final Color? accentColor;
 
   const _ChartCard({
     required this.theme,
@@ -154,76 +155,129 @@ class _ChartCard extends StatelessWidget {
     required this.badgeGreen,
     required this.legend,
     required this.child,
+    this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1F2329) : Colors.white;
+    final accent = accentColor ?? kPrimaryGreen;
+
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(_kCardRadius),
-        border: Border.all(color: wellnestOutlineColor(context), width: 1),
+        color: isDark ? _kCardBgDark : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? _kBorderDark : const Color(0xFFEAEFF5),
+          width: 1,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: badgeGreen
-                      ? kPrimaryGreen.withValues(alpha: 0.08)
-                      : theme.colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.5,
-                        ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: badgeGreen
-                        ? kPrimaryGreen
-                        : theme.colorScheme.onSurfaceVariant,
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 16, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Accent dot next to title
+                Container(
+                  margin: const EdgeInsets.only(top: 3, right: 8),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeGreen
+                        ? kPrimaryGreen.withValues(alpha: isDark ? 0.2 : 0.08)
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.07)
+                              : const Color(0xFFF5F5F5)),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: badgeGreen
+                          ? kPrimaryGreen.withValues(alpha: 0.25)
+                          : (isDark
+                                ? _kBorderDark
+                                : const Color(0xFFE0E0E0)),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: badgeGreen
+                          ? kPrimaryGreen
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
+          // Legend row
+          if (legend.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Wrap(spacing: 14, runSpacing: 6, children: legend),
+            ),
+          ],
+          // Divider
           const SizedBox(height: 12),
-          Wrap(spacing: 12, runSpacing: 6, children: legend),
-          const SizedBox(height: 16),
-          child,
+          Divider(
+            height: 1,
+            color: isDark ? _kBorderDark : const Color(0xFFF0F0F0),
+          ),
+          // Chart body
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 12, 8, 16),
+            child: child,
+          ),
         ],
       ),
     );
@@ -246,18 +300,19 @@ class _LegendDot extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 9,
-          height: 9,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(2),
+            shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
             fontSize: 11,
+            fontWeight: FontWeight.w500,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
@@ -289,16 +344,17 @@ class _UserGrowthCard extends StatelessWidget {
     final postsSeries = _normalizeSeries(postFrequencyPoints, pointsCount);
     return _ChartCard(
       theme: theme,
-      title: 'User growth',
-      subtitle: 'Users and posts over time',
-      badge: chartPoints.isEmpty ? 'No data' : 'Live',
+      title: 'User Growth',
+      subtitle: 'New users and posts over time',
+      badge: chartPoints.isEmpty ? 'No data' : '● Live',
       badgeGreen: true,
+      accentColor: const Color(0xFF378ADD),
       legend: [
         const _LegendDot(color: Color(0xFF378ADD), label: 'New users'),
         _LegendDot(color: kPrimaryGreen, label: 'Posts', dashed: true),
       ],
       child: SizedBox(
-        height: 160,
+        height: 168,
         child: CustomPaint(
           size: Size.infinite,
           painter: _LinePainter(
@@ -332,27 +388,22 @@ class _RecipeRatingsCard extends StatelessWidget {
     final values = _normalizeSeries(chatbotInteractionPoints, pointsCount);
     return _ChartCard(
       theme: theme,
-      title: 'Chatbot interactions',
-      subtitle: 'Messages started over time',
-      badge: chatbotInteractionPoints.isEmpty ? 'No data' : 'Live',
+      title: 'Chatbot Interactions',
+      subtitle: 'Conversations started over time',
+      badge: chatbotInteractionPoints.isEmpty ? 'No data' : '● Live',
       badgeGreen: true,
+      accentColor: const Color(0xFF7C3AED),
       legend: [
-        const _LegendDot(color: Color(0xFF378ADD), label: 'Conversations'),
+        const _LegendDot(color: Color(0xFF7C3AED), label: 'Conversations'),
       ],
       child: SizedBox(
-        height: 160,
+        height: 168,
         child: CustomPaint(
           size: Size.infinite,
           painter: _BarPainter(
             values: values,
             labels: labels,
-            colors: const [
-              Color(0xFF378ADD),
-              Color(0xFF378ADD),
-              Color(0xFF378ADD),
-              Color(0xFF378ADD),
-              Color(0xFF378ADD),
-            ],
+            colors: List.filled(5, const Color(0xFF7C3AED)),
             isDark: isDark,
           ),
         ),
@@ -383,10 +434,11 @@ class _ModerationDonutCard extends StatelessWidget {
     final total = reports.length;
     return _ChartCard(
       theme: theme,
-      title: 'Moderation overview',
+      title: 'Moderation Overview',
       subtitle: 'Report status breakdown',
       badge: total == 0 ? 'No reports' : '${buckets.open} open',
       badgeGreen: false,
+      accentColor: const Color(0xFFBA7517),
       legend: [
         const _LegendDot(color: Color(0xFFBA7517), label: 'Open'),
         _LegendDot(color: kPrimaryGreen, label: 'Dismissed'),
@@ -394,7 +446,7 @@ class _ModerationDonutCard extends StatelessWidget {
         const _LegendDot(color: Color(0xFFE24B4A), label: 'Removed'),
       ],
       child: SizedBox(
-        height: 150,
+        height: 158,
         child: CustomPaint(
           size: Size.infinite,
           painter: _DonutPainter(
@@ -447,17 +499,18 @@ class _AuditActivityCard extends StatelessWidget {
     );
     return _ChartCard(
       theme: theme,
-      title: 'Platform activity',
-      subtitle: 'Users, posts, and chatbot activity',
-      badge: 'Live',
+      title: 'Platform Activity',
+      subtitle: 'Users, posts, and chatbot combined',
+      badge: '● Live',
       badgeGreen: true,
+      accentColor: const Color(0xFF378ADD),
       legend: [
         const _LegendDot(color: Color(0xFF378ADD), label: 'Users'),
         _LegendDot(color: kPrimaryGreen, label: 'Posts'),
-        const _LegendDot(color: Color(0xFFBA7517), label: 'Chatbot'),
+        const _LegendDot(color: Color(0xFF7C3AED), label: 'Chatbot'),
       ],
       child: SizedBox(
-        height: 160,
+        height: 168,
         child: CustomPaint(
           size: Size.infinite,
           painter: _StackedBarPainter(
@@ -466,7 +519,7 @@ class _AuditActivityCard extends StatelessWidget {
             seriesC: chatbotSeries,
             colorA: const Color(0xFF378ADD),
             colorB: kPrimaryGreen,
-            colorC: const Color(0xFFBA7517),
+            colorC: const Color(0xFF7C3AED),
             labels: labels,
             isDark: isDark,
           ),
@@ -600,10 +653,10 @@ class _LinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
-    const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padLeft = 40;
+    const double padRight = 14;
+    const double padTop = 12;
+    const double padBottom = 26;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final allValues = [...seriesA, ...seriesB];
@@ -612,21 +665,26 @@ class _LinePainter extends CustomPainter {
     final minV = dataMin;
     final maxV = dataMax;
     final range = (maxV - minV) == 0 ? (maxV == 0 ? 1.0 : maxV) : maxV - minV;
+
+    // Grid lines
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
-      ..strokeWidth = 0.5;
+      ..color = (isDark ? Colors.white : Colors.black).withOpacity(
+        isDark ? 0.08 : 0.06,
+      )
+      ..strokeWidth = 1;
     final labelStyle = TextStyle(
-      fontSize: 9,
-      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+      fontSize: 9.5,
+      color: isDark ? const Color(0xFF7A7F8E) : const Color(0xFF9CA3AF),
     );
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
-      canvas.drawLine(
-        Offset(padLeft, y),
-        Offset(padLeft + chartW, y),
-        gridPaint,
-      );
+      // Only draw non-baseline grid as dashed
+      if (i > 0) {
+        _drawDashedLine(canvas, Offset(padLeft, y), Offset(padLeft + chartW, y), gridPaint);
+      } else {
+        canvas.drawLine(Offset(padLeft, y), Offset(padLeft + chartW, y), gridPaint);
+      }
       final val = minV + (i / gridCount) * range;
       final label = val >= 1000
           ? '${(val / 1000).toStringAsFixed(1)}k'
@@ -634,7 +692,7 @@ class _LinePainter extends CustomPainter {
       _drawText(
         canvas,
         label,
-        Offset(0, y - 5),
+        Offset(0, y - 6),
         labelStyle,
         maxWidth: padLeft - 4,
         align: TextAlign.right,
@@ -646,49 +704,87 @@ class _LinePainter extends CustomPainter {
         _drawText(
           canvas,
           labels[i],
-          Offset(x - 14, size.height - padBottom + 6),
+          Offset(x - 14, size.height - padBottom + 7),
           labelStyle,
           maxWidth: 28,
         );
       }
     }
-    Path buildPath(List<double> data) {
+
+    // Build smooth bezier path
+    Path buildSmoothPath(List<double> data) {
       final path = Path();
       if (data.isEmpty) return path;
-      for (int i = 0; i < data.length; i++) {
+      final pts = List.generate(data.length, (i) {
         final x = data.length > 1
             ? padLeft + (i / (data.length - 1)) * chartW
             : padLeft + chartW / 2;
         final y = padTop + chartH - ((data[i] - minV) / range) * chartH;
-        i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+        return Offset(x, y);
+      });
+      path.moveTo(pts[0].dx, pts[0].dy);
+      for (int i = 1; i < pts.length; i++) {
+        final p0 = pts[i - 1];
+        final p1 = pts[i];
+        // Cubic bezier with smooth control points
+        final cpX = (p0.dx + p1.dx) / 2;
+        path.cubicTo(cpX, p0.dy, cpX, p1.dy, p1.dx, p1.dy);
       }
       return path;
     }
 
-    void drawFill(List<double> data, Color color) {
-      final path = buildPath(data);
+    // Gradient fill under each line
+    void drawGradientFill(List<double> data, Color color) {
+      if (data.isEmpty) return;
+      final path = buildSmoothPath(data);
+      final lastX = data.length > 1
+          ? padLeft + ((data.length - 1) / (data.length - 1)) * chartW
+          : padLeft + chartW / 2;
       final fillPath = Path.from(path)
-        ..lineTo(padLeft + chartW, padTop + chartH)
+        ..lineTo(lastX, padTop + chartH)
         ..lineTo(padLeft, padTop + chartH)
         ..close();
-      canvas.drawPath(
-        fillPath,
-        Paint()
-          ..color = color.withOpacity(0.08)
-          ..style = PaintingStyle.fill,
-      );
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.0),
+          ],
+        ).createShader(
+          Rect.fromLTWH(padLeft, padTop, chartW, chartH),
+        )
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(fillPath, fillPaint);
     }
 
-    drawFill(seriesA, colorA);
-    drawFill(seriesB, colorB);
-    void drawLine(List<double> data, Color color, {bool dashed = false}) {
-      final path = buildPath(data);
+    drawGradientFill(seriesA, colorA);
+    drawGradientFill(seriesB, colorB);
+
+    // Draw smooth lines
+    void drawSmoothLine(List<double> data, Color color, {bool dashed = false}) {
+      final path = buildSmoothPath(data);
+      
+      // Line shadow
+      canvas.drawPath(
+        path.shift(const Offset(0, 4)),
+        Paint()
+          ..color = color.withValues(alpha: 0.25)
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+
       final paint = Paint()
         ..color = color
-        ..strokeWidth = 2
+        ..strokeWidth = 3
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
+      
       if (!dashed) {
         canvas.drawPath(path, paint);
       } else {
@@ -696,23 +792,61 @@ class _LinePainter extends CustomPainter {
       }
     }
 
-    drawLine(seriesA, colorA);
-    drawLine(seriesB, colorB, dashed: true);
+    drawSmoothLine(seriesA, colorA);
+    drawSmoothLine(seriesB, colorB, dashed: true);
+
+    // Data point dots
     void drawDots(List<double> data, Color color) {
+      if (data.length < 2) return;
       for (int i = 0; i < data.length; i++) {
         final x = padLeft + (i / (data.length - 1)) * chartW;
         final y = padTop + chartH - ((data[i] - minV) / range) * chartH;
-        canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = color);
+        
+        // Dot shadow/glow
+        canvas.drawCircle(
+          Offset(x, y), 
+          7, 
+          Paint()
+            ..color = color.withValues(alpha: 0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+        );
+        
+        canvas.drawCircle(Offset(x, y), 5, Paint()..color = color);
         canvas.drawCircle(
           Offset(x, y),
-          2,
-          Paint()..color = isDark ? const Color(0xFF1C1C1C) : Colors.white,
+          2.5,
+          Paint()
+            ..color = isDark ? _kCardBgDark : Colors.white,
         );
       }
     }
 
     drawDots(seriesA, colorA);
     drawDots(seriesB, colorB);
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
+    const dashLen = 5.0;
+    const gapLen = 4.0;
+    final dx = p2.dx - p1.dx;
+    final dy = p2.dy - p1.dy;
+    final length = math.sqrt(dx * dx + dy * dy);
+    double dist = 0;
+    bool drawing = true;
+    while (dist < length) {
+      final next = math.min(dist + (drawing ? dashLen : gapLen), length);
+      if (drawing) {
+        final t0 = dist / length;
+        final t1 = next / length;
+        canvas.drawLine(
+          Offset(p1.dx + dx * t0, p1.dy + dy * t0),
+          Offset(p1.dx + dx * t1, p1.dy + dy * t1),
+          paint,
+        );
+      }
+      dist = next;
+      drawing = !drawing;
+    }
   }
 
   void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
@@ -767,32 +901,44 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
-    const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padLeft = 40;
+    const double padRight = 14;
+    const double padTop = 12;
+    const double padBottom = 26;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final dataMax = values.isNotEmpty ? values.reduce(math.max) : 0.0;
-    final maxV = dataMax <= 0 ? 1.0 : dataMax;
+    final maxV = dataMax <= 0 ? 1.0 : dataMax * 1.1;
     final n = values.length;
-    final barW = n > 0 ? (chartW / n) * 0.55 : 0.0;
-    final gap = n > 0 ? (chartW / n) * 0.45 : 0.0;
+    final slotW = n > 0 ? chartW / n : 0.0;
+    final barW = slotW * 0.6;
+    final offset = slotW * 0.2;
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
-      ..strokeWidth = 0.5;
+      ..color = (isDark ? Colors.white : Colors.black).withValues(
+        alpha: isDark ? 0.08 : 0.06,
+      )
+      ..strokeWidth = 1;
     final labelStyle = TextStyle(
-      fontSize: 9,
-      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+      fontSize: 9.5,
+      color: isDark ? const Color(0xFF7A7F8E) : const Color(0xFF9CA3AF),
     );
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
-      canvas.drawLine(
-        Offset(padLeft, y),
-        Offset(padLeft + chartW, y),
-        gridPaint,
-      );
+      if (i > 0) {
+        _drawDashedLine(
+          canvas,
+          Offset(padLeft, y),
+          Offset(padLeft + chartW, y),
+          gridPaint,
+        );
+      } else {
+        canvas.drawLine(
+          Offset(padLeft, y),
+          Offset(padLeft + chartW, y),
+          gridPaint,
+        );
+      }
       final val = (i / gridCount) * maxV;
       final label = val >= 1000
           ? '${(val / 1000).toStringAsFixed(1)}k'
@@ -800,31 +946,92 @@ class _BarPainter extends CustomPainter {
       _drawText(
         canvas,
         label,
-        Offset(0, y - 5),
+        Offset(0, y - 6),
         labelStyle,
         maxWidth: padLeft - 4,
         align: TextAlign.right,
       );
     }
     for (int i = 0; i < n; i++) {
-      final x = padLeft + i * (chartW / n) + gap / 2;
+      final x = padLeft + i * slotW + offset;
       final barH = (values[i] / maxV) * chartH;
       final y = padTop + chartH - barH;
+      final color = i < colors.length ? colors[i] : kPrimaryGreen;
+      final rect = Rect.fromLTWH(x, y, barW, barH);
+      final bgRect = Rect.fromLTWH(x, padTop, barW, chartH);
+
+      // Soft capsule background
       canvas.drawRRect(
-        RRect.fromRectAndCorners(
-          Rect.fromLTWH(x, y, barW, barH),
-          topLeft: const Radius.circular(4),
-          topRight: const Radius.circular(4),
-        ),
-        Paint()..color = colors[i],
+        RRect.fromRectAndRadius(bgRect, const Radius.circular(6)),
+        Paint()
+          ..color = (isDark ? Colors.white : Colors.black)
+              .withValues(alpha: 0.03),
       );
+
+      if (barH > 0) {
+        final rRect = RRect.fromRectAndCorners(
+          rect,
+          topLeft: const Radius.circular(6),
+          topRight: const Radius.circular(6),
+          bottomLeft: const Radius.circular(6),
+          bottomRight: const Radius.circular(6),
+        );
+
+        // Subtle shadow
+        canvas.drawRRect(
+          rRect.shift(const Offset(0, 3)),
+          Paint()
+            ..color = color.withValues(alpha: 0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        );
+
+        // Vibrant Gradient bar
+        canvas.drawRRect(
+          rRect,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                color,
+                color.withValues(alpha: 0.7),
+              ],
+            ).createShader(rect),
+        );
+      }
       _drawText(
         canvas,
         labels[i],
-        Offset(x - 2, size.height - padBottom + 6),
+        Offset(x - 1, size.height - padBottom + 7),
         labelStyle,
         maxWidth: barW + 8,
       );
+    }
+  }
+
+  void _drawDashedLine(
+    Canvas canvas,
+    Offset p1,
+    Offset p2,
+    Paint paint,
+  ) {
+    const dashLen = 5.0;
+    const gapLen = 4.0;
+    final dx = p2.dx - p1.dx;
+    final length = dx.abs();
+    double dist = 0;
+    bool drawing = true;
+    while (dist < length) {
+      final next = math.min(dist + (drawing ? dashLen : gapLen), length);
+      if (drawing) {
+        canvas.drawLine(
+          Offset(p1.dx + dist, p1.dy),
+          Offset(p1.dx + next, p1.dy),
+          paint,
+        );
+      }
+      dist = next;
+      drawing = !drawing;
     }
   }
 
@@ -866,62 +1073,95 @@ class _DonutPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final total = values.fold(0.0, (a, b) => a + b);
     final safeTotal = total <= 0 ? 1.0 : total;
-    final cx = size.width * 0.38;
+    final cx = size.width * 0.36;
     final cy = size.height / 2;
-    final radius = math.min(cx, cy) - 8;
-    const strokeW = 26.0;
+    final radius = math.min(cx, cy) - 10;
+    const strokeW = 30.0;
+    // Background track
+    canvas.drawCircle(
+      Offset(cx, cy),
+      radius,
+      Paint()
+        ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW,
+    );
     double startAngle = -math.pi / 2;
     for (int i = 0; i < values.length; i++) {
       final sweep = (values[i] / safeTotal) * 2 * math.pi;
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset(cx, cy), radius: radius),
-        startAngle + 0.03,
-        sweep - 0.06,
-        false,
-        Paint()
-          ..color = colors[i]
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeW
-          ..strokeCap = StrokeCap.butt,
-      );
+      if (sweep > 0.01) {
+        final path = Path()
+          ..addArc(
+            Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+            startAngle + 0.05,
+            sweep - 0.1,
+          );
+
+        // Shadow behind each arc segment
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = colors[i].withValues(alpha: 0.3)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeW
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+        );
+
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = colors[i]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeW
+            ..strokeCap = StrokeCap.round,
+        );
+      }
       startAngle += sweep;
     }
+    // Center text
     _drawCenteredText(
       canvas,
       total.toInt().toString(),
-      Offset(cx, cy - 8),
+      Offset(cx, cy - 9),
       TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: isDark ? Colors.white : const Color(0xFF2C2C2A),
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        color: isDark ? Colors.white : const Color(0xFF1C1E26),
+        letterSpacing: -0.5,
       ),
     );
     _drawCenteredText(
       canvas,
-      'reports',
-      Offset(cx, cy + 10),
+      'total reports',
+      Offset(cx, cy + 12),
       TextStyle(
         fontSize: 9,
-        color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+        fontWeight: FontWeight.w500,
+        color: isDark ? const Color(0xFF7A7F8E) : const Color(0xFF9CA3AF),
+        letterSpacing: 0.3,
       ),
     );
-    final legendX = size.width * 0.62;
-    const legendStartY = 20.0;
-    const itemH = 26.0;
+    // Legend on the right side
+    final legendX = size.width * 0.60;
+    const legendStartY = 12.0;
+    const itemH = 28.0;
     final labelStyle = TextStyle(
-      fontSize: 11,
-      color: isDark ? const Color(0xFFD3D1C7) : const Color(0xFF444441),
+      fontSize: 11.5,
+      fontWeight: FontWeight.w600,
+      color: isDark ? const Color(0xFFDDE1EE) : const Color(0xFF374151),
     );
     final subStyle = TextStyle(
       fontSize: 10,
-      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+      color: isDark ? const Color(0xFF7A7F8E) : const Color(0xFF9CA3AF),
     );
     for (int i = 0; i < values.length; i++) {
       final y = legendStartY + i * itemH;
+      // Color swatch - rounded rectangle
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(legendX, y + 3, 9, 9),
-          const Radius.circular(2),
+          Rect.fromLTWH(legendX, y + 4, 10, 10),
+          const Radius.circular(3),
         ),
         Paint()..color = colors[i],
       );
@@ -929,16 +1169,16 @@ class _DonutPainter extends CustomPainter {
       _drawText(
         canvas,
         labels[i],
-        Offset(legendX + 14, y),
+        Offset(legendX + 16, y + 1),
         labelStyle,
-        maxWidth: size.width - legendX - 14,
+        maxWidth: size.width - legendX - 16,
       );
       _drawText(
         canvas,
-        '$pct%  ·  ${values[i].toInt()}',
-        Offset(legendX + 14, y + 13),
+        '$pct% · ${values[i].toInt()}',
+        Offset(legendX + 16, y + 15),
         subStyle,
-        maxWidth: size.width - legendX - 14,
+        maxWidth: size.width - legendX - 16,
       );
     }
   }
@@ -1001,68 +1241,139 @@ class _StackedBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double padLeft = 36;
-    const double padRight = 12;
-    const double padTop = 10;
-    const double padBottom = 24;
+    const double padLeft = 40;
+    const double padRight = 14;
+    const double padTop = 12;
+    const double padBottom = 26;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final n = seriesA.length;
+    if (n == 0) return;
     double maxV = 0;
     for (int i = 0; i < n; i++)
       maxV = math.max(maxV, seriesA[i] + seriesB[i] + seriesC[i]);
-    maxV = (maxV * 1.1).ceilToDouble();
-    final barW = (chartW / n) * 0.55;
-    final gap = (chartW / n) * 0.45;
+    maxV = maxV <= 0 ? 1.0 : (maxV * 1.15).ceilToDouble();
+    final slotW = chartW / n;
+    final barW = slotW * 0.62;
+    final barOffset = slotW * 0.19;
     final gridPaint = Paint()
-      ..color = (isDark ? Colors.white : Colors.black).withOpacity(0.06)
-      ..strokeWidth = 0.5;
+      ..color = (isDark ? Colors.white : Colors.black).withValues(
+        alpha: isDark ? 0.08 : 0.06,
+      )
+      ..strokeWidth = 1;
     final labelStyle = TextStyle(
-      fontSize: 9,
-      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+      fontSize: 9.5,
+      color: isDark ? const Color(0xFF7A7F8E) : const Color(0xFF9CA3AF),
     );
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
-      canvas.drawLine(
-        Offset(padLeft, y),
-        Offset(padLeft + chartW, y),
-        gridPaint,
-      );
+      if (i > 0) {
+        // Dashed grid line
+        const dashLen = 5.0;
+        const gapLen = 4.0;
+        double dist = padLeft;
+        bool drawing = true;
+        while (dist < padLeft + chartW) {
+          final next = math.min(dist + (drawing ? dashLen : gapLen), padLeft + chartW);
+          if (drawing) {
+            canvas.drawLine(Offset(dist, y), Offset(next, y), gridPaint);
+          }
+          dist = next;
+          drawing = !drawing;
+        }
+      } else {
+        canvas.drawLine(
+          Offset(padLeft, y),
+          Offset(padLeft + chartW, y),
+          gridPaint,
+        );
+      }
       _drawText(
         canvas,
         ((i / gridCount) * maxV).toInt().toString(),
-        Offset(0, y - 5),
+        Offset(0, y - 6),
         labelStyle,
         maxWidth: padLeft - 4,
         align: TextAlign.right,
       );
     }
     for (int i = 0; i < n; i++) {
-      final x = padLeft + i * (chartW / n) + gap / 2;
+      final x = padLeft + i * slotW + barOffset;
+      final bgRect = Rect.fromLTWH(x, padTop, barW, chartH);
+
+      // Soft capsule background
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bgRect, const Radius.circular(6)),
+        Paint()
+          ..color = (isDark ? Colors.white : Colors.black)
+              .withValues(alpha: 0.03),
+      );
+
       double currentY = padTop + chartH;
-      void drawSegment(double val, Color color, {bool isTop = false}) {
+      // Calculate total height to determine if we should draw shadow
+      final totalVal = seriesA[i] + seriesB[i] + seriesC[i];
+      if (totalVal > 0) {
+        final totalH = (totalVal / maxV) * chartH;
+        final top = currentY - totalH;
+        final shadowRect = RRect.fromRectAndCorners(
+          Rect.fromLTWH(x, top, barW, totalH),
+          topLeft: const Radius.circular(6),
+          topRight: const Radius.circular(6),
+          bottomLeft: const Radius.circular(6),
+          bottomRight: const Radius.circular(6),
+        );
+        // Subtle shadow behind the entire stack
+        canvas.drawRRect(
+          shadowRect.shift(const Offset(0, 3)),
+          Paint()
+            ..color = Colors.black.withValues(alpha: 0.15)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        );
+      }
+
+      void drawSegment(
+        double val,
+        Color color, {
+        bool isTop = false,
+        bool isBottom = false,
+      }) {
         if (val <= 0) return;
         final segH = (val / maxV) * chartH;
         final top = currentY - segH;
-        final rRect = isTop
-            ? RRect.fromRectAndCorners(
-                Rect.fromLTWH(x, top, barW, segH),
-                topLeft: const Radius.circular(3),
-                topRight: const Radius.circular(3),
-              )
-            : RRect.fromRectAndCorners(Rect.fromLTWH(x, top, barW, segH));
-        canvas.drawRRect(rRect, Paint()..color = color);
+        final Radius topR = const Radius.circular(6);
+        final Radius bottomR = const Radius.circular(6);
+        final rRect = RRect.fromRectAndCorners(
+          Rect.fromLTWH(x, top, barW, segH),
+          topLeft: isTop ? topR : Radius.zero,
+          topRight: isTop ? topR : Radius.zero,
+          bottomLeft: isBottom ? bottomR : Radius.zero,
+          bottomRight: isBottom ? bottomR : Radius.zero,
+        );
+
+        // Gradient for each segment
+        canvas.drawRRect(
+          rRect,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                color,
+                color.withValues(alpha: 0.8),
+              ],
+            ).createShader(Rect.fromLTWH(x, top, barW, segH)),
+        );
         currentY = top;
       }
 
-      drawSegment(seriesC[i], colorC);
-      drawSegment(seriesB[i], colorB);
-      drawSegment(seriesA[i], colorA, isTop: true);
+      drawSegment(seriesC[i], colorC, isBottom: true);
+      drawSegment(seriesB[i], colorB, isBottom: seriesC[i] == 0);
+      drawSegment(seriesA[i], colorA, isTop: true, isBottom: seriesC[i] == 0 && seriesB[i] == 0);
       _drawText(
         canvas,
         labels[i],
-        Offset(x - 2, size.height - padBottom + 6),
+        Offset(x - 1, size.height - padBottom + 7),
         labelStyle,
         maxWidth: barW + 12,
       );

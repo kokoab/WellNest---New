@@ -169,13 +169,22 @@ class _AnalyticsSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Analytics Dashboard',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
-                            letterSpacing: -0.4,
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: theme.colorScheme.onSurface,
+                              letterSpacing: -0.5,
+                              fontFamily: kFontHelveticaNow,
+                            ),
+                            children: [
+                              const TextSpan(text: 'Analytics '),
+                              TextSpan(
+                                text: 'Dashboard',
+                                style: const TextStyle(color: kPrimaryGreen),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -183,7 +192,7 @@ class _AnalyticsSection extends StatelessWidget {
                           'Track growth, moderation outcomes, and activity trends.',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -209,13 +218,22 @@ class _AnalyticsSection extends StatelessWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Analytics Dashboard',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                      letterSpacing: -0.4,
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onSurface,
+                        letterSpacing: -0.5,
+                        fontFamily: kFontHelveticaNow,
+                      ),
+                      children: [
+                        const TextSpan(text: 'Analytics '),
+                        const TextSpan(
+                          text: 'Dashboard',
+                          style: TextStyle(color: kPrimaryGreen),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -223,7 +241,7 @@ class _AnalyticsSection extends StatelessWidget {
                     'Track growth, moderation outcomes, and activity trends.',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w400,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),

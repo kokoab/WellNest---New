@@ -301,46 +301,66 @@ Widget _flexTable({
   required List<TableRow> rows,
 }) {
   final isDark = theme.brightness == Brightness.dark;
-  return Table(
-    columnWidths: columnWidths,
-    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-    border: TableBorder(
-      horizontalInside: BorderSide(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.04),
-        width: 0.5,
+  return Container(
+    decoration: BoxDecoration(
+      color: _adminCardColor(isDark),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: _adminBorderColor(isDark),
+        width: 1,
+      ),
+      boxShadow: isDark
+          ? null
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Table(
+        columnWidths: columnWidths,
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        border: TableBorder(
+          horizontalInside: BorderSide(
+            color: _adminBorderColor(isDark),
+            width: 1,
+          ),
+        ),
+        children: [
+          TableRow(
+            decoration: BoxDecoration(
+              color: isDark 
+                  ? Colors.white.withValues(alpha: 0.04) 
+                  : const Color(0xFFF8FAFC),
+            ),
+            children: headers
+                .map(
+                  (h) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: Text(
+                      h.toUpperCase(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10.5,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          ...rows,
+        ],
       ),
     ),
-    children: [
-      TableRow(
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.03)
-              : Colors.black.withValues(alpha: 0.02),
-        ),
-        children: headers
-            .map(
-              (h) => Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
-                ),
-                child: Text(
-                  h,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.7,
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-      ...rows,
-    ],
   );
 }
 
@@ -350,7 +370,7 @@ TableRow _tableRow(ThemeData theme, List<Widget> cells, Color? bg) {
     children: cells
         .map(
           (c) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Align(alignment: Alignment.centerLeft, child: c),
           ),
         )

@@ -191,7 +191,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Theme(
       data: theme.copyWith(textTheme: dashboardTextTheme),
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: _adminScaffoldBg(theme.brightness == Brightness.dark),
         body: SafeArea(
           child: isWide ? _buildWideLayout(theme) : _buildNarrowLayout(theme),
         ),
