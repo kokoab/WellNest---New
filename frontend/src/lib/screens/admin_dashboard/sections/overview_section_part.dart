@@ -28,6 +28,8 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
   bool _recipeTotalLoading = true;
 
   List<ActivityLog> _auditLogs = [];
+  List<ActivityLog> _mealPlannerAuditLogs = [];
+  int _mealPlannerTotal = 0;
 
   _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
   List<AdminStatPoint> _userGrowthPoints = [];
@@ -104,10 +106,19 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
 
   Future<void> _loadAuditLogs() async {
     try {
-      final res = await AdminAuditLogService.instance.fetchLogs(page: 1);
+      final results = await Future.wait([
+        AdminAuditLogService.instance.fetchLogs(page: 1),
+        AdminAuditLogService.instance.fetchLogs(
+          page: 1,
+          category: 'meal_planner',
+          perPage: 50,
+        ),
+      ]);
       if (!mounted) return;
       setState(() {
-        _auditLogs = res.logs;
+        _auditLogs = results[0].logs;
+        _mealPlannerAuditLogs = results[1].logs;
+        _mealPlannerTotal = results[1].total;
       });
     } catch (_) {
       // keep existing logs on failure
@@ -157,6 +168,8 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
       recipeTotal: _recipeTotal,
       recipeTotalLoading: _recipeTotalLoading,
       auditLogs: _auditLogs,
+      mealPlannerAuditLogs: _mealPlannerAuditLogs,
+      mealPlannerTotal: _mealPlannerTotal,
       analyticsLoading: _analyticsLoading,
       analyticsError: _analyticsError,
       userGrowthPoints: _userGrowthPoints,
@@ -187,6 +200,8 @@ class _OverviewSection extends StatelessWidget {
   final int recipeTotal;
   final bool recipeTotalLoading;
   final List<ActivityLog> auditLogs;
+  final List<ActivityLog> mealPlannerAuditLogs;
+  final int mealPlannerTotal;
   final bool analyticsLoading;
   final String? analyticsError;
   final List<AdminStatPoint> userGrowthPoints;
@@ -208,6 +223,8 @@ class _OverviewSection extends StatelessWidget {
     required this.recipeTotal,
     required this.recipeTotalLoading,
     required this.auditLogs,
+    required this.mealPlannerAuditLogs,
+    required this.mealPlannerTotal,
     required this.analyticsLoading,
     required this.analyticsError,
     required this.userGrowthPoints,
@@ -223,10 +240,8 @@ class _OverviewSection extends StatelessWidget {
     final openReports = reports
         .where((r) => _normalizeReportStatus(r.status) == 'open')
         .length;
-    final mealPlannerLogs = auditLogs
-        .where((l) => l.category.toLowerCase() == 'meal_planner')
-        .toList();
-    final mealPlannerActions = mealPlannerLogs.length;
+    final mealPlannerLogs = mealPlannerAuditLogs;
+    final mealPlannerActions = mealPlannerTotal;
     final userGrowthTrend = _formatTrend(_seriesPercentDelta(userGrowthPoints));
     final postGrowthTrend = _formatTrend(
       _seriesPercentDelta(postFrequencyPoints),

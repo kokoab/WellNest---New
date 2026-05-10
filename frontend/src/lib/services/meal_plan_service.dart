@@ -1,37 +1,88 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../models/meal_plan.dart';
 import 'auth_service.dart';
 
+/// Plans for a week plus optional per-meal skipped markers from the API.
+class MealPlanWeekData {
+  const MealPlanWeekData({required this.plans, required this.skippedMealKeys});
+
+  final List<MealPlan> plans;
+  final Set<String> skippedMealKeys;
+}
+
 class MealPlanService {
   MealPlanService._();
   static final MealPlanService _instance = MealPlanService._();
   static MealPlanService get instance => _instance;
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
   static String get _baseUrl => '${AppConfig.baseUrl}/api';
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...AuthService.instance.authHeaders,
-      };
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...AuthService.instance.authHeaders,
+  };
 
   /// GET /api/meal-plans?week_start=YYYY-MM-DD
-  Future<List<MealPlan>> fetchForWeek(DateTime weekStart) async {
+  Future<MealPlanWeekData> fetchForWeek(DateTime weekStart) async {
     final dateStr =
         '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
-    final uri = Uri.parse('$_baseUrl/meal-plans')
-        .replace(queryParameters: {'week_start': dateStr});
+    final uri = Uri.parse(
+      '$_baseUrl/meal-plans',
+    ).replace(queryParameters: {'week_start': dateStr});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final list = data['data'] as List<dynamic>? ?? [];
-      return list
+      final plans = list
           .map((e) => MealPlan.fromJson(e as Map<String, dynamic>))
           .toList();
+      final skippedMeals = <String>{};
+      final rawMeals = data['skipped_meals'] as List<dynamic>?;
+      if (rawMeals != null) {
+        for (final e in rawMeals) {
+          if (e is! Map<String, dynamic>) continue;
+          final date = e['planned_date'];
+          final slot = e['meal_slot'];
+          if (date is String && slot is String) {
+            skippedMeals.add(mealSkipKey(date, slot));
+          }
+        }
+      }
+      return MealPlanWeekData(plans: plans, skippedMealKeys: skippedMeals);
+    }
+    _throwFromResponse(response);
+  }
+
+  static String mealSkipKey(String isoDate, String mealSlot) =>
+      '$isoDate::$mealSlot';
+
+  /// POST /api/meal-plans/meal-skip
+  Future<void> setMealSkip({
+    required DateTime plannedDate,
+    required String mealSlot,
+    required bool skipped,
+  }) async {
+    final dateStr =
+        '${plannedDate.year}-${plannedDate.month.toString().padLeft(2, '0')}-${plannedDate.day.toString().padLeft(2, '0')}';
+    final response = await http.post(
+      Uri.parse('$_baseUrl/meal-plans/meal-skip'),
+      headers: _headers,
+      body: jsonEncode({
+        'planned_date': dateStr,
+        'meal_slot': mealSlot,
+        'skipped': skipped,
+      }),
+    );
+    if (response.statusCode == 200) {
+      _notifyChanged();
+      return;
     }
     _throwFromResponse(response);
   }
@@ -54,7 +105,11 @@ class MealPlanService {
       }),
     );
     if (response.statusCode == 201) {
-      return MealPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      final plan = MealPlan.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+      _notifyChanged();
+      return plan;
     }
     _throwFromResponse(response);
   }
@@ -65,7 +120,10 @@ class MealPlanService {
       Uri.parse('$_baseUrl/meal-plans/$mealPlanId'),
       headers: _headers,
     );
-    if (response.statusCode == 200) return;
+    if (response.statusCode == 200) {
+      _notifyChanged();
+      return;
+    }
     _throwFromResponse(response);
   }
 
@@ -73,12 +131,14 @@ class MealPlanService {
   Future<MealPlanExport> fetchExportData(DateTime weekStart) async {
     final dateStr =
         '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
-    final uri = Uri.parse('$_baseUrl/meal-plans/export')
-        .replace(queryParameters: {'week_start': dateStr});
+    final uri = Uri.parse(
+      '$_baseUrl/meal-plans/export',
+    ).replace(queryParameters: {'week_start': dateStr});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       return MealPlanExport.fromJson(
-          jsonDecode(response.body) as Map<String, dynamic>);
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     _throwFromResponse(response);
   }
@@ -88,4 +148,6 @@ class MealPlanService {
     final message = data?['message'] as String?;
     throw Exception(message ?? 'Request failed: ${response.statusCode}');
   }
+
+  static void _notifyChanged() => changes.value++;
 }

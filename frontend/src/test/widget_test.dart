@@ -20,5 +20,6 @@ void main() {
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(materialApp.routes?.containsKey('/login'), isTrue);
+    expect(materialApp.routes?.containsKey('/meal-planner'), isTrue);
   });
 }

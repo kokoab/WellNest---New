@@ -111,6 +111,8 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::get('meal-plans/export', [MealPlanController::class, 'export']);
     Route::get('meal-plans', [MealPlanController::class, 'index']);
     Route::post('meal-plans', [MealPlanController::class, 'store']);
+    Route::post('meal-plans/day-skip', [MealPlanController::class, 'setDaySkip']);
+    Route::post('meal-plans/meal-skip', [MealPlanController::class, 'setMealSkip']);
     Route::delete('meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
 
     Route::get('conversations/assistant', [ConversationController::class, 'assistant']);

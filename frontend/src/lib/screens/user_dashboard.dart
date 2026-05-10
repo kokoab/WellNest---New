@@ -25,10 +25,10 @@ import 'package:my_app/screens/saved_recipes_screen.dart';
 import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/screens/conversation_chat_screen.dart';
 import 'package:my_app/screens/create_post_screen.dart';
+import 'package:my_app/screens/meal_planner_screen.dart';
 import 'package:my_app/services/conversation_service.dart';
 import 'package:my_app/widgets/wellnest_discover_hero.dart';
 import 'package:my_app/widgets/wellnest_recipe_card.dart';
-import 'package:my_app/widgets/weekly_meal_planner_strip.dart';
 import 'feed_page.dart';
 import 'recipe_ranking_screen.dart';
 
@@ -349,8 +349,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
   );
   final ValueNotifier<int> _topRankedPage = ValueNotifier<int>(0);
   final ScrollController _scrollController = ScrollController();
-  DateTime _plannerWeekStart = _startOfWeek(DateTime.now());
-  bool _plannerExpanded = false;
 
   Future<void> _jumpTopRankedBy(int delta) async {
     if (_topRanked.length <= 1 || !_topRankedPageController.hasClients) return;
@@ -1114,54 +1112,33 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
-      child: Column(
-        children: [
-          ListTile(
-            dense: true,
-            visualDensity: const VisualDensity(vertical: -2),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 2,
-            ),
-            leading: const Icon(Icons.calendar_month, color: kPrimaryGreen),
-            title: const Text(
-              'Weekly Meal Planner',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: kPrimaryGreen,
-              ),
-            ),
-            subtitle: Text(
-              _plannerExpanded ? 'Pick meals for each day' : 'Tap to expand.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            trailing: Icon(
-              _plannerExpanded ? Icons.expand_less : Icons.expand_more,
-              color: kPrimaryGreen,
-            ),
-            onTap: () => setState(() => _plannerExpanded = !_plannerExpanded),
+      child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -2),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        leading: const Icon(Icons.calendar_month, color: kPrimaryGreen),
+        title: const Text(
+          'Weekly Meal Planner',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: kPrimaryGreen,
           ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 220),
-            firstCurve: Curves.easeOut,
-            secondCurve: Curves.easeOut,
-            crossFadeState: _plannerExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            firstChild: const SizedBox(height: 0),
-            secondChild: _plannerExpanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    child: WeeklyMealPlannerStrip(
-                      weekStart: _plannerWeekStart,
-                      onWeekChanged: (nextWeekStart) {
-                        setState(() => _plannerWeekStart = nextWeekStart);
-                      },
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+        ),
+        subtitle: Text(
+          'Plan breakfast, lunch, and dinner for the week.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        trailing: Icon(Icons.chevron_right, color: nestOrange),
+        onTap: () {
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const MealPlannerScreen(),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1320,11 +1297,6 @@ class _RecipeGridViewState extends State<RecipeGridView> {
         ),
       ),
     );
-  }
-
-  static DateTime _startOfWeek(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
-    return normalized.subtract(Duration(days: normalized.weekday - 1));
   }
 
   /// Grid / loading / error below the header; kept as slivers for one scroll + pull-to-refresh.
