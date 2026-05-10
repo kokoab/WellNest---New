@@ -165,6 +165,15 @@ class _Sidebar extends StatelessWidget {
             theme: theme,
           ),
           _NavItem(
+            section: _Section.recipes,
+            currentSection: currentSection,
+            icon: Icons.restaurant_menu_outlined,
+            label: 'Recipes',
+            collapsed: collapsed,
+            onTap: onSectionChanged,
+            theme: theme,
+          ),
+          _NavItem(
             section: _Section.moderation,
             currentSection: currentSection,
             icon: Icons.shield_outlined,
@@ -327,9 +336,11 @@ class _BottomNav extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
           _BottomNavItem(
             icon: Icons.grid_view_rounded,
             label: 'Overview',
@@ -352,6 +363,13 @@ class _BottomNav extends StatelessWidget {
             onTap: onSectionChanged,
           ),
           _BottomNavItem(
+            icon: Icons.restaurant_menu_outlined,
+            label: 'Recipes',
+            section: _Section.recipes,
+            currentSection: currentSection,
+            onTap: onSectionChanged,
+          ),
+          _BottomNavItem(
             icon: Icons.shield_outlined,
             label: 'Reports',
             section: _Section.moderation,
@@ -366,6 +384,7 @@ class _BottomNav extends StatelessWidget {
             onTap: onSectionChanged,
           ),
         ],
+        ),
       ),
     );
   }
@@ -392,7 +411,7 @@ class _BottomNavItem extends StatelessWidget {
       onTap: () => onTap(section),
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -443,6 +462,8 @@ class _TopBar extends StatelessWidget {
         return 'Analytics';
       case _Section.users:
         return 'User Management';
+      case _Section.recipes:
+        return 'Recipe Management';
       case _Section.moderation:
         return 'Content Moderation';
       case _Section.auditLogs:

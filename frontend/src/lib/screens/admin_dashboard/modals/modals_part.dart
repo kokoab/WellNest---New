@@ -821,6 +821,357 @@ class _RecipesModalContentState extends State<_RecipesModalContent> {
   }
 }
 
+// ─── Single recipe preview (e.g. admin recipe management) ────────────────────
+class _RecipePreviewModalContent extends StatefulWidget {
+  final int recipeId;
+  const _RecipePreviewModalContent({required this.recipeId});
+
+  @override
+  State<_RecipePreviewModalContent> createState() =>
+      _RecipePreviewModalContentState();
+}
+
+class _RecipePreviewModalContentState extends State<_RecipePreviewModalContent> {
+  Recipe? _recipe;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final r = await RecipeService.instance.fetchRecipe(widget.recipeId);
+      if (!mounted) return;
+      setState(() {
+        _recipe = r;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _adminErrorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  String? _heroImageUrl(Recipe r) {
+    final urls = r.galleryDisplayUrls;
+    if (urls.isNotEmpty) return urls.first;
+    return r.displayImageUrl;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    if (_loading) return const _ModalLoading();
+    if (_error != null) return _ModalError(message: _error!);
+    final recipe = _recipe;
+    if (recipe == null) {
+      return const _ModalEmpty(message: 'Recipe could not be loaded.');
+    }
+
+    final cardBg = isDark ? const Color(0xFF252525) : const Color(0xFFF9F9F9);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.black.withValues(alpha: 0.07);
+    final heroUrl = _heroImageUrl(recipe);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (heroUrl != null)
+                Image.network(
+                  heroUrl,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _RecipeImagePlaceholder(isDark: isDark, theme: theme),
+                )
+              else
+                SizedBox(
+                  height: 140,
+                  child: _RecipeImagePlaceholder(isDark: isDark, theme: theme),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (recipe.category?.name.isNotEmpty == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: kPrimaryGreen.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              recipe.category!.name,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: kPrimaryGreen,
+                              ),
+                            ),
+                          ),
+                        Text(
+                          'By ${recipe.userDisplayName}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (recipe.createdAt != null)
+                          Text(
+                            _formatHumanDate(recipe.createdAt),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        if (recipe.prepTime > 0)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 14,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${recipe.prepTime} min',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        if (recipe.viewsCount != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.visibility_outlined,
+                                size: 14,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${recipe.viewsCount} views',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        if (recipe.averageRating != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 14,
+                                color: Color(0xFFE6930A),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${recipe.averageRating!.toStringAsFixed(1)} (${recipe.ratingsCount ?? 0})',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFE6930A),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    if (recipe.description?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        recipe.description!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (recipe.ingredients != null && recipe.ingredients!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Ingredients',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...recipe.ingredients!.map(
+            (ing) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      ing.displayLine,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurface,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (recipe.steps != null && recipe.steps!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            recipe.prepTimingMode == PrepTimingMode.perStep
+                ? 'Steps'
+                : 'Instructions',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...recipe.steps!.asMap().entries.map((e) {
+            final i = e.key;
+            final step = e.value;
+            final n = i + 1;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor, width: 0.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      step.displayTitle(n),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    if (step.instructions?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        step.instructions!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                    if (step.prepTimeMinutes != null &&
+                        step.prepTimeMinutes! > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${step.prepTimeMinutes} min',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        ] else if (recipe.instructions.trim().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Instructions',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            recipe.instructions.trim(),
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 // ─── View toggle button ───────────────────────────────────────────────────────
 class _ViewToggle extends StatelessWidget {
   final bool isCard;

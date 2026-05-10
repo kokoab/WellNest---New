@@ -79,12 +79,23 @@ class RecipeController extends Controller
             });
         }
 
-        $startDate = $this->resolveStartDate($range);
-        if ($startDate !== null) {
-            $query->where('created_at', '>=', $startDate);
+        $hasCustomRange = $request->filled('start_date') || $request->filled('end_date');
+        if ($hasCustomRange) {
+            if ($request->filled('start_date')) {
+                $query->where('created_at', '>=', Carbon::parse($request->start_date)->startOfDay());
+            }
+            if ($request->filled('end_date')) {
+                $query->where('created_at', '<=', Carbon::parse($request->end_date)->endOfDay());
+            }
+        } else {
+            $startDate = $this->resolveStartDate($range);
+            if ($startDate !== null) {
+                $query->where('created_at', '>=', $startDate);
+            }
         }
 
-        $recipes = $query->paginate(10);
+        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
+        $recipes = $query->paginate($perPage);
         $data = $recipes->toArray();
         $baseUrl = rtrim(config('app.url'), '/');
         foreach ($data['data'] as $i => $recipeData) {
@@ -377,8 +388,9 @@ class RecipeController extends Controller
      */
     public function delete(Recipe $recipe, Request $request): JsonResponse
     {
-
-        if ($recipe->user_id !== $request->user()->id) {
+        $actor = $request->user();
+        $isAdmin = (bool) ($actor->is_admin ?? false) || ($actor->role ?? '') === 'admin';
+        if ($recipe->user_id !== $actor->id && ! $isAdmin) {
             return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
         }
 

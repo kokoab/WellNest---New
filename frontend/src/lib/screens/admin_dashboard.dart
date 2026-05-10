@@ -29,6 +29,7 @@ part 'admin_dashboard/sections/section_ui_part.dart';
 part 'admin_dashboard/sections/overview_section_part.dart';
 part 'admin_dashboard/sections/analytics_section_part.dart';
 part 'admin_dashboard/sections/users_section_part.dart';
+part 'admin_dashboard/sections/recipes_section_part.dart';
 part 'admin_dashboard/sections/moderation_section_part.dart';
 part 'admin_dashboard/sections/audit_logs_section_part.dart';
 part 'admin_dashboard/widgets/pagination_controls.dart';
@@ -37,7 +38,7 @@ part 'admin_dashboard/modals/modals_part.dart';
 part 'admin_dashboard/charts/charts_part.dart';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
-enum _Section { overview, analytics, users, moderation, auditLogs }
+enum _Section { overview, analytics, users, recipes, moderation, auditLogs }
 
 enum _DateRangeFilter {
   weekly('weekly', 'Weekly'),
@@ -116,6 +117,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _overviewKey = GlobalKey<_OverviewSectionContainerState>();
   final _analyticsKey = GlobalKey<_AnalyticsSectionContainerState>();
   final _usersKey = GlobalKey<_UsersSectionContainerState>();
+  final _recipesKey = GlobalKey<_RecipesSectionContainerState>();
   final _moderationKey = GlobalKey<_ModerationSectionContainerState>();
   final _auditLogsKey = GlobalKey<_AuditLogsSectionContainerState>();
 
@@ -135,6 +137,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         break;
       case _Section.users:
         await _usersKey.currentState?.refresh();
+        break;
+      case _Section.recipes:
+        await _recipesKey.currentState?.refresh();
         break;
       case _Section.moderation:
         await _moderationKey.currentState?.refresh();
@@ -298,6 +303,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           isWide: isWide,
         ),
         _UsersSectionContainer(key: _usersKey, theme: theme),
+        _RecipesSectionContainer(key: _recipesKey, theme: theme),
         _ModerationSectionContainer(key: _moderationKey, theme: theme),
         _AuditLogsSectionContainer(key: _auditLogsKey, theme: theme),
       ],
@@ -596,6 +602,7 @@ Future<_AdminCsvFile> _buildRecipesCsv(_DateRangeFilter range) async {
     final res = await RecipeService.instance.fetchRecipes(
       page: page,
       range: range.apiValue,
+      perPage: 100,
     );
     recipes.addAll(res.recipes);
     lastPage = res.lastPage;

@@ -170,4 +170,34 @@ class AdminOperationsTest extends TestCase
             ->assertJsonPath('range', 'monthly')
             ->assertJsonStructure(['data', 'range']);
     }
+
+    public function test_admin_can_delete_recipe_owned_by_another_user(): void
+    {
+        $admin = $this->createAdmin();
+        $owner = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $owner->id]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->deleteJson("api/recipes/{$recipe->id}");
+
+        $response->assertOk()
+            ->assertJsonFragment(['message' => 'Recipe deleted successfully']);
+
+        $this->assertDatabaseMissing('recipes', ['id' => $recipe->id]);
+    }
+
+    public function test_regular_user_cannot_delete_another_users_recipe(): void
+    {
+        $owner = $this->createUser();
+        $other = $this->createUser(['email' => 'other-recipe@example.com']);
+        $recipe = $this->createRecipe(['user_id' => $owner->id]);
+
+        Sanctum::actingAs($other);
+
+        $response = $this->deleteJson("api/recipes/{$recipe->id}");
+
+        $response->assertForbidden();
+        $this->assertDatabaseHas('recipes', ['id' => $recipe->id]);
+    }
 }

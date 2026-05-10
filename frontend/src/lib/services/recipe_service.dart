@@ -26,6 +26,16 @@ class RecipeService {
       ...AdminAuthService.instance.authHeaders,
   };
 
+  /// User token first; admin dashboard uses admin token when no user session.
+  Map<String, String> get _headersForWrite => {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    if (AuthService.instance.authHeaders.isNotEmpty)
+      ...AuthService.instance.authHeaders
+    else
+      ...AdminAuthService.instance.authHeaders,
+  };
+
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -39,9 +49,15 @@ class RecipeService {
     String? search,
     int page = 1,
     String? range,
+    DateTime? startDate,
+    DateTime? endDate,
+    int perPage = 10,
     bool liked = false,
   }) async {
-    final params = <String, String>{'page': '$page'};
+    final params = <String, String>{
+      'page': '$page',
+      'per_page': '${perPage.clamp(1, 100)}',
+    };
     if (categoryId != null) params['category_id'] = '$categoryId';
     if (userId != null) params['user_id'] = '$userId';
     if (search != null && search.trim().isNotEmpty) {
@@ -49,6 +65,12 @@ class RecipeService {
     }
     if (range != null && range.trim().isNotEmpty) {
       params['range'] = range.trim();
+    }
+    if (startDate != null) {
+      params['start_date'] = startDate.toIso8601String().split('T').first;
+    }
+    if (endDate != null) {
+      params['end_date'] = endDate.toIso8601String().split('T').first;
     }
     if (liked) params['liked'] = '1';
     final uri = Uri.parse('$_baseUrl/recipes').replace(queryParameters: params);
@@ -267,7 +289,7 @@ class RecipeService {
   Future<void> deleteRecipe(int id) async {
     final response = await http.delete(
       Uri.parse('$_baseUrl/recipes/$id'),
-      headers: _headers,
+      headers: _headersForWrite,
     );
     if (response.statusCode == 200) return;
     _throwFromResponse(response);
