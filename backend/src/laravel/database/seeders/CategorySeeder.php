@@ -17,6 +17,8 @@ class CategorySeeder extends Seeder
             ['name' => 'Vegan', 'description' => 'Plant-based recipes with no animal products.'],
             ['name' => 'Gluten-Free', 'description' => 'Recipes free of gluten-containing ingredients.'],
             ['name' => 'Pet-Safe', 'description' => 'Recipes safe for pets to consume.'],
+            ['name' => 'Fruits', 'description' => 'Delicious and fresh fruit-based recipes.'],
+            ['name' => 'Vegetables', 'description' => 'Healthy and nutritious vegetable recipes.'],
         ];
 
         foreach ($categories as $data) {

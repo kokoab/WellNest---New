@@ -10,6 +10,11 @@ String? resolveStorageDisplayUrl(String? url) {
       return '$base${uri.path}';
     }
   }
-  if (url.startsWith('/')) return base + url;
-  return url;
+  if (url.startsWith('/')) {
+    if (!url.startsWith('/storage/')) {
+      return '$base/storage$url';
+    }
+    return base + url;
+  }
+  return '$base/storage/$url';
 }

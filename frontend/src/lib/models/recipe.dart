@@ -16,7 +16,7 @@ class RecipeImageRef {
     return RecipeImageRef(
       id: json['id'] as int,
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
-      url: json['url'] as String? ?? json['image_url'] as String? ?? '',
+      url: json['url'] as String? ?? json['image_url'] as String? ?? json['path'] as String? ?? '',
     );
   }
 
