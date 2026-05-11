@@ -221,15 +221,13 @@ class _AuditLogsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MinimalSectionLabel(
-                theme: theme,
-                label: 'Audit Logs',
-                subtitle: 'System & moderation events',
-              ),
-            ),
+        _AdminSectionHeadingRow(
+          title: _MinimalSectionLabel(
+            theme: theme,
+            label: 'Audit Logs',
+            subtitle: 'System & moderation events',
+          ),
+          actions: [
             _ClearFiltersButton(onPressed: onClearAllFilters),
             const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
@@ -294,6 +292,29 @@ class _AuditLogsSection extends StatelessWidget {
 }
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
+Widget _adminBoundedFlexTable({
+  required ThemeData theme,
+  required Map<int, TableColumnWidth> Function(double tableWidth)
+  buildColumnWidths,
+  required List<String> headers,
+  required List<TableRow> rows,
+}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      var w = constraints.maxWidth;
+      if (!w.isFinite || w <= 0) {
+        w = MediaQuery.sizeOf(context).width;
+      }
+      return _flexTable(
+        theme: theme,
+        columnWidths: buildColumnWidths(w),
+        headers: headers,
+        rows: rows,
+      );
+    },
+  );
+}
+
 Widget _flexTable({
   required ThemeData theme,
   required Map<int, TableColumnWidth> columnWidths,
@@ -365,66 +386,70 @@ class _AuditLogsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.07),
-          1: FlexColumnWidth(screenWidth * 0.14),
-          2: FlexColumnWidth(screenWidth * 0.11),
-          3: FlexColumnWidth(screenWidth * 0.16),
-          4: FlexColumnWidth(screenWidth * 0.30),
-          5: FlexColumnWidth(screenWidth * 0.14),
-          6: FlexColumnWidth(screenWidth * 0.08),
-        },
-        headers: ['ID', 'CATEGORY', 'DATE', 'ACTION', 'DESCRIPTION', 'ACTOR', 'IP'],
-        rows: logs.map((log) {
-          return _tableRow(theme, [
-            Text(
-              '${log.id}',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return _adminBoundedFlexTable(
+      theme: theme,
+      buildColumnWidths: (w) => {
+        0: FlexColumnWidth(w * 0.07),
+        1: FlexColumnWidth(w * 0.14),
+        2: FlexColumnWidth(w * 0.11),
+        3: FlexColumnWidth(w * 0.16),
+        4: FlexColumnWidth(w * 0.30),
+        5: FlexColumnWidth(w * 0.14),
+        6: FlexColumnWidth(w * 0.08),
+      },
+      headers: [
+        'ID',
+        'CATEGORY',
+        'DATE',
+        'ACTION',
+        'DESCRIPTION',
+        'ACTOR',
+        'IP',
+      ],
+      rows: logs.map((log) {
+        return _tableRow(theme, [
+          Text(
+            '${log.id}',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            _CategoryPill(theme: theme, label: log.category),
-            Text(
-              _formatHumanDate(log.createdAt),
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          ),
+          _CategoryPill(theme: theme, label: log.category),
+          Text(
+            _formatHumanDate(log.createdAt),
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            Text(
-              log.action,
-              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          ),
+          Text(
+            log.action,
+            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          ),
+          Text(
+            log.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          ),
+          Text(
+            log.actorName ?? '—',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
+          ),
+          Text(
+            log.ipAddress ?? '—',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            Text(
-              log.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
-            ),
-            Text(
-              log.actorName ?? '—',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface),
-            ),
-            Text(
-              log.ipAddress ?? '—',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ], null);
-        }).toList(),
-      ),
+          ),
+        ], null);
+      }).toList(),
     );
   }
 }

@@ -175,6 +175,33 @@ class _MinimalSectionLabel extends StatelessWidget {
   }
 }
 
+/// Title on the left, toolbar controls in a horizontally scrollable row on the
+/// right so narrow viewports do not overflow.
+class _AdminSectionHeadingRow extends StatelessWidget {
+  final Widget title;
+  final List<Widget> actions;
+
+  const _AdminSectionHeadingRow({required this.title, required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: title),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: actions,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Search bar ───────────────────────────────────────────────────────────────
 class _SearchBar extends StatelessWidget {
   final ThemeData theme;

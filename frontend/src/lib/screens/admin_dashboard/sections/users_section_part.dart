@@ -352,15 +352,13 @@ class _UsersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MinimalSectionLabel(
-                theme: theme,
-                label: 'Registered Users',
-                subtitle: loading ? 'Loading…' : '${users.length} users',
-              ),
-            ),
+        _AdminSectionHeadingRow(
+          title: _MinimalSectionLabel(
+            theme: theme,
+            label: 'Registered Users',
+            subtitle: loading ? 'Loading…' : '${users.length} users',
+          ),
+          actions: [
             _ClearFiltersButton(onPressed: onClearAllFilters),
             const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
@@ -460,60 +458,55 @@ class _UsersTable extends StatelessWidget {
   Widget build(BuildContext context) {
     // Render table without an inner vertical scroll so the page's outer
     // ScrollController can detect when the bottom is reached.
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.08),
-          1: FlexColumnWidth(screenWidth * 0.20),
-          2: FlexColumnWidth(screenWidth * 0.28),
-          3: FlexColumnWidth(screenWidth * 0.15),
-          4: FlexColumnWidth(screenWidth * 0.29),
-        },
-        headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
-        rows: users.asMap().entries.map((e) {
-          final user = e.value;
-          return _tableRow(theme, [
-            Text(
-              '${user.id}',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return _adminBoundedFlexTable(
+      theme: theme,
+      buildColumnWidths: (w) => {
+        0: FlexColumnWidth(w * 0.08),
+        1: FlexColumnWidth(w * 0.20),
+        2: FlexColumnWidth(w * 0.28),
+        3: FlexColumnWidth(w * 0.15),
+        4: FlexColumnWidth(w * 0.29),
+      },
+      headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
+      rows: users.asMap().entries.map((e) {
+        final user = e.value;
+        return _tableRow(theme, [
+          Text(
+            '${user.id}',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            Row(
-              children: [
-                _UserAvatar(name: user.name),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    user.name.isEmpty ? '—' : user.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface,
-                    ),
+          ),
+          Row(
+            children: [
+              _UserAvatar(name: user.name),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  user.name.isEmpty ? '—' : user.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-              ],
-            ),
-            SizedBox(
-              width: screenWidth * 0.28,
-              child: Text(
-                user.email,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
+            ],
+          ),
+          Text(
+            user.email,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            _StatusPill(isActive: user.isActive),
-            SizedBox(
-              width: screenWidth * 0.29,
+          ),
+          _StatusPill(isActive: user.isActive),
+          ClipRect(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -562,9 +555,9 @@ class _UsersTable extends StatelessWidget {
                 ],
               ),
             ),
-          ], null);
-        }).toList(),
-      ),
+          ),
+        ], null);
+      }).toList(),
     );
   }
 }

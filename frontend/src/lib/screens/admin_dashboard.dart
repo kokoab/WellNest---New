@@ -189,10 +189,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
         fontWeight: FontWeight.w600,
       ),
     );
+    final scaffoldBg = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surface
+        : Color.lerp(theme.colorScheme.surface, Colors.white, 0.14)!;
+
     return Theme(
       data: theme.copyWith(textTheme: dashboardTextTheme),
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: scaffoldBg,
         body: SafeArea(
           child: isWide ? _buildWideLayout(theme) : _buildNarrowLayout(theme),
         ),

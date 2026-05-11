@@ -143,8 +143,7 @@ class _RecipesSectionContainerState extends State<_RecipesSectionContainer>
     final ok = await _showAdminConfirmDialog(
       context: context,
       title: 'Delete recipe permanently?',
-      content:
-          'Permanently delete "${recipe.title}"? This cannot be undone.',
+      content: 'Permanently delete "${recipe.title}"? This cannot be undone.',
       actionLabel: 'Delete',
       actionColor: Colors.red,
     );
@@ -250,17 +249,15 @@ class _RecipesSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MinimalSectionLabel(
-                theme: theme,
-                label: 'Recipes',
-                subtitle: loading
-                    ? 'Loading…'
-                    : '$totalCount recipe${totalCount == 1 ? '' : 's'}',
-              ),
-            ),
+        _AdminSectionHeadingRow(
+          title: _MinimalSectionLabel(
+            theme: theme,
+            label: 'Recipes',
+            subtitle: loading
+                ? 'Loading…'
+                : '$totalCount recipe${totalCount == 1 ? '' : 's'}',
+          ),
+          actions: [
             _ClearFiltersButton(onPressed: onClearAllFilters),
             const SizedBox(width: 6),
             _DateRangeDropdown(value: selectedRange, onChanged: onRangeChanged),
@@ -337,122 +334,124 @@ class _RecipesTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.06),
-          1: FlexColumnWidth(screenWidth * 0.22),
-          2: FlexColumnWidth(screenWidth * 0.14),
-          3: FlexColumnWidth(screenWidth * 0.14),
-          4: FlexColumnWidth(screenWidth * 0.15),
-          5: FlexColumnWidth(screenWidth * 0.07),
-          6: FlexColumnWidth(screenWidth * 0.07),
-          7: FlexColumnWidth(screenWidth * 0.07),
-          8: FlexColumnWidth(screenWidth * 0.08),
-        },
-        headers: [
-          'ID',
-          'TITLE',
-          'CATEGORY',
-          'AUTHOR',
-          'CREATED',
-          'PREP',
-          'RATING',
-          'VIEWS',
-          'ACTIONS',
-        ],
-        rows: recipes.map((recipe) {
-          final ratingLabel = recipe.averageRating != null
-              ? recipe.averageRating!.toStringAsFixed(1)
-              : '—';
-          final viewsLabel =
-              recipe.viewsCount != null ? '${recipe.viewsCount}' : '—';
-          return _tableRow(theme, [
-            Text(
-              '${recipe.id}',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
+    return _adminBoundedFlexTable(
+      theme: theme,
+      buildColumnWidths: (w) => {
+        0: FlexColumnWidth(w * 0.06),
+        1: FlexColumnWidth(w * 0.22),
+        2: FlexColumnWidth(w * 0.14),
+        3: FlexColumnWidth(w * 0.14),
+        4: FlexColumnWidth(w * 0.15),
+        5: FlexColumnWidth(w * 0.07),
+        6: FlexColumnWidth(w * 0.07),
+        7: FlexColumnWidth(w * 0.07),
+        8: FlexColumnWidth(w * 0.08),
+      },
+      headers: [
+        'ID',
+        'TITLE',
+        'CATEGORY',
+        'AUTHOR',
+        'CREATED',
+        'PREP',
+        'RATING',
+        'VIEWS',
+        'ACTIONS',
+      ],
+      rows: recipes.map((recipe) {
+        final ratingLabel = recipe.averageRating != null
+            ? recipe.averageRating!.toStringAsFixed(1)
+            : '—';
+        final viewsLabel = recipe.viewsCount != null
+            ? '${recipe.viewsCount}'
+            : '—';
+        return _tableRow(theme, [
+          Text(
+            '${recipe.id}',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            recipe.title.isEmpty ? '—' : recipe.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          Text(
+            recipe.category?.name ?? '—',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            recipe.userDisplayName,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            _formatHumanDate(recipe.createdAt),
+            style: TextStyle(
+              fontSize: 11,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            '${recipe.prepTime}m',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            ratingLabel,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            viewsLabel,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          ClipRect(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionIconBtn(
+                    icon: Icons.visibility_outlined,
+                    color: kPrimaryGreen,
+                    tooltip: 'Preview',
+                    onPressed: () => onOpenRecipe(recipe),
+                  ),
+                  const SizedBox(width: 4),
+                  _ActionIconBtn(
+                    icon: Icons.delete_outline_rounded,
+                    color: Colors.red,
+                    tooltip: 'Delete',
+                    onPressed: () => onDelete(recipe),
+                  ),
+                ],
               ),
             ),
-            Text(
-              recipe.title.isEmpty ? '—' : recipe.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            Text(
-              recipe.category?.name ?? '—',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              recipe.userDisplayName,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              _formatHumanDate(recipe.createdAt),
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              '${recipe.prepTime}m',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              ratingLabel,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              viewsLabel,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionIconBtn(
-                  icon: Icons.visibility_outlined,
-                  color: kPrimaryGreen,
-                  tooltip: 'Preview',
-                  onPressed: () => onOpenRecipe(recipe),
-                ),
-                const SizedBox(width: 4),
-                _ActionIconBtn(
-                  icon: Icons.delete_outline_rounded,
-                  color: Colors.red,
-                  tooltip: 'Delete',
-                  onPressed: () => onDelete(recipe),
-                ),
-              ],
-            ),
-          ], null);
-        }).toList(),
-      ),
+          ),
+        ], null);
+      }).toList(),
     );
   }
 }
