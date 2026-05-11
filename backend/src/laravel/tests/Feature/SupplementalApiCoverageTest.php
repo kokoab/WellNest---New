@@ -732,7 +732,11 @@ class SupplementalApiCoverageTest extends TestCase
 
     private function broadcastDriverIsNull(): bool
     {
-        $connection = (string) config('broadcasting.default', 'null');
+        $connection = config('broadcasting.default');
+
+        if ($connection === null || $connection === '' || $connection === 'null') {
+            return true;
+        }
 
         return config("broadcasting.connections.{$connection}.driver") === 'null';
     }
