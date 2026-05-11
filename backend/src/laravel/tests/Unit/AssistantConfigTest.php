@@ -6,6 +6,7 @@ use App\Jobs\GenerateAssistantReply;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Services\AssistantRecipeCatalogService;
 use App\Services\OllamaChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -56,7 +57,7 @@ class AssistantConfigTest extends TestCase
         $ollama = app(OllamaChatService::class);
 
         $job = new GenerateAssistantReply($conversation->id, $trigger->id);
-        $job->handle($ollama);
+        $job->handle($ollama, app(AssistantRecipeCatalogService::class));
 
         $assistantReply = Message::query()
             ->where('conversation_id', $conversation->id)
