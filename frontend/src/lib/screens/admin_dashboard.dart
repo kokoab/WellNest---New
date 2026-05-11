@@ -43,7 +43,8 @@ enum _Section { overview, analytics, users, recipes, moderation, auditLogs }
 enum _DateRangeFilter {
   weekly('weekly', 'Weekly'),
   monthly('monthly', 'Monthly'),
-  yearly('yearly', 'Yearly');
+  yearly('yearly', 'Yearly'),
+  all('all', 'All time');
 
   const _DateRangeFilter(this.apiValue, this.label);
   final String apiValue;

@@ -45,6 +45,11 @@ class AdminUserController extends Controller
         $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
         $page = max(1, (int) $request->query('page', 1));
 
+        // Active rows matching the same filters (group OR so date range still applies).
+        $activeCount = (clone $usersQuery)->where(function ($q) {
+            $q->where('account_status', 'active')->orWhereNull('account_status');
+        })->count();
+
         $paginator = $usersQuery->paginate($perPage, ['*'], 'page', $page);
 
         $users = $paginator->getCollection()->map(fn(User $u) => [
@@ -55,9 +60,6 @@ class AdminUserController extends Controller
             'account_status' => $u->account_status ?? 'active',
             'created_at' => $u->created_at?->toIso8601String(),
         ]);
-
-        // Count active users matching the query (before pagination)
-        $activeCount = (clone $usersQuery)->where('account_status', 'active')->orWhereNull('account_status')->count();
 
         return response()->json([
             'data' => $users,
@@ -143,6 +145,7 @@ class AdminUserController extends Controller
             'weekly' => now()->subWeek(),
             'monthly' => now()->subMonth(),
             'yearly' => now()->subYear(),
+            'all' => null,
             default => null,
         };
     }

@@ -31,7 +31,7 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
   List<ActivityLog> _mealPlannerAuditLogs = [];
   int _mealPlannerTotal = 0;
 
-  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
+  _DateRangeFilter _insightsRange = _DateRangeFilter.all;
   List<AdminStatPoint> _userGrowthPoints = [];
   List<AdminStatPoint> _postFrequencyPoints = [];
   List<AdminStatPoint> _chatbotInteractionPoints = [];
@@ -60,17 +60,34 @@ class _OverviewSectionContainerState extends State<_OverviewSectionContainer>
   Future<void> _loadUsersSummary() async {
     setState(() => _usersLoading = true);
     try {
-      final result = await AdminUserService.instance.fetchUsers();
+      final results = await Future.wait<Object>([
+        AdminDashboardService.instance.fetchOverviewStats(),
+        AdminUserService.instance.fetchUsers(),
+      ]);
+      final overview = results[0] as AdminOverviewStats;
+      final usersResult = results[1] as FetchUsersResult;
       if (!mounted) return;
       setState(() {
-        _users = result.users;
-        _usersTotalCount = result.total;
-        _usersActiveTotalCount = result.activeTotal;
+        _users = usersResult.users;
+        _usersTotalCount = overview.totalUsers;
+        _usersActiveTotalCount = overview.activeUsers;
         _usersLoading = false;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _usersLoading = false);
+      try {
+        final overview = await AdminDashboardService.instance
+            .fetchOverviewStats();
+        if (!mounted) return;
+        setState(() {
+          _users = [];
+          _usersTotalCount = overview.totalUsers;
+          _usersActiveTotalCount = overview.activeUsers;
+          _usersLoading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _usersLoading = false);
+      }
     }
   }
 
@@ -243,13 +260,12 @@ class _OverviewSection extends StatelessWidget {
     final mealPlannerLogs = mealPlannerAuditLogs;
     final mealPlannerActions = mealPlannerTotal;
     final userGrowthTrend = _formatTrend(_seriesPercentDelta(userGrowthPoints));
-    final postGrowthTrend = _formatTrend(
-      _seriesPercentDelta(postFrequencyPoints),
-    );
     final activeRatio = totalUsers == 0
         ? 0
         : ((activeUsers / totalUsers) * 100).round();
-    final activeTrendText = users.isEmpty ? 'No data' : '$activeRatio% active';
+    final activeTrendText = totalUsers == 0
+        ? 'No data'
+        : '$activeRatio% active';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,8 +377,12 @@ class _OverviewSection extends StatelessWidget {
                       value: recipeTotalLoading ? '—' : '$recipeTotal',
                       icon: Icons.restaurant_menu_outlined,
                       color: const Color(0xFFE6930A),
-                      trend: postGrowthTrend,
-                      trendUp: _isTrendUp(postGrowthTrend),
+                      trend: recipeTotalLoading
+                          ? '—'
+                          : (recipeTotal == 0
+                                ? 'No recipes yet'
+                                : 'Listed in Recipes'),
+                      trendUp: false,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -418,8 +438,12 @@ class _OverviewSection extends StatelessWidget {
                           value: recipeTotalLoading ? '—' : '$recipeTotal',
                           icon: Icons.restaurant_menu_outlined,
                           color: const Color(0xFFE6930A),
-                          trend: postGrowthTrend,
-                          trendUp: _isTrendUp(postGrowthTrend),
+                          trend: recipeTotalLoading
+                              ? '—'
+                              : (recipeTotal == 0
+                                    ? 'No recipes yet'
+                                    : 'Listed in Recipes'),
+                          trendUp: false,
                         ),
                       ),
                       const SizedBox(width: 10),

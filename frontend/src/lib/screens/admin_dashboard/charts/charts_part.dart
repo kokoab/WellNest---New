@@ -1,5 +1,20 @@
 part of 'package:my_app/screens/admin_dashboard.dart';
 
+/// Matches API bucket count for line charts (two series must use the same N).
+int _adminChartPointCount2(List<AdminStatPoint> a, List<AdminStatPoint> b) {
+  final n = math.max(a.length, b.length);
+  return n > 0 ? n : 6;
+}
+
+int _adminChartPointCount3(
+  List<AdminStatPoint> a,
+  List<AdminStatPoint> b,
+  List<AdminStatPoint> c,
+) {
+  final n = math.max(math.max(a.length, b.length), c.length);
+  return n > 0 ? n : 6;
+}
+
 class _ChartsSection extends StatelessWidget {
   final ThemeData theme;
   final List<AdminUser> users;
@@ -280,7 +295,10 @@ class _UserGrowthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pointsCount = 6;
+    final pointsCount = _adminChartPointCount2(
+      userGrowthPoints,
+      postFrequencyPoints,
+    );
     final chartPoints = userGrowthPoints.isNotEmpty
         ? userGrowthPoints
         : postFrequencyPoints;
@@ -327,7 +345,9 @@ class _RecipeRatingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pointsCount = 5;
+    final pointsCount = chatbotInteractionPoints.isEmpty
+        ? 6
+        : chatbotInteractionPoints.length;
     final labels = _buildDateLabels(chatbotInteractionPoints, pointsCount);
     final values = _normalizeSeries(chatbotInteractionPoints, pointsCount);
     return _ChartCard(
@@ -430,7 +450,11 @@ class _AuditActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pointsCount = 6;
+    final pointsCount = _adminChartPointCount3(
+      userGrowthPoints,
+      postFrequencyPoints,
+      chatbotInteractionPoints,
+    );
     final labels = _buildDateLabels(
       userGrowthPoints.isNotEmpty
           ? userGrowthPoints
@@ -486,13 +510,40 @@ List<double> _normalizeSeries(List<AdminStatPoint> source, int length) {
 }
 
 List<String> _buildDateLabels(List<AdminStatPoint> source, int length) {
-  final dates = source.map((p) => p.date).toList();
-  final tail = dates.length > length
-      ? dates.sublist(dates.length - length)
-      : dates;
-  final labels = tail.map((d) => '${d.month}/${d.day}').toList(growable: true);
-  while (labels.length < length) labels.insert(0, '—');
+  final tail = source.length > length
+      ? source.sublist(source.length - length)
+      : source;
+  final labels = tail
+      .map((p) {
+        final axis = p.axisLabel;
+        if (axis != null && axis.trim().isNotEmpty) return axis.trim();
+        return _formatChartBucketLabel(p.date);
+      })
+      .toList(growable: true);
+  while (labels.length < length) {
+    labels.insert(0, '—');
+  }
   return labels;
+}
+
+/// X-axis bucket end date: full month name, day, and year (local time).
+String _formatChartBucketLabel(DateTime d) {
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  final local = d.toLocal();
+  return '${months[local.month - 1]} ${local.day}, ${local.year}';
 }
 
 double? _seriesPercentDelta(List<AdminStatPoint> points) {
@@ -603,7 +654,8 @@ class _LinePainter extends CustomPainter {
     const double padLeft = 36;
     const double padRight = 12;
     const double padTop = 10;
-    const double padBottom = 24;
+    final nX = labels.length;
+    final double padBottom = nX > 9 ? 34 : 30;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final allValues = [...seriesA, ...seriesB];
@@ -619,6 +671,15 @@ class _LinePainter extends CustomPainter {
       fontSize: 9,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
+    final double xFont = nX > 10 ? 6.0 : (nX > 7 ? 7.0 : 8.0);
+    final xAxisLabelStyle = TextStyle(
+      fontSize: xFont,
+      height: 1.12,
+      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+    );
+    final double xLabelMaxW = nX > 1
+        ? math.max(28, chartW / (nX - 1) * 0.9)
+        : 120.0;
     const gridCount = 4;
     for (int i = 0; i <= gridCount; i++) {
       final y = padTop + chartH - (i / gridCount) * chartH;
@@ -640,16 +701,31 @@ class _LinePainter extends CustomPainter {
         align: TextAlign.right,
       );
     }
-    if (labels.length > 1) {
+    if (labels.isNotEmpty) {
+      final denom = labels.length > 1 ? (labels.length - 1) : 1;
       for (int i = 0; i < labels.length; i++) {
-        final x = padLeft + (i / (labels.length - 1)) * chartW;
-        _drawText(
-          canvas,
-          labels[i],
-          Offset(x - 14, size.height - padBottom + 6),
-          labelStyle,
-          maxWidth: 28,
-        );
+        final x = padLeft + (i / denom) * chartW;
+        final text = labels[i];
+        if (text == '—') {
+          _drawText(
+            canvas,
+            text,
+            Offset(x - 4, size.height - padBottom + 4),
+            xAxisLabelStyle,
+            maxWidth: 16,
+            align: TextAlign.center,
+          );
+        } else {
+          final tp = TextPainter(
+            text: TextSpan(text: text, style: xAxisLabelStyle),
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center,
+          )..layout(maxWidth: xLabelMaxW);
+          tp.paint(
+            canvas,
+            Offset(x - tp.width / 2, size.height - padBottom + 4),
+          );
+        }
       }
     }
     Path buildPath(List<double> data) {
@@ -749,7 +825,10 @@ class _LinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LinePainter old) =>
-      old.seriesA != seriesA || old.seriesB != seriesB || old.isDark != isDark;
+      old.seriesA != seriesA ||
+      old.seriesB != seriesB ||
+      old.labels != labels ||
+      old.isDark != isDark;
 }
 
 // ─── CustomPainter: Bar Chart ─────────────────────────────────────────────────
@@ -770,7 +849,7 @@ class _BarPainter extends CustomPainter {
     const double padLeft = 36;
     const double padRight = 12;
     const double padTop = 10;
-    const double padBottom = 24;
+    const double padBottom = 30;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final dataMax = values.isNotEmpty ? values.reduce(math.max) : 0.0;
@@ -783,6 +862,13 @@ class _BarPainter extends CustomPainter {
       ..strokeWidth = 0.5;
     final labelStyle = TextStyle(
       fontSize: 9,
+      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+    );
+    final nLab = labels.length;
+    final double xBarFont = nLab > 10 ? 6.0 : (nLab > 7 ? 7.0 : 8.0);
+    final xAxisLabelStyle = TextStyle(
+      fontSize: xBarFont,
+      height: 1.12,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
     const gridCount = 4;
@@ -810,21 +896,40 @@ class _BarPainter extends CustomPainter {
       final x = padLeft + i * (chartW / n) + gap / 2;
       final barH = (values[i] / maxV) * chartH;
       final y = padTop + chartH - barH;
+      final barColor = colors.isEmpty
+          ? const Color(0xFF378ADD)
+          : colors[i % colors.length];
       canvas.drawRRect(
         RRect.fromRectAndCorners(
           Rect.fromLTWH(x, y, barW, barH),
           topLeft: const Radius.circular(4),
           topRight: const Radius.circular(4),
         ),
-        Paint()..color = colors[i],
+        Paint()..color = barColor,
       );
-      _drawText(
-        canvas,
-        labels[i],
-        Offset(x - 2, size.height - padBottom + 6),
-        labelStyle,
-        maxWidth: barW + 8,
-      );
+      final barCenter = x + barW / 2;
+      final text = labels[i];
+      final slotW = n > 0 ? chartW / n : chartW;
+      if (text == '—') {
+        _drawText(
+          canvas,
+          text,
+          Offset(barCenter - 4, size.height - padBottom + 4),
+          xAxisLabelStyle,
+          maxWidth: 16,
+          align: TextAlign.center,
+        );
+      } else {
+        final tp = TextPainter(
+          text: TextSpan(text: text, style: xAxisLabelStyle),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout(maxWidth: math.max(32, slotW - 4));
+        tp.paint(
+          canvas,
+          Offset(barCenter - tp.width / 2, size.height - padBottom + 4),
+        );
+      }
     }
   }
 
@@ -846,7 +951,7 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BarPainter old) =>
-      old.values != values || old.isDark != isDark;
+      old.values != values || old.labels != labels || old.isDark != isDark;
 }
 
 // ─── CustomPainter: Donut Chart ───────────────────────────────────────────────
@@ -871,20 +976,25 @@ class _DonutPainter extends CustomPainter {
     final radius = math.min(cx, cy) - 8;
     const strokeW = 26.0;
     double startAngle = -math.pi / 2;
-    for (int i = 0; i < values.length; i++) {
-      final sweep = (values[i] / safeTotal) * 2 * math.pi;
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset(cx, cy), radius: radius),
-        startAngle + 0.03,
-        sweep - 0.06,
-        false,
-        Paint()
-          ..color = colors[i]
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeW
-          ..strokeCap = StrokeCap.butt,
-      );
-      startAngle += sweep;
+    if (total > 0) {
+      for (int i = 0; i < values.length; i++) {
+        final sweep = (values[i] / safeTotal) * 2 * math.pi;
+        if (sweep <= 0) {
+          continue;
+        }
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+          startAngle + 0.03,
+          math.max(0, sweep - 0.06),
+          false,
+          Paint()
+            ..color = colors[i % colors.length]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeW
+            ..strokeCap = StrokeCap.butt,
+        );
+        startAngle += sweep;
+      }
     }
     _drawCenteredText(
       canvas,
@@ -1004,14 +1114,15 @@ class _StackedBarPainter extends CustomPainter {
     const double padLeft = 36;
     const double padRight = 12;
     const double padTop = 10;
-    const double padBottom = 24;
+    const double padBottom = 30;
     final chartW = size.width - padLeft - padRight;
     final chartH = size.height - padTop - padBottom;
     final n = seriesA.length;
     double maxV = 0;
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; i++) {
       maxV = math.max(maxV, seriesA[i] + seriesB[i] + seriesC[i]);
-    maxV = (maxV * 1.1).ceilToDouble();
+    }
+    maxV = math.max(1.0, (maxV * 1.1).ceilToDouble());
     final barW = (chartW / n) * 0.55;
     final gap = (chartW / n) * 0.45;
     final gridPaint = Paint()
@@ -1019,6 +1130,13 @@ class _StackedBarPainter extends CustomPainter {
       ..strokeWidth = 0.5;
     final labelStyle = TextStyle(
       fontSize: 9,
+      color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
+    );
+    final nLab = labels.length;
+    final double xStackFont = nLab > 10 ? 6.0 : (nLab > 7 ? 7.0 : 8.0);
+    final xAxisLabelStyle = TextStyle(
+      fontSize: xStackFont,
+      height: 1.12,
       color: isDark ? const Color(0xFF888780) : const Color(0xFF888780),
     );
     const gridCount = 4;
@@ -1059,13 +1177,29 @@ class _StackedBarPainter extends CustomPainter {
       drawSegment(seriesC[i], colorC);
       drawSegment(seriesB[i], colorB);
       drawSegment(seriesA[i], colorA, isTop: true);
-      _drawText(
-        canvas,
-        labels[i],
-        Offset(x - 2, size.height - padBottom + 6),
-        labelStyle,
-        maxWidth: barW + 12,
-      );
+      final barCenter = x + barW / 2;
+      final text = labels[i];
+      final slotW = n > 0 ? chartW / n : chartW;
+      if (text == '—') {
+        _drawText(
+          canvas,
+          text,
+          Offset(barCenter - 4, size.height - padBottom + 4),
+          xAxisLabelStyle,
+          maxWidth: 16,
+          align: TextAlign.center,
+        );
+      } else {
+        final tp = TextPainter(
+          text: TextSpan(text: text, style: xAxisLabelStyle),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout(maxWidth: math.max(32, slotW - 4));
+        tp.paint(
+          canvas,
+          Offset(barCenter - tp.width / 2, size.height - padBottom + 4),
+        );
+      }
     }
   }
 
@@ -1090,6 +1224,7 @@ class _StackedBarPainter extends CustomPainter {
       old.seriesA != seriesA ||
       old.seriesB != seriesB ||
       old.seriesC != seriesC ||
+      old.labels != labels ||
       old.isDark != isDark;
 }
 

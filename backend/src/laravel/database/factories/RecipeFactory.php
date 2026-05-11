@@ -13,6 +13,9 @@ use App\Models\RecipeIngredient;
  */
 class RecipeFactory extends Factory
 {
+    /** When false, the afterCreating hook does not seed recipe_ingredients rows (faster bulk dummy data). */
+    public bool $seedIngredients = true;
+
     /**
      * Define the model's default state.
      *
@@ -35,11 +38,23 @@ class RecipeFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Recipe $recipe) {
-            $count = fake()->numberBetween(3,8);
+            if (! $this->seedIngredients) {
+                return;
+            }
+
+            $count = fake()->numberBetween(3, 8);
 
             RecipeIngredient::factory()
                 ->count($count)
                 ->create(['recipe_id' => $recipe->id]);
         });
     }
-}  
+
+    public function withoutIngredients(): static
+    {
+        return tap(clone $this, function (self $factory) {
+            $factory->seedIngredients = false;
+        });
+    }
+}
+

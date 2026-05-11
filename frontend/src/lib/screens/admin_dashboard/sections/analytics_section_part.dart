@@ -19,7 +19,7 @@ class _AnalyticsSectionContainerState extends State<_AnalyticsSectionContainer>
   List<AdminUser> _users = [];
   List<Report> _reports = [];
   List<ActivityLog> _auditLogs = [];
-  _DateRangeFilter _insightsRange = _DateRangeFilter.monthly;
+  _DateRangeFilter _insightsRange = _DateRangeFilter.all;
   List<AdminStatPoint> _userGrowthPoints = [];
   List<AdminStatPoint> _postFrequencyPoints = [];
   List<AdminStatPoint> _chatbotInteractionPoints = [];

@@ -3,14 +3,18 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Database\Seeders\CategorySeeder;
+use Database\Seeders\Concerns\SeedsHistoryRange;
+use Database\Seeders\DummyDataSeeder;
+use Database\Seeders\RecipeSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Database\Seeders\CategorySeeder;
-use Database\Seeders\RecipeSeeder;
 
 class DatabaseSeeder extends Seeder
 {
+    use SeedsHistoryRange;
     use WithoutModelEvents;
 
     /**
@@ -44,10 +48,23 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Earliest possible recipe timestamps align with the catalog owner (test user).
+        $adminJoined = $this->historyStartUtc()->addHour();
+        $testJoined = $this->historyStartUtc();
+        DB::table('users')->where('email', 'admin@example.com')->update([
+            'created_at' => $adminJoined->toDateTimeString(),
+            'updated_at' => $adminJoined->toDateTimeString(),
+        ]);
+        DB::table('users')->where('email', 'test@example.com')->update([
+            'created_at' => $testJoined->toDateTimeString(),
+            'updated_at' => $testJoined->toDateTimeString(),
+        ]);
+
         $this->call([
             AssistantBotSeeder::class,
             CategorySeeder::class,
             RecipeSeeder::class,
+            DummyDataSeeder::class,
         ]);
     }
 }

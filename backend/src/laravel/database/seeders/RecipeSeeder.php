@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\SeedsHistoryRange;
 use App\Models\Recipe;
 use App\Models\RecipeStep;
 use Carbon\CarbonImmutable;
@@ -13,6 +14,8 @@ use Illuminate\Support\Str;
 
 class RecipeSeeder extends Seeder
 {
+    use SeedsHistoryRange;
+
     public function run(): void
     {
         $user = \App\Models\User::where('email', 'test@example.com')->first()
@@ -201,13 +204,24 @@ class RecipeSeeder extends Seeder
 
     /**
      * Force created_at/updated_at to a deterministic random moment between
-     * Jan 1 2025 00:00 UTC and "now". Same recipe title -> same timestamp on
-     * re-seeds, so dates stay stable across runs (matches how ingredients and
-     * image lanes are picked via crc32).
+     * history start and end (UTC). Same recipe title -> same base timestamp on
+     * re-seeds; clamped so the recipe is never older than its owner account.
      */
     private function stampRecipeCreatedAt(Recipe $recipe): void
     {
         $ts = $this->recipeSeedTimestamp($recipe->title);
+        $recipe->loadMissing('user');
+        $owner = $recipe->user;
+        if ($owner !== null) {
+            $ownerStart = CarbonImmutable::parse($owner->created_at)->utc();
+            if ($ts->lessThan($ownerStart)) {
+                $ts = $ownerStart;
+            }
+        }
+        $end = $this->historyEndUtc();
+        if ($ts->greaterThan($end)) {
+            $ts = $end;
+        }
 
         DB::table('recipes')->where('id', $recipe->id)->update([
             'created_at' => $ts->toDateTimeString(),
@@ -217,8 +231,8 @@ class RecipeSeeder extends Seeder
 
     private function recipeSeedTimestamp(string $title): CarbonImmutable
     {
-        $start = CarbonImmutable::create(2025, 1, 1, 0, 0, 0, 'UTC');
-        $end = CarbonImmutable::now('UTC');
+        $start = $this->historyStartUtc();
+        $end = $this->historyEndUtc();
         $rangeSeconds = max(1, $end->getTimestamp() - $start->getTimestamp());
         $offset = (int) (abs(crc32('recipe-date|'.$title)) % $rangeSeconds);
 

@@ -91,17 +91,17 @@ class AdminUserService {
           .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Extract total count from meta
+      // Extract total count from meta (JSON numbers may decode as double on web).
       int total = users.length;
       int activeTotal = 0;
       int currentPage = 1;
       int lastPage = 1;
       if (body is Map<String, dynamic> && body['meta'] is Map) {
         final meta = body['meta'] as Map<String, dynamic>;
-        total = (meta['total'] as int?) ?? users.length;
-        activeTotal = (meta['active_total'] as int?) ?? 0;
-        currentPage = (meta['current_page'] as int?) ?? 1;
-        lastPage = (meta['last_page'] as int?) ?? 1;
+        total = _jsonInt(meta['total'], users.length);
+        activeTotal = _jsonInt(meta['active_total'], 0);
+        currentPage = _jsonInt(meta['current_page'], 1);
+        lastPage = _jsonInt(meta['last_page'], 1);
       }
 
       return FetchUsersResult(
@@ -113,6 +113,14 @@ class AdminUserService {
       );
     }
     _throwFromResponse(response);
+  }
+
+  /// Parses Laravel pagination meta integers; avoids cast errors when JSON uses doubles (e.g. Flutter web).
+  static int _jsonInt(Object? value, int fallback) {
+    if (value == null) return fallback;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString()) ?? fallback;
   }
 
   /// PATCH /api/admin/users/{id}/status — set status to active or inactive.

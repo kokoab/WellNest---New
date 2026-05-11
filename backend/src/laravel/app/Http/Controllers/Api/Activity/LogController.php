@@ -91,6 +91,7 @@ class LogController extends Controller
             'weekly' => now()->subWeek(),
             'monthly' => now()->subMonth(),
             'yearly' => now()->subYear(),
+            'all' => null,
             default => null,
         };
     }
