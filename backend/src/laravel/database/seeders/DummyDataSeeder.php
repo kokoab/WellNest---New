@@ -99,6 +99,7 @@ class DummyDataSeeder extends Seeder
                 "Recipes: {$recipeCount} rows already meet the target (".self::RECIPE_TARGET_TOTAL.') — skipping dummy recipe inserts.'
             );
         }
+        $this->bulkAttachDummyRecipeImages($dummyUserIds, $imagePaths);
 
         if ($postsToCreate > 0) {
             $this->backfillCatalogPostImages($imagePaths);
@@ -229,6 +230,77 @@ class DummyDataSeeder extends Seeder
                     DB::table('recipe_ingredients')->insert($rows);
                 }
             });
+    }
+
+    /**
+     * Attach existing seed images to dummy recipes and steps. This keeps the
+     * bulk seeder fast while still giving the UI cover images for every recipe.
+     *
+     * @param  list<int>  $dummyUserIds
+     * @param  list<string>  $imagePaths
+     */
+    private function bulkAttachDummyRecipeImages(array $dummyUserIds, array $imagePaths): void
+    {
+        if ($imagePaths === []) {
+            return;
+        }
+
+        $nowStr = now()->toDateTimeString();
+        $imageCount = count($imagePaths);
+        $attachedRecipeImages = 0;
+
+        Recipe::query()
+            ->whereIn('user_id', $dummyUserIds)
+            ->whereDoesntHave('images')
+            ->orderBy('id')
+            ->chunkById(400, function ($recipes) use ($imagePaths, $imageCount, $nowStr, &$attachedRecipeImages) {
+                $rows = [];
+                foreach ($recipes as $recipe) {
+                    for ($slot = 0; $slot < 3; $slot++) {
+                        $rows[] = [
+                            'path' => $imagePaths[((int) $recipe->id + $slot) % $imageCount],
+                            'imageable_type' => Recipe::class,
+                            'imageable_id' => $recipe->id,
+                            'sort_order' => $slot,
+                            'created_at' => $nowStr,
+                            'updated_at' => $nowStr,
+                        ];
+                    }
+                }
+
+                foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+                    DB::table('images')->insert($chunk);
+                    $attachedRecipeImages += count($chunk);
+                }
+            });
+
+        $attachedStepImages = 0;
+        RecipeStep::query()
+            ->whereHas('recipe', fn ($query) => $query->whereIn('user_id', $dummyUserIds))
+            ->whereDoesntHave('images')
+            ->orderBy('id')
+            ->chunkById(400, function ($steps) use ($imagePaths, $imageCount, $nowStr, &$attachedStepImages) {
+                $rows = [];
+                foreach ($steps as $step) {
+                    $rows[] = [
+                        'path' => $imagePaths[((int) $step->id + (int) $step->sort_order + 1) % $imageCount],
+                        'imageable_type' => RecipeStep::class,
+                        'imageable_id' => $step->id,
+                        'sort_order' => 0,
+                        'created_at' => $nowStr,
+                        'updated_at' => $nowStr,
+                    ];
+                }
+
+                foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+                    DB::table('images')->insert($chunk);
+                    $attachedStepImages += count($chunk);
+                }
+            });
+
+        if ($attachedRecipeImages > 0 || $attachedStepImages > 0) {
+            $this->command->info("Attached {$attachedRecipeImages} dummy recipe images and {$attachedStepImages} dummy step images.");
+        }
     }
 
     /**
