@@ -698,6 +698,10 @@ class SupplementalApiCoverageTest extends TestCase
 
     public function test_user_can_authorize_private_notifications_channel(): void
     {
+        if ($this->broadcastDriverIsNull()) {
+            $this->markTestSkipped('phpunit.xml sets BROADCAST_CONNECTION=null; no broadcaster signature is returned.');
+        }
+
         $user = $this->createUser();
         Sanctum::actingAs($user);
 
@@ -712,6 +716,10 @@ class SupplementalApiCoverageTest extends TestCase
 
     public function test_broadcasting_auth_denies_foreign_notifications_channel(): void
     {
+        if ($this->broadcastDriverIsNull()) {
+            $this->markTestSkipped('phpunit.xml sets BROADCAST_CONNECTION=null; unauthorized channel checks are not applied.');
+        }
+
         $user = $this->createUser();
         $other = $this->createUser();
         Sanctum::actingAs($user);
@@ -720,5 +728,12 @@ class SupplementalApiCoverageTest extends TestCase
             'socket_id' => '1234.5678',
             'channel_name' => 'private-notifications.'.$other->id,
         ])->assertForbidden();
+    }
+
+    private function broadcastDriverIsNull(): bool
+    {
+        $connection = (string) config('broadcasting.default', 'null');
+
+        return config("broadcasting.connections.{$connection}.driver") === 'null';
     }
 }
