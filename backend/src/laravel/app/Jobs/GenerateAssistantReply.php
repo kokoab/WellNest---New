@@ -9,8 +9,11 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Notifications\NewMessageNotification;
+use App\Services\AssistantRecipeCatalogService;
 use App\Services\OllamaChatService;
 use App\Support\Assistant;
+use App\Support\AssistantRecipeCatalogMatcher;
+use App\Support\AssistantReplyRecipeParser;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +28,7 @@ class GenerateAssistantReply
         public int $triggerUserMessageId,
     ) {}
 
-    public function handle(OllamaChatService $ollama): void
+    public function handle(OllamaChatService $ollama, AssistantRecipeCatalogService $recipeCatalog): void
     {
         $botId = Assistant::botUserId();
         if (! $botId) {
@@ -51,11 +54,28 @@ class GenerateAssistantReply
             ->orderBy('created_at', 'asc')
             ->get();
 
+        $catalogBundle = $recipeCatalog->resolveCatalogForAssistant((string) $trigger->content);
+        /** @var \Illuminate\Support\Collection<int, \App\Models\Recipe> $catalog */
+        $catalog = $catalogBundle['catalog'];
+        $foodRelated = $catalogBundle['food_related'];
+        $intent = (string) ($catalogBundle['intent'] ?? 'general');
+
+        $system = (string) config('assistant.system_prompt');
+        if ($foodRelated && $catalog->isNotEmpty()) {
+            $lines = $catalog->map(static fn ($r) => '- ['.$r->id.'] '.$r->title)->implode("\n");
+            $system .= "\n\n## Exclusive WellNest recipe catalog for this reply\nYou MUST ONLY name dishes using titles copied exactly from this list (these are real recipes in the app).\n".$lines;
+            $system .= "\n\nWhen you suggest food from this catalog, end your reply with exactly one final line:\nRECIPES: id1,id2,id3\nUse up to three numeric ids from the brackets. Never invent ids or dishes outside this list.";
+        } elseif ($foodRelated && $catalog->isEmpty()) {
+            $system .= "\n\nThere are no matching recipes in WellNest for this question. Do not name specific dishes or recipes. Briefly encourage browsing Discover in the app. Do not add a RECIPES line.";
+        } else {
+            $system .= "\n\nThis user message is not asking for meals or recipes. Do not suggest recipes or name specific dishes. Do not add a RECIPES line.";
+        }
+
         $messages = [];
 
         $messages[] = [
             'role' => 'system',
-            'content' => (string) config('assistant.system_prompt'),
+            'content' => $system,
         ];
 
         foreach ($history as $msg) {
@@ -75,19 +95,23 @@ class GenerateAssistantReply
         $streamId = (string) Str::uuid();
         $full = '';
 
-        try {
-            $full = $ollama->streamChat($messages, function (string $accumulated, string $delta) use ($streamId, $conversation) {
-                broadcast(new AssistantStreamEvent(
-                    $conversation->id,
-                    $streamId,
-                    $delta,
-                    $accumulated,
-                    false,
-                ));
-            });
-        } catch (\Throwable $e) {
-            Log::error('Assistant Ollama stream failed', ['exception' => $e->getMessage()]);
-            $full = 'Sorry, I could not reach the assistant right now. Please try again in a moment.';
+        if (str_starts_with($intent, 'ranking:')) {
+            $full = $this->rankingReplyFromCatalog($intent, $catalog);
+        } else {
+            try {
+                $full = $ollama->streamChat($messages, function (string $accumulated, string $delta) use ($streamId, $conversation) {
+                    broadcast(new AssistantStreamEvent(
+                        $conversation->id,
+                        $streamId,
+                        $delta,
+                        $accumulated,
+                        false,
+                    ));
+                });
+            } catch (\Throwable $e) {
+                Log::error('Assistant Ollama stream failed', ['exception' => $e->getMessage()]);
+                $full = 'Sorry, I could not reach the assistant right now. Please try again in a moment.';
+            }
         }
 
         $full = trim($full);
@@ -95,12 +119,48 @@ class GenerateAssistantReply
             $full = 'I did not get a response. Please try again.';
         }
 
+        [$cleanContent, $parsedIds] = AssistantReplyRecipeParser::splitContentAndRecipeIds($full);
+        $allowedIds = $catalog->pluck('id')->flip();
+        $validatedIds = [];
+        foreach ($parsedIds as $id) {
+            if ($allowedIds->has($id)) {
+                $validatedIds[] = $id;
+            }
+        }
+        $validatedIds = array_slice(array_unique($validatedIds), 0, 3);
+
+        $recipeSuggestions = [];
+        foreach ($validatedIds as $id) {
+            $row = $catalog->firstWhere('id', $id);
+            if ($row !== null) {
+                $recipeSuggestions[] = [
+                    'id' => $row->id,
+                    'title' => $row->title,
+                ];
+            }
+        }
+
+        $finalText = $cleanContent !== '' ? $cleanContent : $full;
+        $maxLinks = max(1, min(8, (int) config('assistant.recipe_suggestion_links_max', 5)));
+
+        if ($foodRelated && $catalog->isNotEmpty()) {
+            $recipeSuggestions = AssistantRecipeCatalogMatcher::supplementFromTitleMatches(
+                $finalText,
+                $catalog,
+                $recipeSuggestions,
+                $maxLinks,
+            );
+        }
+
+        $metadata = $recipeSuggestions !== [] ? ['recipe_suggestions' => $recipeSuggestions] : null;
+
         broadcast(new AssistantStreamEvent(
             $conversation->id,
             $streamId,
             '',
-            $full,
+            $finalText,
             true,
+            $recipeSuggestions,
         ));
 
         $botUser = User::find($botId);
@@ -109,7 +169,8 @@ class GenerateAssistantReply
         $assistantMessage = Message::create([
             'conversation_id' => $conversation->id,
             'user_id' => $botId,
-            'content' => $full,
+            'content' => $finalText,
+            'metadata' => $metadata,
         ]);
 
         $conversation->update(['last_message_at' => $assistantMessage->created_at]);
@@ -119,7 +180,7 @@ class GenerateAssistantReply
                 $conversation->id,
                 $assistantMessage->id,
                 $botUser?->name ?? 'WellNest Assistant',
-                strlen($full) > 120 ? substr($full, 0, 120).'...' : $full,
+                strlen($finalText) > 120 ? substr($finalText, 0, 120).'...' : $finalText,
                 (int) ($botUser?->id ?? 0),
                 $botUser?->profile_photo_url,
                 true,
@@ -129,5 +190,31 @@ class GenerateAssistantReply
 
         $assistantMessage->load('user:id,first_name,last_name,profile_photo_url', 'attachments');
         broadcast(new NewMessageEvent($assistantMessage));
+    }
+
+    private function rankingReplyFromCatalog(string $intent, \Illuminate\Support\Collection $catalog): string
+    {
+        if ($catalog->isEmpty()) {
+            return 'The recipe leaderboard does not have enough ratings or views yet. Check back after more recipes get activity.';
+        }
+
+        $mode = str_replace('ranking:', '', $intent);
+        $label = match ($mode) {
+            'ratings' => 'top rated',
+            'views' => 'most popular',
+            default => 'top ranked',
+        };
+
+        $top = $catalog->take(3)->values();
+        $titles = $top->pluck('title')->map(fn ($title) => (string) $title)->all();
+        $ids = $top->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        if (count($titles) === 1) {
+            return 'The current '.$label.' recipe is '.$titles[0].'.'."\nRECIPES: ".implode(',', $ids);
+        }
+
+        $last = array_pop($titles);
+
+        return 'The current '.$label.' recipes are '.implode(', ', $titles).', and '.$last.'.'."\nRECIPES: ".implode(',', $ids);
     }
 }

@@ -1,0 +1,46 @@
+App\Models\Recipe::whereDoesntHave('images')->count();
+use App\Models\Image;
+use App\Models\Recipe;
+use App\Models\RecipeStep;
+use Illuminate\Support\Facades\DB;
+DB::transaction(function () {
+    $recipeIds = Recipe::whereDoesntHave('images')->pluck('id');
+    $stepIds = RecipeStep::whereIn('recipe_id', $recipeIds)->pluck('id');
+    Image::where('imageable_type', RecipeStep::class)
+        ->whereIn('imageable_id', $stepIds)
+        ->delete();
+    Recipe::whereIn('id', $recipeIds)->delete();
+    return $recipeIds->count();
+});
+use App\Models\Image;
+use App\Models\Recipe;
+use App\Models\RecipeStep;
+use Illuminate\Support\Facades\DB;
+DB::transaction(function () {
+    $recipeIds = Recipe::whereDoesntHave('images')->pluck('id');
+    $stepIds = RecipeStep::whereIn('recipe_id', $recipeIds)->pluck('id');
+    Image::where('imageable_type', RecipeStep::class)
+        ->whereIn('imageable_id', $stepIds)
+        ->delete();
+    Recipe::whereIn('id', $recipeIds)->delete();
+    return $recipeIds->count();
+});
+App\Models\Recipe::whereDoesntHave('images')->count();
+use App\Models\Image;
+use App\Models\Recipe;
+use App\Models\RecipeStep;
+use Illuminate\Support\Facades\DB;
+
+DB::transaction(function () {
+    $recipeIds = Recipe::whereDoesntHave('images')->pluck('id');
+    $stepIds = RecipeStep::whereIn('recipe_id', $recipeIds)->pluck('id');
+
+    Image::where('imageable_type', RecipeStep::class)
+        ->whereIn('imageable_id', $stepIds)
+        ->delete();
+
+    Recipe::whereIn('id', $recipeIds)->delete();
+
+    return $recipeIds->count();
+});
+App\Models\Recipe::whereDoesntHave('images')->count();

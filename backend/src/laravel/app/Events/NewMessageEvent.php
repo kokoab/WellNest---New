@@ -35,12 +35,17 @@ class NewMessageEvent implements ShouldBroadcast
     public function broadcastWith(): array
     {
         $this->message->load('user:id,first_name,last_name', 'attachments');
+        $metadata = is_array($this->message->metadata) ? $this->message->metadata : [];
+        $recipeSuggestions = $metadata['recipe_suggestions'] ?? [];
+
         return [
             'message' => [
                 'id' => $this->message->id,
                 'conversation_id' => $this->message->conversation_id,
                 'user_id' => $this->message->user_id,
                 'content' => $this->message->content,
+                'metadata' => $this->message->metadata,
+                'recipe_suggestions' => $recipeSuggestions,
                 'read_at' => $this->message->read_at?->toIso8601String(),
                 'created_at' => $this->message->created_at->toIso8601String(),
                 'user' => [

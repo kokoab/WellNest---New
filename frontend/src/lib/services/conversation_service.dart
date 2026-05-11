@@ -240,7 +240,13 @@ class ConversationService {
   Future<void> subscribeToLiveMessages(
     int conversationId,
     void Function(ChatMessage message) onNewMessage, {
-    void Function(String streamId, String fullText, String delta, bool done)?
+    void Function(
+      String streamId,
+      String fullText,
+      String delta,
+      bool done,
+      List<ChatRecipeSuggestion> recipeSuggestions,
+    )?
     onAssistantStream,
   }) async {
     await ReverbService.instance.subscribeToConversation(
@@ -258,11 +264,29 @@ class ConversationService {
               final full = payload['full_text'] as String? ?? '';
               final delta = payload['delta'] as String? ?? '';
               final done = payload['done'] as bool? ?? false;
+              final recipeSuggestions = _recipeSuggestionsFromPayload(payload);
               if (sid != null) {
-                onAssistantStream(sid, full, delta, done);
+                onAssistantStream(sid, full, delta, done, recipeSuggestions);
               }
             },
     );
+  }
+
+  List<ChatRecipeSuggestion> _recipeSuggestionsFromPayload(
+    Map<String, dynamic> payload,
+  ) {
+    final raw = payload['recipe_suggestions'];
+    if (raw is! List) return const [];
+
+    final suggestions = <ChatRecipeSuggestion>[];
+    for (final item in raw) {
+      if (item is Map) {
+        suggestions.add(
+          ChatRecipeSuggestion.fromJson(Map<String, dynamic>.from(item)),
+        );
+      }
+    }
+    return suggestions;
   }
 
   Map<String, dynamic>? _extractMessageMap(Map<String, dynamic> payload) {

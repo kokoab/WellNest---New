@@ -18,6 +18,7 @@ class AssistantStreamEvent implements ShouldBroadcast
         public string $delta,
         public string $fullText,
         public bool $done,
+        public array $recipeSuggestions = [],
     ) {}
 
     public function broadcastOn(): array
@@ -40,6 +41,7 @@ class AssistantStreamEvent implements ShouldBroadcast
             'delta' => $this->delta,
             'full_text' => $this->fullText,
             'done' => $this->done,
+            'recipe_suggestions' => $this->recipeSuggestions,
         ];
     }
 }

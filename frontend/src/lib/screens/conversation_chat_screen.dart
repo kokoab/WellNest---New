@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:my_app/config/app_config.dart';
 import 'package:my_app/models/chat_message.dart';
+import 'package:my_app/screens/recipe_detail_screen.dart';
 import 'package:my_app/widgets/initials_avatar.dart';
 import 'package:my_app/services/auth_service.dart';
 import 'package:my_app/services/conversation_service.dart';
@@ -58,6 +59,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
 
   /// Non-null while the assistant is generating (shows typewriter / streaming bubble).
   String? _streamingPreview;
+  List<ChatRecipeSuggestion> _streamingRecipeSuggestions = const [];
 
   static const List<String> _suggestionChips = [
     'Healthy meal ideas',
@@ -65,6 +67,19 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     'Stay motivated today',
     'Light snack ideas',
   ];
+
+  /// Hide trailing `RECIPES:` machine line while the assistant is streaming.
+  String _sanitizeAssistantStreamPreview(String fullText) {
+    final newlineIdx = fullText.indexOf('\nRECIPES:');
+    if (newlineIdx >= 0) {
+      return fullText.substring(0, newlineIdx).trimRight();
+    }
+    final spacedIdx = fullText.toUpperCase().lastIndexOf(' RECIPES:');
+    if (spacedIdx >= 0) {
+      return fullText.substring(0, spacedIdx).trimRight();
+    }
+    return fullText;
+  }
 
   @override
   void initState() {
@@ -163,17 +178,24 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 _currentUserId != null &&
                 message.userId != _currentUserId) {
               _streamingPreview = null;
+              _streamingRecipeSuggestions = const [];
             }
-            if (!_messages.any((m) => m.id == message.id)) {
+            final idx = _messages.indexWhere((m) => m.id == message.id);
+            if (idx >= 0) {
+              _messages[idx] = message;
+            } else {
               _messages.insert(0, message);
             }
           });
         },
         onAssistantStream: widget.isAssistant
-            ? (streamId, fullText, delta, done) {
+            ? (streamId, fullText, delta, done, recipeSuggestions) {
                 if (!mounted) return;
                 setState(() {
-                  _streamingPreview = fullText;
+                  _streamingPreview = _sanitizeAssistantStreamPreview(fullText);
+                  if (recipeSuggestions.isNotEmpty) {
+                    _streamingRecipeSuggestions = recipeSuggestions;
+                  }
                 });
               }
             : null,
@@ -202,6 +224,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       _sending = true;
       if (widget.isAssistant) {
         _streamingPreview = '';
+        _streamingRecipeSuggestions = const [];
       }
     });
     _textController.clear();
@@ -221,6 +244,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
           _sending = false;
           if (widget.isAssistant) {
             _streamingPreview = null;
+            _streamingRecipeSuggestions = const [];
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -261,7 +285,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   }
 
   Widget _buildAssistantStreamingBubble() {
-    final text = _streamingPreview ?? '';
+    final text = _sanitizeAssistantStreamPreview(_streamingPreview ?? '');
     final display = text.isEmpty ? '…' : text;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -278,22 +302,84 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                 ),
           const SizedBox(width: 8),
           Flexible(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(_bubbleRadius),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(_bubbleRadius),
+                  ),
+                  child: Text(
+                    display,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: _chatFontSize,
+                    ),
+                  ),
+                ),
+                _buildRecipeSuggestionButtons(_streamingRecipeSuggestions),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openRecipe(int recipeId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => RecipeDetailScreen(recipeId: recipeId),
+      ),
+    );
+  }
+
+  Widget _buildRecipeSuggestionButtons(List<ChatRecipeSuggestion> suggestions) {
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, top: 8, right: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          for (final s in suggestions)
+            OutlinedButton(
+              onPressed: () => _openRecipe(s.id),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryGreen,
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                side: BorderSide(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.35),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
               child: Text(
-                display,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: _chatFontSize,
+                s.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -732,6 +818,60 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                                           fontSize: _chatFontSize,
                                         ),
                                       ),
+                                    if (!isMe &&
+                                        widget.isAssistant &&
+                                        m.recipeSuggestions.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        children: [
+                                          for (final s in m.recipeSuggestions)
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    fullscreenDialog: true,
+                                                    builder: (context) =>
+                                                        RecipeDetailScreen(
+                                                      recipeId: s.id,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: bubbleFg,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 6,
+                                                ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                                backgroundColor: Colors.white
+                                                    .withValues(alpha: 0.18),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                    20,
+                                                  ),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                s.title,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

@@ -15,12 +15,14 @@ class Message extends Model
         'conversation_id',
         'user_id',
         'content',
+        'metadata',
         'read_at',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'read_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     public function attachments(): \Illuminate\Database\Eloquent\Relations\HasMany

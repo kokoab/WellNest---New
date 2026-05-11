@@ -21,7 +21,9 @@ class RecipeIngredientFactory extends Factory
     {
         return [
             'recipe_id' => Recipe::factory(),
-            'ingredient_id' => Ingredient::factory(),
+            'ingredient_id' => fn () => Ingredient::firstOrCreate([
+                'name' => fake()->word(),
+            ])->id,
             'quantity' => rand(1,3),
             'unit' => rand(1,3),
         ];
