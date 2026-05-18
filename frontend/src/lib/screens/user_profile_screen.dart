@@ -350,31 +350,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
               height: 200,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _recipes.length,
-                itemBuilder: (context, index) => Padding(
-                  padding: EdgeInsets.only(
-                    right: index < _recipes.length - 1 ? 15 : 0,
-                  ),
-                  child: _buildRecipeMiniCard(_recipes[index]),
-                ),
+                itemCount: _recipes.length + (_recipesPage < _recipesLastPage ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _recipes.length) {
+                    return Container(
+                      width: 160,
+                      alignment: Alignment.center,
+                      child: _recipesLoadingMore
+                          ? const CircularProgressIndicator(color: wellGreen)
+                          : OutlinedButton(
+                              onPressed: _loadMoreRecipes,
+                              child: const Text('Load More'),
+                            ),
+                    );
+                  }
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      right: index < _recipes.length - 1 || _recipesPage < _recipesLastPage ? 15 : 0,
+                    ),
+                    child: _buildRecipeMiniCard(_recipes[index]),
+                  );
+                },
               ),
             ),
-          if (_recipesPage < _recipesLastPage) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _recipesLoadingMore ? null : _loadMoreRecipes,
-              icon: _recipesLoadingMore
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.expand_more_rounded),
-              label: Text(
-                _recipesLoadingMore ? 'Loading…' : 'Load more recipes',
-              ),
-            ),
-          ],
           const SizedBox(height: 28),
           const Align(
             alignment: Alignment.centerLeft,

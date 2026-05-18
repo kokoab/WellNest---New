@@ -53,7 +53,7 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
     try {
       final res = await AdminAuditLogService.instance.fetchLogs(
         page: 1,
-        range: _range.apiValue,
+        range: _customDateRange != null ? null : _range.apiValue,
         search: _searchQuery,
         searchFields: _selectedSearchFields.toList(),
         startDate: _customDateRange?.start,
@@ -81,7 +81,7 @@ class _AuditLogsSectionContainerState extends State<_AuditLogsSectionContainer>
     try {
       final res = await AdminAuditLogService.instance.fetchLogs(
         page: page,
-        range: _range.apiValue,
+        range: _customDateRange != null ? null : _range.apiValue,
         search: _searchQuery,
         searchFields: _selectedSearchFields.toList(),
         startDate: _customDateRange?.start,
@@ -365,20 +365,24 @@ class _AuditLogsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.07),
-          1: FlexColumnWidth(screenWidth * 0.14),
-          2: FlexColumnWidth(screenWidth * 0.11),
-          3: FlexColumnWidth(screenWidth * 0.16),
-          4: FlexColumnWidth(screenWidth * 0.30),
-          5: FlexColumnWidth(screenWidth * 0.14),
-          6: FlexColumnWidth(screenWidth * 0.08),
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(constraints.maxWidth, 1000.0);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: _flexTable(
+              theme: theme,
+              columnWidths: const {
+                0: FlexColumnWidth(7),
+                1: FlexColumnWidth(13),
+                2: FlexColumnWidth(12),
+                3: FlexColumnWidth(15),
+                4: FlexColumnWidth(27),
+                5: FlexColumnWidth(14),
+                6: FlexColumnWidth(12),
+              },
         headers: ['ID', 'CATEGORY', 'DATE', 'ACTION', 'DESCRIPTION', 'ACTOR', 'IP'],
         rows: logs.map((log) {
           return _tableRow(theme, [
@@ -425,6 +429,9 @@ class _AuditLogsTable extends StatelessWidget {
           ], null);
         }).toList(),
       ),
+          ),
+        );
+      },
     );
   }
 }

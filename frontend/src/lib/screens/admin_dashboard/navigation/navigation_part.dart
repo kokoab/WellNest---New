@@ -34,13 +34,18 @@ class _Sidebar extends StatelessWidget {
         color: bg,
         border: Border(right: BorderSide(color: borderColor, width: 0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: width,
+          maxWidth: width,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             height: _kTopBarHeight,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : 16),
+              padding: EdgeInsets.symmetric(horizontal: collapsed ? 4 : 16),
               child: Row(
                 children: [
                   Container(
@@ -107,7 +112,7 @@ class _Sidebar extends StatelessWidget {
                       onTap: onToggleCollapsed,
                       borderRadius: BorderRadius.circular(6),
                       child: Padding(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(2),
                         child: Icon(
                           Icons.chevron_right_rounded,
                           size: 18,
@@ -222,6 +227,8 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

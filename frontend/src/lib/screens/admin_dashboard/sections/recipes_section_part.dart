@@ -337,22 +337,26 @@ class _RecipesTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.06),
-          1: FlexColumnWidth(screenWidth * 0.22),
-          2: FlexColumnWidth(screenWidth * 0.14),
-          3: FlexColumnWidth(screenWidth * 0.14),
-          4: FlexColumnWidth(screenWidth * 0.15),
-          5: FlexColumnWidth(screenWidth * 0.07),
-          6: FlexColumnWidth(screenWidth * 0.07),
-          7: FlexColumnWidth(screenWidth * 0.07),
-          8: FlexColumnWidth(screenWidth * 0.08),
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(constraints.maxWidth, 1100.0);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: _flexTable(
+              theme: theme,
+              columnWidths: const {
+                0: FlexColumnWidth(5),
+                1: FlexColumnWidth(20),
+                2: FlexColumnWidth(12),
+                3: FlexColumnWidth(13),
+                4: FlexColumnWidth(15),
+                5: FlexColumnWidth(8),
+                6: FlexColumnWidth(8),
+                7: FlexColumnWidth(8),
+                8: FlexColumnWidth(11),
+              },
         headers: [
           'ID',
           'TITLE',
@@ -453,6 +457,9 @@ class _RecipesTable extends StatelessWidget {
           ], null);
         }).toList(),
       ),
+          ),
+        );
+      },
     );
   }
 }

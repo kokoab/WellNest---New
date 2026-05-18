@@ -21,10 +21,10 @@ class TermsOfServiceModal {
           maxChildSize: 0.95,
           builder: (context, scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: kBackgroundCream,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: const [
                   BoxShadow(
                     color: Color(0x22000000),
                     blurRadius: 16,
@@ -106,7 +106,7 @@ class TermsOfServiceModal {
                               style: helveticaNow(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
-                                color: kBodyTextDark,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ).copyWith(height: 1.45),
                             ),
                             const SizedBox(height: AppSpacing.sm2),

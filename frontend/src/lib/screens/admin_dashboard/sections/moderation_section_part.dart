@@ -57,7 +57,7 @@ class _ModerationSectionContainerState
     try {
       final response = await AdminModerationService.instance
           .fetchReportsPaginated(
-            range: _range.apiValue,
+            range: _customDateRange != null ? null : _range.apiValue,
             search: _searchQuery,
             searchFields: _selectedSearchFields.toList(),
             startDate: _customDateRange?.start,
@@ -87,7 +87,7 @@ class _ModerationSectionContainerState
     try {
       final response = await AdminModerationService.instance
           .fetchReportsPaginated(
-            range: _range.apiValue,
+            range: _customDateRange != null ? null : _range.apiValue,
             search: _searchQuery,
             searchFields: _selectedSearchFields.toList(),
             startDate: _customDateRange?.start,
@@ -395,19 +395,23 @@ class _ReportsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.08),
-          1: FlexColumnWidth(screenWidth * 0.12),
-          2: FlexColumnWidth(screenWidth * 0.25),
-          3: FlexColumnWidth(screenWidth * 0.23),
-          4: FlexColumnWidth(screenWidth * 0.12),
-          5: FlexColumnWidth(screenWidth * 0.20),
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(constraints.maxWidth, 900.0);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: _flexTable(
+              theme: theme,
+              columnWidths: const {
+                0: FlexColumnWidth(8),
+                1: FlexColumnWidth(12),
+                2: FlexColumnWidth(25),
+                3: FlexColumnWidth(23),
+                4: FlexColumnWidth(12),
+                5: FlexColumnWidth(20),
+              },
         headers: ['ID', 'TAG', 'REPORTED ITEM', 'REASON', 'DATE', 'ACTIONS'],
         rows: reports.map((r) {
           return _tableRow(theme, [
@@ -481,6 +485,9 @@ class _ReportsTable extends StatelessWidget {
           ], null);
         }).toList(),
       ),
+          ),
+        );
+      },
     );
   }
 }

@@ -460,18 +460,22 @@ class _UsersTable extends StatelessWidget {
   Widget build(BuildContext context) {
     // Render table without an inner vertical scroll so the page's outer
     // ScrollController can detect when the bottom is reached.
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      width: screenWidth,
-      child: _flexTable(
-        theme: theme,
-        columnWidths: {
-          0: FlexColumnWidth(screenWidth * 0.08),
-          1: FlexColumnWidth(screenWidth * 0.20),
-          2: FlexColumnWidth(screenWidth * 0.28),
-          3: FlexColumnWidth(screenWidth * 0.15),
-          4: FlexColumnWidth(screenWidth * 0.29),
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(constraints.maxWidth, 900.0);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: _flexTable(
+              theme: theme,
+              columnWidths: const {
+                0: FlexColumnWidth(8),
+                1: FlexColumnWidth(20),
+                2: FlexColumnWidth(28),
+                3: FlexColumnWidth(15),
+                4: FlexColumnWidth(29),
+              },
         headers: ['ID', 'NAME', 'EMAIL', 'STATUS', 'ACTIONS'],
         rows: users.asMap().entries.map((e) {
           final user = e.value;
@@ -501,7 +505,7 @@ class _UsersTable extends StatelessWidget {
               ],
             ),
             SizedBox(
-              width: screenWidth * 0.28,
+              width: tableWidth * 0.28,
               child: Text(
                 user.email,
                 overflow: TextOverflow.ellipsis,
@@ -513,7 +517,7 @@ class _UsersTable extends StatelessWidget {
             ),
             _StatusPill(isActive: user.isActive),
             SizedBox(
-              width: screenWidth * 0.29,
+              width: tableWidth * 0.29,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -565,6 +569,9 @@ class _UsersTable extends StatelessWidget {
           ], null);
         }).toList(),
       ),
+          ),
+        );
+      },
     );
   }
 }
