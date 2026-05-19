@@ -286,20 +286,22 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget build(BuildContext context) {
     final unread = _notifications.where((n) => !n.isRead).toList();
     final read = _notifications.where((n) => n.isRead).toList();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
-        foregroundColor: Colors.black,
+        foregroundColor: colorScheme.onSurface,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black, size: 24),
-        title: const Text(
+        iconTheme: IconThemeData(color: colorScheme.onSurface, size: 24),
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: Colors.black,
+            color: colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
@@ -312,27 +314,27 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               child: TextButton(
                 onPressed: _markingRead ? null : _markAllAsRead,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.black,
+                  foregroundColor: colorScheme.onSurface,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
                   ),
                 ),
                 child: _markingRead
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(
-                          color: Colors.black87,
+                          color: colorScheme.onSurface,
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Mark all read',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          color: colorScheme.onSurface,
                         ),
                       ),
               ),
@@ -342,7 +344,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: wellGreen))
           : _notifications.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(context)
           : FadeTransition(
               opacity: _fadeAnimation,
               child: RefreshIndicator(
@@ -450,7 +452,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -469,12 +472,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'All caught up!',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF2D2D2D),
+              color: theme.colorScheme.onSurface,
               letterSpacing: -0.3,
             ),
           ),
@@ -530,6 +533,10 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -540,7 +547,9 @@ class _NotificationCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
-              color: isUnread ? Colors.white : const Color(0xFFFAFAFA),
+              color: isUnread 
+                  ? (isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface) 
+                  : (isDark ? colorScheme.surfaceContainer : const Color(0xFFFAFAFA)),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isUnread
@@ -572,8 +581,8 @@ class _NotificationCard extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.w400,
                           color: isUnread
-                              ? const Color(0xFF1A1A1A)
-                              : const Color(0xFF555555),
+                              ? colorScheme.onSurface
+                              : colorScheme.onSurfaceVariant,
                           height: 1.45,
                         ),
                       ),

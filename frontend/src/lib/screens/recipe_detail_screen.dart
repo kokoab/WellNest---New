@@ -476,7 +476,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       bottomNavigationBar: _buildBottomRecipeActions(),
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppGradients.discoverHeroFadeTo(Colors.white),
+          gradient: AppGradients.discoverHeroFadeTo(theme.scaffoldBackgroundColor),
         ),
         child: CustomScrollView(
             controller: _recipeScrollController,
@@ -490,7 +490,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 expandedHeight: _recipeHeroExpandedHeight,
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                backgroundColor: Colors.white,
+                backgroundColor: colorScheme.surface,
                 surfaceTintColor: Colors.transparent,
                 systemOverlayStyle: SystemUiOverlayStyle.light,
                 automaticallyImplyLeading: false,
@@ -621,7 +621,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: wellnestOutlineColor(context)),
                         const SizedBox(height: 16),
                         _buildSectionTitleWithSeeAll(
                           title: 'Ingredients',
@@ -634,7 +634,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         const SizedBox(height: 12),
                         _buildIngredientsList(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: wellnestOutlineColor(context)),
                         const SizedBox(height: 16),
                         _buildSectionTitleWithSeeAll(
                           title: 'Instructions',
@@ -647,7 +647,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         const SizedBox(height: 12),
                         _buildInstructions(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: wellnestOutlineColor(context)),
                         const SizedBox(height: 16),
                         _buildRatingsAndReviewsSection(),
                         const SizedBox(height: 32),
@@ -664,8 +664,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   /// Persistent footer: like + save + Start cooking (not tied to scroll).
   Widget _buildBottomRecipeActions() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Material(
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       elevation: 6,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       surfaceTintColor: Colors.transparent,
@@ -675,7 +677,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           decoration: BoxDecoration(
             border: Border(
               top: BorderSide(
-                color: Colors.grey.shade300.withValues(alpha: 0.55),
+                color: isDark ? wellnestOutlineColor(context) : Colors.grey.shade300.withValues(alpha: 0.55),
               ),
             ),
           ),
@@ -766,7 +768,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.recipeDetailHeroImageBottomFade(Colors.white),
+            gradient: AppGradients.recipeDetailHeroImageBottomFade(Theme.of(context).scaffoldBackgroundColor),
           ),
         ),
       ),
@@ -784,7 +786,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            gradient: AppGradients.recipeDetailHeroToBodyCurve(Colors.white),
+            gradient: AppGradients.recipeDetailHeroToBodyCurve(Theme.of(context).scaffoldBackgroundColor),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.12),
@@ -1041,7 +1043,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cs.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: wellnestOutlineColor(context)),
                     ),
@@ -1598,11 +1600,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   static const double _instructionStepImageAspectRatio = 16 / 10;
 
   /// Matches create-recipe review step cards ([RecipeFormScreen] review list).
-  BoxDecoration _instructionReviewCardDecoration() {
+  BoxDecoration _instructionReviewCardDecoration(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFBDBDBD)),
+      border: Border.all(color: isDark ? wellnestOutlineColor(context) : const Color(0xFFBDBDBD)),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.04),
@@ -1642,7 +1645,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               padding: const EdgeInsets.only(bottom: 10),
               child: Container(
                 width: double.infinity,
-                decoration: _instructionReviewCardDecoration(),
+                decoration: _instructionReviewCardDecoration(context),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1774,7 +1777,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       final card = Container(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
-        decoration: _instructionReviewCardDecoration(),
+        decoration: _instructionReviewCardDecoration(context),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1843,7 +1846,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: _instructionReviewCardDecoration(),
+              decoration: _instructionReviewCardDecoration(context),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
