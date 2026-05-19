@@ -178,10 +178,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     Expanded(
                       child: Text(
                         _currentUser?.displayName ?? 'Guest',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.bodyText,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -251,7 +251,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
                                     height: 140,
-                                    color: const Color(0xFFEFF3EF),
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     alignment: Alignment.center,
                                     child: const Icon(Icons.image_rounded),
                                   ),
@@ -306,10 +306,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F1),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.primaryGreen.withValues(alpha: 0.2),
+                      color: Theme.of(context).colorScheme.outlineVariant,
                     ),
                   ),
                   child: Row(

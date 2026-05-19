@@ -15,11 +15,6 @@ Color _recipeCategoryDropdownSelectedWash() => Color.alphaBlend(
   Colors.grey.shade100,
 );
 
-/// Recipe wizard uses a white canvas and subtle gray bordered fields (not app cream/warm surface).
-const Color _recipeFormSurface = Colors.white;
-const Color _recipeFormFieldFill = Color(0xFFF3F4F6);
-const Color _recipeFormFieldBorder = Color(0xFFBDBDBD);
-
 class RecipeFormScreen extends StatefulWidget {
   final Recipe? recipe;
   final bool asModal;
@@ -40,7 +35,11 @@ class RecipeFormScreen extends StatefulWidget {
           child: Container(
             height: MediaQuery.of(ctx).size.height * 0.92,
             decoration: BoxDecoration(
-              gradient: AppGradients.discoverHeroFadeTo(_recipeFormSurface),
+              color: Theme.of(ctx).colorScheme.surface,
+              gradient: Theme.of(ctx).brightness == Brightness.light
+                  ? AppGradients.discoverHeroFadeTo(
+                      Theme.of(ctx).colorScheme.surface)
+                  : null,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
@@ -97,12 +96,12 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   }) {
     final cs = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(10);
-    final side = const BorderSide(color: _recipeFormFieldBorder, width: 1);
+    final side = BorderSide(color: wellnestOutlineColor(context), width: 1);
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
       filled: true,
-      fillColor: _recipeFormFieldFill,
+      fillColor: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.surfaceContainerHighest : const Color(0xFFF3F4F6),
       isDense: dense,
       contentPadding: EdgeInsets.symmetric(
         horizontal: 12,
@@ -139,7 +138,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         color: AppColors.primaryGreen,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Theme.of(context).colorScheme.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.sm),
         borderSide: BorderSide(color: wellnestOutlineColor(context)),
@@ -168,16 +167,16 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
         primary: wash,
-        onPrimary: kBodyTextDark,
+        onPrimary: Theme.of(context).colorScheme.onSurface,
         primaryContainer: wash,
-        onPrimaryContainer: kBodyTextDark,
+        onPrimaryContainer: Theme.of(context).colorScheme.onSurface,
       ),
       focusColor: wash,
       splashColor: AppColors.primaryGreen.withValues(alpha: 0.08),
       highlightColor: wash,
-      canvasColor: Colors.white,
+      canvasColor: Theme.of(context).colorScheme.surface,
       popupMenuTheme: PopupMenuThemeData(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -185,12 +184,12 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         textStyle: helveticaNow(
           fontSize: 15,
           fontWeight: FontWeight.w500,
-          color: kBodyTextDark,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
         menuStyle: MenuStyle(
-          backgroundColor: WidgetStateProperty.all(Colors.white),
+          backgroundColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surface),
           surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
           elevation: WidgetStateProperty.all(6),
           shadowColor: WidgetStateProperty.all(
@@ -211,10 +210,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     color: kPrimaryGreen,
   );
 
-  TextStyle get _categoryDropdownMenuItemStyle => helveticaNow(
+  TextStyle _categoryDropdownMenuItemStyle(BuildContext context) => helveticaNow(
     fontSize: 15,
     fontWeight: FontWeight.w500,
-    color: kBodyTextDark,
+    color: Theme.of(context).colorScheme.onSurface,
   );
 
   @override
@@ -693,7 +692,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             isExpanded: true,
             value: selectedDropdownValue,
             decoration: _categoryDropdownDecoration(context),
-            dropdownColor: Colors.white,
+            dropdownColor: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadii.sm),
             style: _categoryDropdownValueStyle,
             iconEnabledColor: kPrimaryGreen,
@@ -702,12 +701,12 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                 value: _kMakeNewCategoryValue,
                 child: Row(
                   children: [
-                    Icon(Icons.add_rounded, size: 20, color: kBodyTextDark),
+                    Icon(Icons.add_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Make New category',
-                        style: _categoryDropdownMenuItemStyle,
+                        style: _categoryDropdownMenuItemStyle(context),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -719,7 +718,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                   value: c.id,
                   child: Text(
                     c.name,
-                    style: _categoryDropdownMenuItemStyle,
+                    style: _categoryDropdownMenuItemStyle(context),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -978,11 +977,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             final s = _draftSteps[index];
             return Card(
               key: ValueKey('step_${s.serverId}_$index'),
-              color: _recipeFormSurface,
+              color: Theme.of(context).colorScheme.surface,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: _recipeFormFieldBorder, width: 1),
+                side: BorderSide(color: wellnestOutlineColor(context), width: 1),
               ),
               margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
@@ -1222,9 +1221,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: _recipeFormFieldBorder),
+            border: Border.all(color: wellnestOutlineColor(context)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1254,9 +1253,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(color: _recipeFormFieldBorder),
+            border: Border.all(color: wellnestOutlineColor(context)),
           ),
           clipBehavior: Clip.antiAlias,
           child: IntrinsicHeight(
@@ -1275,7 +1274,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                 VerticalDivider(
                   width: 1,
                   thickness: 1,
-                  color: _recipeFormFieldBorder,
+                  color: wellnestOutlineColor(context),
                 ),
                 Expanded(
                   child: _reviewStatSegment(
@@ -1289,7 +1288,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                 VerticalDivider(
                   width: 1,
                   thickness: 1,
-                  color: _recipeFormFieldBorder,
+                  color: wellnestOutlineColor(context),
                 ),
                 Expanded(
                   child: _reviewStatSegment(
@@ -1392,9 +1391,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _recipeFormFieldBorder),
+                border: Border.all(color: wellnestOutlineColor(context)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -1892,7 +1891,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       ),
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppGradients.discoverHeroFadeTo(_recipeFormSurface),
+          color: theme.colorScheme.surface,
+          gradient: theme.brightness == Brightness.light
+              ? AppGradients.discoverHeroFadeTo(theme.colorScheme.surface)
+              : null,
         ),
         child: SafeArea(
           top: false,
