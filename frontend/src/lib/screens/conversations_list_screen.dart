@@ -219,7 +219,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Messages',
@@ -227,7 +227,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
             color: colorScheme.onSurface,
           ),
         ),
-        backgroundColor: AppColors.backgroundCream,
+        backgroundColor: theme.scaffoldBackgroundColor,
         foregroundColor: colorScheme.onSurface,
         iconTheme: IconThemeData(color: colorScheme.onSurface, size: 26),
         centerTitle: false,
@@ -273,7 +273,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: theme.cardColor,
                 border: _messagesSearchOutline(context),
                 enabledBorder: _messagesSearchOutline(context),
                 focusedBorder: _messagesSearchOutline(context),

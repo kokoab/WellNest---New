@@ -241,7 +241,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: ClipOval(
@@ -502,12 +502,12 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
         backgroundColor: Colors.transparent,
         body: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.discoverHeroFadeTo(AppColors.backgroundCream),
+            gradient: AppGradients.discoverHeroFadeTo(Theme.of(context).scaffoldBackgroundColor),
           ),
           child: Column(
             children: [
               ColoredBox(
-                color: AppColors.backgroundCream,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -823,7 +823,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                               .withValues(alpha: 0.75),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: Theme.of(context).cardColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadii.lg),
                           borderSide: BorderSide(color: outline),
