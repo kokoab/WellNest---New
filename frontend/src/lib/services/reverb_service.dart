@@ -3,9 +3,24 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../config/app_config.dart';
+import 'admin_auth_service.dart';
 import 'auth_service.dart';
+
+typedef _MessageHandler = void Function(Map<String, dynamic> payload);
+typedef _AssistantStreamHandler = void Function(Map<String, dynamic> payload);
+
+class _ConversationHandlers {
+  _ConversationHandlers({
+    required this.onMessage,
+    this.onAssistantStream,
+  });
+
+  _MessageHandler onMessage;
+  _AssistantStreamHandler? onAssistantStream;
+}
 
 /// Connects to Laravel Reverb (WebSocket) for real-time events.
 /// Use [subscribeToConversation] when opening a chat; [unsubscribeFromConversation] when leaving.
@@ -16,43 +31,62 @@ class ReverbService {
   static ReverbService get instance => _instance;
 
   final Map<int, Channel> _channels = {};
+  final Map<int, _ConversationHandlers> _conversationHandlers = {};
   final Map<int, Channel> _notificationChannels = {};
   final Map<int, List<VoidCallback>> _notificationListeners = {};
   bool _initialized = false;
+  bool _reconnectScheduled = false;
+  StreamSubscription<ConnectionState>? _connectionSubscription;
 
   /// In-flight connect so parallel subscribers share one handshake.
   Future<void>? _connectFuture;
 
+  int _reconnectBackoffSeconds = 2;
+  static const int _maxReconnectBackoffSeconds = 60;
+
   ReverbClient get _client {
+    // Web: default IOWebSocketChannel uses dart:io → Unsupported operation: Platform._version.
+    // Use cross-platform WebSocketChannel.connect via [channelFactory] on first init only.
     return ReverbClient.instance(
       host: AppConfig.reverbHost,
       port: AppConfig.reverbPort,
       appKey: AppConfig.reverbAppKey,
       authorizer: _authorizer,
       authEndpoint: AppConfig.broadcastingAuthUrl,
+      channelFactory: kIsWeb ? WebSocketChannel.connect : null,
     );
   }
+
+  String? get _authToken {
+    final userToken = AuthService.instance.token;
+    if (userToken != null && userToken.isNotEmpty) {
+      return userToken;
+    }
+    final adminToken = AdminAuthService.instance.token;
+    if (adminToken != null && adminToken.isNotEmpty) {
+      return adminToken;
+    }
+    return null;
+  }
+
+  bool get _canConnect =>
+      AuthService.instance.isLoggedIn || AdminAuthService.instance.isLoggedIn;
 
   Future<Map<String, String>> _authorizer(
     String channelName,
     String socketId,
   ) async {
-    final token = AuthService.instance.token;
+    final token = _authToken;
     if (token == null || token.isEmpty) return {};
     return {
       'Authorization': 'Bearer $token',
-      // Prefer JSON errors from Laravel (avoids HTML login pages / empty bodies breaking JSON decode).
       'Accept': 'application/json',
     };
   }
 
   /// Connect to Reverb (call once when user is logged in and you need live updates).
-  ///
-  /// [ReverbClient.connect] returns before `pusher:connection_established` runs, so
-  /// [socketId] may still be null. Private channel subscribe requires [socketId]; we wait
-  /// for [ConnectionState.connected] and a non-null socket id before returning.
   Future<void> connect() async {
-    if (!AuthService.instance.isLoggedIn) return;
+    if (!_canConnect) return;
     final client = _client;
     if (_initialized && client.socketId != null) return;
 
@@ -67,6 +101,8 @@ class ReverbService {
   Future<void> _connectUntilSocketReady() async {
     final client = _client;
     if (_initialized && client.socketId != null) return;
+
+    _ensureConnectionListener();
 
     final connected = client.onConnectionStateChange
         .where(
@@ -90,8 +126,92 @@ class ReverbService {
     _initialized = true;
   }
 
+  void _ensureConnectionListener() {
+    _connectionSubscription ??=
+        _client.onConnectionStateChange.listen(_onConnectionStateChange);
+  }
+
+  void _onConnectionStateChange(ConnectionState state) {
+    if (state == ConnectionState.connected) {
+      _reconnectScheduled = false;
+      _reconnectBackoffSeconds = 2;
+      return;
+    }
+    if (state == ConnectionState.disconnected ||
+        state == ConnectionState.error) {
+      _initialized = false;
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnectScheduled || !_canConnect) return;
+    _reconnectScheduled = true;
+    final delaySec = _reconnectBackoffSeconds;
+    Future<void>.delayed(Duration(seconds: delaySec), () async {
+      _reconnectScheduled = false;
+      if (!_canConnect) return;
+      try {
+        await _resubscribeAll();
+        _reconnectBackoffSeconds = 2;
+      } catch (e) {
+        _reconnectBackoffSeconds = (_reconnectBackoffSeconds * 2).clamp(
+          2,
+          _maxReconnectBackoffSeconds,
+        );
+        if (kDebugMode) {
+          debugPrint('Reverb reconnect failed: $e');
+        }
+        _scheduleReconnect();
+      }
+    });
+  }
+
+  Future<void> _resubscribeAll() async {
+    final notificationSnapshot =
+        Map<int, List<VoidCallback>>.from(_notificationListeners);
+    final conversationSnapshot =
+        Map<int, _ConversationHandlers>.from(_conversationHandlers);
+
+    // [ReverbClient] keeps channels by name. If we only call [Channel.unsubscribe],
+    // the stale instance stays in the client map and [subscribeToPrivateChannel]
+    // returns it without calling [subscribe] again — no events until app restart.
+    for (final channel in List<Channel>.from(_channels.values)) {
+      _client.unsubscribeFromChannel(channel.name);
+    }
+    for (final channel in List<Channel>.from(_notificationChannels.values)) {
+      _client.unsubscribeFromChannel(channel.name);
+    }
+    _channels.clear();
+    _notificationChannels.clear();
+    // Otherwise [subscribeToConversation] hits `existing != null` and skips wiring.
+    _conversationHandlers.clear();
+    _initialized = false;
+
+    await connect();
+
+    for (final entry in notificationSnapshot.entries) {
+      for (final listener in entry.value) {
+        await subscribeToNotificationUpdates(entry.key, listener);
+      }
+    }
+
+    for (final entry in conversationSnapshot.entries) {
+      final handlers = entry.value;
+      await subscribeToConversation(
+        entry.key,
+        handlers.onMessage,
+        onAssistantStream: handlers.onAssistantStream,
+      );
+    }
+  }
+
   /// Disconnect (e.g. on logout).
   void disconnect() {
+    _connectionSubscription?.cancel();
+    _connectionSubscription = null;
+    _reconnectScheduled = false;
+    _reconnectBackoffSeconds = 2;
     for (final c in _channels.values) {
       c.unsubscribe();
     }
@@ -99,6 +219,7 @@ class ReverbService {
       c.unsubscribe();
     }
     _channels.clear();
+    _conversationHandlers.clear();
     _notificationChannels.clear();
     _notificationListeners.clear();
     _client.disconnect();
@@ -109,7 +230,7 @@ class ReverbService {
     int userId,
     VoidCallback onUpdate,
   ) async {
-    if (!_initialized) await connect();
+    if (!_canConnect) return;
 
     final listeners = _notificationListeners.putIfAbsent(userId, () => []);
     if (!listeners.contains(onUpdate)) {
@@ -118,7 +239,8 @@ class ReverbService {
 
     if (_notificationChannels.containsKey(userId)) return;
 
-    // Laravel registers `notifications.{id}`; private wire format requires `private-` prefix.
+    if (!_initialized) await connect();
+
     final channelName = 'private-notifications.$userId';
     final channel = _client.subscribeToPrivateChannel(channelName);
 
@@ -147,39 +269,54 @@ class ReverbService {
     _notificationListeners.remove(userId);
     final channel = _notificationChannels.remove(userId);
     if (channel != null) {
-      await channel.unsubscribe();
+      _client.unsubscribeFromChannel(channel.name);
     }
   }
 
-  /// Subscribe to new messages in a conversation. [onMessage] receives the payload from the backend (map with 'message' key).
-  /// [onAssistantStream] receives Ollama streaming chunks (`assistant.stream`).
-  /// Call [unsubscribeFromConversation] when leaving the conversation screen.
   Future<void> subscribeToConversation(
     int conversationId,
     void Function(Map<String, dynamic> payload) onMessage, {
     void Function(Map<String, dynamic> payload)? onAssistantStream,
   }) async {
-    if (_channels.containsKey(conversationId)) return;
+    if (!_canConnect) return;
+
+    final existing = _conversationHandlers[conversationId];
+    if (existing != null) {
+      existing.onMessage = onMessage;
+      existing.onAssistantStream = onAssistantStream;
+      if (_channels.containsKey(conversationId)) {
+        return;
+      }
+    } else {
+      _conversationHandlers[conversationId] = _ConversationHandlers(
+        onMessage: onMessage,
+        onAssistantStream: onAssistantStream,
+      );
+    }
+
+    final handlers = _conversationHandlers[conversationId]!;
+
     if (!_initialized) await connect();
 
     final channelName = 'private-conversation.$conversationId';
     final channel = _client.subscribeToPrivateChannel(channelName);
+
     void handleEvent(String eventName, dynamic data) {
       final payload = _coercePayload(data);
       if (payload != null) {
-        onMessage(payload);
+        handlers.onMessage(payload);
       }
     }
 
     void handleAssistantStream(String eventName, dynamic data) {
-      if (onAssistantStream == null) return;
+      final handler = handlers.onAssistantStream;
+      if (handler == null) return;
       final payload = _coercePayload(data);
       if (payload != null) {
-        onAssistantStream(payload);
+        handler(payload);
       }
     }
 
-    // Some clients prepend a dot for custom events. Bind both.
     channel.bind('message.new', handleEvent);
     channel.bind('.message.new', handleEvent);
     if (onAssistantStream != null) {
@@ -192,7 +329,6 @@ class ReverbService {
   Map<String, dynamic>? _coercePayload(dynamic data) {
     dynamic value = data;
 
-    // Plugin can pass payload as raw JSON string.
     if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return null;
@@ -206,7 +342,6 @@ class ReverbService {
     if (value is! Map) return null;
     var map = Map<String, dynamic>.from(value);
 
-    // Some transport layers wrap payload in "data".
     final wrapped = map['data'];
     if (wrapped is String) {
       final trimmed = wrapped.trim();
@@ -227,15 +362,14 @@ class ReverbService {
     return map;
   }
 
-  /// Unsubscribe from a conversation channel (call when leaving the chat screen).
   Future<void> unsubscribeFromConversation(int conversationId) async {
+    _conversationHandlers.remove(conversationId);
     final channel = _channels.remove(conversationId);
     if (channel != null) {
-      await channel.unsubscribe();
+      _client.unsubscribeFromChannel(channel.name);
     }
   }
 
-  /// Optional: expose connection state for UI (e.g. "Live" / "Reconnecting").
   Stream<ConnectionState> get connectionState =>
       _client.onConnectionStateChange;
 }

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'admin_auth_service.dart';
 import 'reverb_service.dart';
+import '../utils/json_helpers.dart';
 import 'session_persistence.dart';
 
 /// Result of [AuthService.login]: [error] is set on failure; [isAdmin] when login succeeds.
@@ -85,7 +86,7 @@ class AuthService {
         if (token != null && token.isNotEmpty) {
           setToken(token);
           final user = data['user'] as Map<String, dynamic>?;
-          final userId = user?['id'] as int?;
+          final userId = jsonDecodeIntNullable(user?['id']);
           setUserId(userId);
           await SessionPersistence.write(token, isAdmin: false, userId: userId);
         }
@@ -123,8 +124,9 @@ class AuthService {
         setToken(token);
         final user = data['user'] as Map<String, dynamic>?;
         final role = user?['role'] as String?;
-        final isAdmin = role == 'admin';
-        setUserId(user?['id'] as int?);
+        final isAdmin =
+            (user?['is_admin'] as bool?) == true || role == 'admin';
+        setUserId(jsonDecodeIntNullable(user?['id']));
         if (isAdmin) {
           AdminAuthService.instance.setAuth(token, isAdmin: true);
         } else {
@@ -133,7 +135,7 @@ class AuthService {
         await SessionPersistence.write(
           token,
           isAdmin: isAdmin,
-          userId: user?['id'] as int?,
+          userId: jsonDecodeIntNullable(user?['id']),
         );
         return LoginResult.success(isAdmin: isAdmin);
       }

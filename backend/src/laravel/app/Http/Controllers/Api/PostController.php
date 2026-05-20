@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\MediaUrlHelper;
 use App\Models\Image;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
@@ -209,18 +210,21 @@ class PostController extends Controller
             });
         }
 
+        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
+        $page = max(1, (int) $request->query('page', 1));
+
         $feed = strtolower((string) $request->query('feed', ''));
         if ($feed === 'following' || $request->boolean('following')) {
             $viewer = $request->user('sanctum');
 
             if ($viewer === null) {
-                return response()->json([]);
+                return response()->json(['message' => 'Authentication required'], 401);
             }
 
             $followingIds = $viewer->following()->pluck('users.id');
 
             if ($followingIds->isEmpty()) {
-                return response()->json([]);
+                return $this->emptyPostFeedResponse($page, $perPage);
             }
 
             $query->whereIn('user_id', $followingIds);
@@ -257,9 +261,6 @@ class PostController extends Controller
                 'votes as is_liked' => fn ($q) => $q->where('user_id', $viewer->id),
             ]);
         }
-
-        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
-        $page = max(1, (int) $request->query('page', 1));
 
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
@@ -313,11 +314,24 @@ class PostController extends Controller
 
     private function fixImageUrl(string $url): string
     {
-        if ($url === '') {
-            return '';
-        }
+        return MediaUrlHelper::fixLocalDevPort($url);
+    }
 
-        return str_replace('localhost:8000', 'localhost:8080', $url);
+    private function emptyPostFeedResponse(int $page, int $perPage): JsonResponse
+    {
+        return response()->json([
+            'data' => [],
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => 1,
+                'per_page' => $perPage,
+                'total' => 0,
+            ],
+            'links' => [
+                'next' => null,
+                'prev' => null,
+            ],
+        ]);
     }
 
     /** Escapes LIKE wildcards in user input; wraps with %. */

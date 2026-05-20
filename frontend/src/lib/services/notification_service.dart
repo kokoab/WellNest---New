@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/notification.dart';
+import '../utils/api_http_helper.dart';
 import 'auth_service.dart';
 import 'admin_auth_service.dart';
+
+typedef NotificationServiceException = ApiHttpException;
 
 class NotificationCategory {
   static const String message = 'MESSAGE_TYPE';
@@ -93,14 +96,8 @@ class NotificationService {
       '$_baseUrl/notifications',
     ).replace(queryParameters: params);
     final response = await http.get(uri, headers: _headers);
-    if (response.statusCode != 200) {
-      return NotificationListResponse(
-        notifications: const [],
-        currentPage: page,
-        lastPage: page,
-        total: 0,
-        perPage: perPage,
-      );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throwFromApiResponse(response, 'Failed to load notifications');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final list = (data['data'] as List<dynamic>?) ?? [];
@@ -147,14 +144,9 @@ class NotificationService {
     ).replace(queryParameters: params.isEmpty ? null : params);
 
     final response = await http.get(uri, headers: _headers);
-    if (response.statusCode != 200) {
-      return const NotificationCounts(
-        allUnread: 0,
-        messageUnread: 0,
-        activityUnread: 0,
-      );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throwFromApiResponse(response, 'Failed to load notification counts');
     }
-
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return NotificationCounts.fromResponse(data);
   }
@@ -168,18 +160,24 @@ class NotificationService {
 
   Future<void> markAsRead(String id) async {
     if (!_hasAuth) return;
-    await http.patch(
+    final response = await http.patch(
       Uri.parse('$_baseUrl/notifications/$id/read'),
       headers: _headers,
     );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throwFromApiResponse(response, 'Failed to mark notification as read');
+    }
   }
 
   Future<void> markAllAsRead() async {
     if (!_hasAuth) return;
-    await http.post(
+    final response = await http.post(
       Uri.parse('$_baseUrl/notifications/read-all'),
       headers: _headers,
     );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throwFromApiResponse(response, 'Failed to mark all notifications as read');
+    }
   }
 }
 

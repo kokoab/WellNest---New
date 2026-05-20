@@ -7,9 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\PostComment;
 use App\Notifications\CommentReceivedNotification;
+use App\Support\MediaUrlHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class PostCommentController extends Controller
@@ -24,15 +24,15 @@ class PostCommentController extends Controller
         }
 
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
+            return MediaUrlHelper::fixLocalDevPort($url);
         }
 
         $baseUrl = rtrim(config('app.url'), '/');
         if (str_starts_with($url, '/')) {
-            return $baseUrl . $url;
+            return MediaUrlHelper::fixLocalDevPort($baseUrl . $url);
         }
 
-        return $baseUrl . '/storage/' . ltrim($url, '/');
+        return MediaUrlHelper::fixLocalDevPort($baseUrl . '/storage/' . ltrim($url, '/'));
     }
 
     /**
@@ -62,12 +62,8 @@ class PostCommentController extends Controller
             'user_id'   => $user->id,
             'post_id'   => $post->id,
             'comment'   => $validated['comment'] ?? '',
+            'image_url' => $imageUrl,
         ];
-
-        // Keep comments working even if image_url migration is not yet applied.
-        if (Schema::hasColumn('post_comments', 'image_url')) {
-            $payload['image_url'] = $imageUrl;
-        }
 
         $comment = PostComment::create($payload);
 
@@ -105,7 +101,6 @@ class PostCommentController extends Controller
     public function index(Request $request, Post $post): JsonResponse
     {
         $viewer = $request->user('sanctum');
-        $hasImageUrl = Schema::hasColumn('post_comments', 'image_url');
 
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 50));
@@ -122,7 +117,7 @@ class PostCommentController extends Controller
         $paginator = $query->paginate($perPage)->through(fn (PostComment $c) => [
             'id'        => $c->id,
             'comment'   => $c->comment,
-            'image_url' => $hasImageUrl ? $this->toAbsoluteImageUrl($c->image_url) : null,
+            'image_url' => $this->toAbsoluteImageUrl($c->image_url),
             'user'      => [
                 'id'                => $c->user->id,
                 'name'              => $c->user->name,
@@ -132,14 +127,5 @@ class PostCommentController extends Controller
         ]);
 
         return response()->json($paginator);
-    }
-
-    private function fixMediaUrl(string $url): string
-    {
-        if ($url === '') {
-            return '';
-        }
-
-        return str_replace('localhost:8000', 'localhost:8080', $url);
     }
 }

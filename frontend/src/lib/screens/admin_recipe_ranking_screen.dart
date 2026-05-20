@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/recipe_ranking_item.dart';
-import 'package:my_app/services/recipe_service.dart';
+import 'package:wellnest/models/recipe_ranking_item.dart';
+import 'package:wellnest/services/recipe_service.dart';
 
 class AdminRecipeRankingScreen extends StatefulWidget {
   const AdminRecipeRankingScreen({super.key});

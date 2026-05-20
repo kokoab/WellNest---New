@@ -1,4 +1,4 @@
-part of 'package:my_app/screens/admin_dashboard.dart';
+part of 'package:wellnest/screens/admin_dashboard.dart';
 
 class _ModerationSectionContainer extends StatefulWidget {
   final ThemeData theme;

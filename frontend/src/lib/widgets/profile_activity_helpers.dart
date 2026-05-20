@@ -1,5 +1,5 @@
-import 'package:my_app/models/post.dart';
-import 'package:my_app/models/recipe.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/models/recipe.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 /// Rows for the profile "Liked" tab (heart on recipe or post).

@@ -1,36 +1,42 @@
 # WellNest – Running with Docker
 
-## Start the backend
+## Start the full stack
 
 From the project root:
 
 ```bash
-docker compose up -d database backend_app backend_nginx
+docker compose up -d
 ```
 
-API base: **http://localhost:8080**
+| Service | Host port | Purpose |
+| ------- | --------- | ------- |
+| `backend_nginx` | **8080** | HTTP API (`http://localhost:8080`) |
+| `reverb` | **8081** | WebSocket (maps container **8080** → host **8081**) |
+| `database` | 3306 | MySQL 8.0 |
+| `queue_worker` | — | Processes queued jobs (`message.new`, assistant replies) |
+| `backend_app` | — | PHP-FPM (Laravel) |
 
-## Database migrations and seed
+Set `REVERB_APP_KEY`, `REVERB_APP_SECRET`, and `REVERB_APP_ID` in the project root `.env` (see `backend/src/laravel/.env.example`). Flutter must use the same `REVERB_APP_KEY` via `--dart-define=REVERB_APP_KEY=...`.
 
-Run migrations (and seed) inside the app container:
+**Real-time chat requires** `queue_worker` and `reverb` to be running. Badge updates (`notification.badge.updated`) broadcast immediately; chat events are queued then delivered by the worker.
+
+## Database migrations, storage link, and seed
 
 ```bash
 docker compose exec backend_app php artisan migrate --force
+docker compose exec backend_app php artisan storage:link
 docker compose exec backend_app php artisan db:seed --force
 ```
 
-- `--force` is needed when not in interactive mode (e.g. CI/Docker).
+- `--force` is required in non-interactive environments.
+- User uploads live under `backend/storage/app/public/` (gitignored). Run `storage:link` on new machines.
 
 ## Default admin credentials (after seeding)
-
-After running `php artisan db:seed`, you can sign in to the **admin** app with:
 
 | Field        | Value               |
 | ------------ | ------------------- |
 | **Email**    | `admin@example.com` |
 | **Password** | `password`          |
-
-Use these on the **Admin Login** screen in the Flutter app. Change the password in production or create a new admin and remove this account.
 
 ## Default test user (regular user)
 
@@ -39,21 +45,22 @@ Use these on the **Admin Login** screen in the Flutter app. Change the password 
 | **Email**    | `test@example.com` |
 | **Password** | `password`         |
 
-Used for the normal (non-admin) login flow.
-
 ## Real email for password resets
 
-To send password-reset codes to a real inbox, set these in `backend/src/laravel/.env` and restart the backend containers:
+Configure in `backend/src/laravel/.env`, then restart `backend_app` and `queue_worker`:
 
 ```bash
 MAIL_MAILER=smtp
-MAIL_SCHEME=smtp
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USERNAME=yourgmailaddress@gmail.com
+MAIL_USERNAME=your_email@gmail.com
 MAIL_PASSWORD=your_gmail_app_password
-MAIL_FROM_ADDRESS=yourgmailaddress@gmail.com
+MAIL_FROM_ADDRESS=your_email@gmail.com
 MAIL_FROM_NAME="WellNest"
 ```
 
-Use a Gmail App Password, not your normal Gmail password.
+## Run tests in Docker
+
+```bash
+docker compose exec backend_app ./vendor/bin/phpunit
+```

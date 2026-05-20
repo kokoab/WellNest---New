@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/services/reverb_service.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/notifications_bell_button.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/conversation_service.dart';
+import 'package:wellnest/services/reverb_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/notifications_bell_button.dart';
 
 /// Consistent header used on Discover, Feed, Saved, and Profile.
 /// Logo + "Wellnest" on the left, notification bell + chat on the right.
@@ -109,12 +109,19 @@ class _ChatBadgeButtonState extends State<_ChatBadgeButton>
     WidgetsBinding.instance.addObserver(this);
     _notificationUpdateHandler = _refreshUnreadMessages;
     _refreshUnreadMessages();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureReverbSubscription());
+  }
+
+  Future<void> _ensureReverbSubscription() async {
     final userId = AuthService.instance.userId;
-    if (userId != null) {
-      ReverbService.instance.subscribeToNotificationUpdates(
+    if (userId == null || !mounted) return;
+    try {
+      await ReverbService.instance.subscribeToNotificationUpdates(
         userId,
         _notificationUpdateHandler,
       );
+    } catch (_) {
+      // Badge still updates on resume / after opening conversations.
     }
   }
 

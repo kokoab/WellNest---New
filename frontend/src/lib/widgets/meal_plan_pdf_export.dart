@@ -7,8 +7,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
-import 'package:my_app/models/meal_plan.dart';
-import 'package:my_app/services/meal_plan_service.dart';
+import 'package:wellnest/models/meal_plan.dart';
+import 'package:wellnest/services/meal_plan_service.dart';
 
 /// Client-side PDF export for a meal-plan week (matches legacy strip behavior).
 abstract final class MealPlanPdfExport {

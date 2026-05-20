@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/wellnest_header.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/wellnest_header.dart';
 
 /// Pale-green hero with rounded bottom — fills behind the status bar; content is inset.
 class WellnestDiscoverHero extends StatefulWidget {

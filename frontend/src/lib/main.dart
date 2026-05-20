@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:my_app/providers/theme_provider.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/screens/admin_dashboard.dart';
-import 'package:my_app/screens/admin_login.dart';
-import 'package:my_app/screens/user_dashboard.dart';
-import 'package:my_app/screens/login_screen.dart';
-import 'package:my_app/screens/forgot_password_screen.dart';
-import 'package:my_app/screens/register_screen.dart';
-import 'package:my_app/screens/splash_screen.dart';
-import 'package:my_app/screens/saved_recipes_screen.dart';
-import 'package:my_app/screens/conversations_list_screen.dart';
-import 'package:my_app/screens/notifications_screen.dart';
-import 'package:my_app/screens/meal_planner_screen.dart';
-import 'package:my_app/services/admin_auth_service.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/session_restore.dart';
-import 'package:my_app/app_route_observer.dart';
+import 'package:wellnest/providers/theme_provider.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/screens/admin_dashboard.dart';
+import 'package:wellnest/screens/admin_login.dart';
+import 'package:wellnest/screens/user_dashboard.dart';
+import 'package:wellnest/screens/login_screen.dart';
+import 'package:wellnest/screens/forgot_password_screen.dart';
+import 'package:wellnest/screens/register_screen.dart';
+import 'package:wellnest/screens/splash_screen.dart';
+import 'package:wellnest/screens/saved_recipes_screen.dart';
+import 'package:wellnest/screens/conversations_list_screen.dart';
+import 'package:wellnest/screens/notifications_screen.dart';
+import 'package:wellnest/screens/meal_planner_screen.dart';
+import 'package:wellnest/services/admin_auth_service.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/session_restore.dart';
+import 'package:wellnest/app_route_observer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +62,6 @@ class MyApp extends StatelessWidget {
           routes: {
             '/login': (context) => const LoginScreen(),
             '/forgot-password': (context) => const ForgotPasswordScreen(),
-            '/reset-password': (context) => const ForgotPasswordScreen(),
             '/register': (context) => const RegisterScreen(),
             '/admin_login': (context) => const AdminLoginScreen(),
             '/admin_dashboard': (context) => const AdminDashboard(),

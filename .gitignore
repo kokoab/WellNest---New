@@ -29,6 +29,10 @@ backend/src/laravel/.phpunit.result.cache
 backend/src/laravel/npm-debug.log
 backend/src/laravel/yarn-error.log
 
+# User uploads (use storage:link + seed on deploy; do not commit media blobs)
+backend/storage/app/public/
+!backend/storage/app/public/.gitkeep
+
 # Runtime-generated recipe seed images (regenerated on every reseed)
 backend/storage/app/public/recipes/seed/
 
@@ -38,6 +42,9 @@ frontend/src/.packages
 frontend/src/build/
 frontend/src/.flutter-plugins
 frontend/src/.flutter-plugins-dependencies
+
+# Seed image sources (regenerate from repo scripts; not runtime uploads)
+seedImage/
 
 # Misc
 *.log

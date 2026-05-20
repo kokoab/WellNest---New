@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/terms_of_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/terms_of_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Full Terms & Conditions in a branded sheet/dialog aligned with auth screens.
 class TermsOfServiceModal {
@@ -19,10 +19,11 @@ class TermsOfServiceModal {
           initialChildSize: 0.88,
           minChildSize: 0.45,
           maxChildSize: 0.95,
-          builder: (context, scrollController) {
+          builder: (sheetContext, scrollController) {
+            final cs = Theme.of(sheetContext).colorScheme;
             return Container(
               decoration: BoxDecoration(
-                color: wellnestCardSurface(context),
+                color: wellnestCardSurface(sheetContext),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [
                   BoxShadow(
@@ -39,7 +40,7 @@ class TermsOfServiceModal {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -64,14 +65,14 @@ class TermsOfServiceModal {
                                 style: helveticaNow(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: kCaptionGray,
+                                  color: wellnestCaptionColor(sheetContext),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.pop(ctx),
                           icon: const Icon(Icons.close_rounded),
                           color: kPrimaryGreen,
                           tooltip: 'Close',
@@ -79,7 +80,7 @@ class TermsOfServiceModal {
                       ],
                     ),
                   ),
-                  Divider(height: 1, color: wellnestOutlineColor(context)),
+                  Divider(height: 1, color: wellnestOutlineColor(sheetContext)),
                   Expanded(
                     child: ListView(
                       controller: scrollController,
@@ -106,7 +107,7 @@ class TermsOfServiceModal {
                               style: helveticaNow(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
-                                color: kBodyTextDark,
+                                color: cs.onSurface,
                               ).copyWith(height: 1.45),
                             ),
                             const SizedBox(height: AppSpacing.sm2),
@@ -123,7 +124,7 @@ class TermsOfServiceModal {
                       child: SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.pop(ctx),
                           style: FilledButton.styleFrom(
                             backgroundColor: kAccentOrange,
                             foregroundColor: Colors.white,

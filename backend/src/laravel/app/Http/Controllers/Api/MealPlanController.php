@@ -160,6 +160,7 @@ class MealPlanController extends Controller
         $date = $validated['planned_date'];
         $slot = $validated['meal_slot'];
 
+        // When skipped=true we remove the meal plan row and record a skip marker (not just a flag).
         if ($validated['skipped']) {
             MealPlan::query()
                 ->where('user_id', $userId)

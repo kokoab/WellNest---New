@@ -42,6 +42,8 @@ Route::get('posts/{post}', [PostController::class, 'show']);
 
 // Public: list comments for a post (no auth required)
 Route::get('posts/{post}/comments', [PostCommentController::class, 'index']);
+Route::get('users/{user}/followers', [UserController::class, 'followers'])->whereNumber('user');
+Route::get('users/{user}/following', [UserController::class, 'followingList'])->whereNumber('user');
 Route::get('users/{user}', [UserController::class, 'show'])->whereNumber('user');
 
 // Public: list and view recipes and categories (no auth required — show all recipes)
@@ -113,6 +115,7 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
     Route::delete('meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
 
     Route::get('conversations/assistant', [ConversationController::class, 'assistant']);
+    Route::get('conversations/unread-count', [ConversationController::class, 'unreadCount']);
     Route::get('conversations', [ConversationController::class, 'index']);
     Route::get('conversations/{conversation}', [ConversationController::class, 'show']);
     Route::post('conversations', [ConversationController::class, 'create']);
@@ -125,7 +128,7 @@ Route::middleware(['auth:sanctum', 'check.account.status'])->group(function () {
 
     Route::get('messages', [MessageController::class, 'index']);
     Route::get('messages/{message}', [MessageController::class, 'show']);
-    Route::post('messages', [MessageController::class, 'create']);
+    Route::post('messages', [MessageController::class, 'store']);
     Route::put('messages/{message}', [MessageController::class, 'update']);
     Route::delete('messages/{message}', [MessageController::class, 'delete']);
     Route::patch('messages/{message}/read', [MessageController::class, 'markAsRead']);
@@ -165,13 +168,9 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::patch('admin/reports/{report}/dismiss', [AdminModerationController::class, 'dismiss']);
     Route::delete('admin/reports', [AdminModerationController::class, 'deleteAllReports']);
 
-    // Audit logs API (aliases to activity logs controller/actions)
+    // Admin audit / activity logs (canonical URLs)
     Route::get('admin/audit-logs', [LogController::class, 'index']);
     Route::get('admin/audit-logs/export', [LogController::class, 'exportCsv']);
-
-    // Kept for backward compatibility
-    Route::get('admin/activity-logs', [LogController::class, 'index']);
-    Route::get('admin/activity-logs/export', [LogController::class, 'exportCsv']);
 
     Route::get('admin/recipes/rankings', [RecipeRankingController::class, 'index']);
     Route::get('admin/stats/overview', [AdminDashboardController::class, 'overview']);

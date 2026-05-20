@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/theme/app_spacing.dart';
-
-/// Field styling aligned with [RecipeFormScreen] / cook-mode review modal.
-const Color _formFieldFill = Color(0xFFF3F4F6);
-const Color _formFieldBorder = Color(0xFFBDBDBD);
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/theme/app_spacing.dart';
 
 /// Edit Profile Overlay for user profile page.
 /// Allows users to change Name and Email.
@@ -45,13 +41,13 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
   }) {
     final cs = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(10);
-    final side = const BorderSide(color: _formFieldBorder, width: 1);
+    final side = BorderSide(color: cs.outline, width: 1);
     return InputDecoration(
       labelText: labelText,
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: _formFieldFill,
+      fillColor: cs.surfaceContainerHigh,
       isDense: false,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       border: OutlineInputBorder(borderRadius: radius, borderSide: side),
@@ -145,7 +141,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
         borderRadius: BorderRadius.circular(22),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.discoverHeroFadeTo(Colors.white),
+            gradient: AppGradients.discoverHeroFor(context),
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
@@ -227,7 +223,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
                     decoration: _fieldDecoration(
                       context,
                       labelText: 'First Name',
-                      prefixIcon: const Icon(Icons.person_outline, size: 22),
+                      prefixIcon: Icon(Icons.person_outline, size: 22, color: cs.onSurfaceVariant),
                     ),
                     style: TextStyle(
                       fontFamily: kFontHelveticaNow,
@@ -241,7 +237,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
                     decoration: _fieldDecoration(
                       context,
                       labelText: 'Last Name',
-                      prefixIcon: const Icon(Icons.person_outline, size: 22),
+                      prefixIcon: Icon(Icons.person_outline, size: 22, color: cs.onSurfaceVariant),
                     ),
                     style: TextStyle(
                       fontFamily: kFontHelveticaNow,
@@ -255,7 +251,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
                     decoration: _fieldDecoration(
                       context,
                       labelText: 'Email',
-                      prefixIcon: const Icon(Icons.email_outlined, size: 22),
+                      prefixIcon: Icon(Icons.email_outlined, size: 22, color: cs.onSurfaceVariant),
                     ),
                     style: TextStyle(
                       fontFamily: kFontHelveticaNow,
@@ -284,7 +280,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
                     decoration: _fieldDecoration(
                       context,
                       labelText: 'New Password',
-                      prefixIcon: const Icon(Icons.lock_outline, size: 22),
+                      prefixIcon: Icon(Icons.lock_outline, size: 22, color: cs.onSurfaceVariant),
                       suffixIcon: IconButton(
                         onPressed: () {
                           setState(() => _obscurePassword = !_obscurePassword);
@@ -310,7 +306,7 @@ class _EditProfileOverlayState extends State<EditProfileOverlay> {
                     decoration: _fieldDecoration(
                       context,
                       labelText: 'Confirm New Password',
-                      prefixIcon: const Icon(Icons.lock_reset_outlined, size: 22),
+                      prefixIcon: Icon(Icons.lock_reset_outlined, size: 22, color: cs.onSurfaceVariant),
                       suffixIcon: IconButton(
                         onPressed: () {
                           setState(

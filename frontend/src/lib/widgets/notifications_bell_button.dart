@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/notification_service.dart';
-import 'package:my_app/services/reverb_service.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/notification_service.dart';
+import 'package:wellnest/services/reverb_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Bell icon with unread badge; opens [NotificationsScreen] via `/notifications`.
 class NotificationsBellButton extends StatefulWidget {
@@ -44,12 +44,19 @@ class _NotificationsBellButtonState extends State<NotificationsBellButton>
     WidgetsBinding.instance.addObserver(this);
     _badgeRefreshHandler = _fetchUnreadCount;
     _fetchUnreadCount();
+    _subscribeReverb();
+  }
+
+  Future<void> _subscribeReverb() async {
     final userId = AuthService.instance.userId;
-    if (userId != null) {
-      ReverbService.instance.subscribeToNotificationUpdates(
+    if (userId == null) return;
+    try {
+      await ReverbService.instance.subscribeToNotificationUpdates(
         userId,
         _badgeRefreshHandler,
       );
+    } catch (_) {
+      // Badge still updates on resume and after opening notifications screen.
     }
   }
 

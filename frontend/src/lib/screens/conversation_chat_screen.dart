@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:my_app/config/app_config.dart';
-import 'package:my_app/models/chat_message.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/config/app_config.dart';
+import 'package:wellnest/models/chat_message.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/conversation_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Single conversation: messages list + input. Subscribes to Reverb for live new messages.
 class ConversationChatScreen extends StatefulWidget {
@@ -265,7 +265,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         border: Border.all(color: wellnestOutlineColor(context), width: 1),
       ),
       child: ClipOval(
@@ -440,6 +440,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
   }
 
   Widget _buildAttachmentPreview(Map<String, dynamic> att) {
+    final cs = Theme.of(context).colorScheme;
     final path = att['file_path'] as String?;
     final name = att['file_name'] as String? ?? '';
     final type = (att['file_type'] as String? ?? '').toLowerCase();
@@ -462,7 +463,7 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
               return Container(
                 width: _previewSize,
                 height: _previewSize,
-                color: Colors.black12,
+                color: cs.surfaceContainerHighest,
                 child: Center(
                   child: CircularProgressIndicator(
                     value: loadingProgress.expectedTotalBytes != null
@@ -476,11 +477,11 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
             errorBuilder: (context, error, stackTrace) => Container(
               width: _previewSize,
               height: _previewSize,
-              color: Colors.black12,
-              child: const Icon(
+              color: cs.surfaceContainerHighest,
+              child: Icon(
                 Icons.broken_image,
                 size: 48,
-                color: Colors.white70,
+                color: cs.onSurfaceVariant,
               ),
             ),
           ),
@@ -490,17 +491,17 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white24,
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.insert_drive_file, color: Colors.white70, size: 20),
+          Icon(Icons.insert_drive_file, color: cs.onSurfaceVariant, size: 20),
           const SizedBox(width: 6),
           Text(
             name.isNotEmpty ? name : 'Attachment',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -704,6 +705,9 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                             : 0) +
                         (_loadingMoreMessages ? 1 : 0),
                     itemBuilder: (context, index) {
+                      final cs = Theme.of(context).colorScheme;
+                      final isDark =
+                          Theme.of(context).brightness == Brightness.dark;
                       if (_loadingMoreMessages &&
                           index ==
                               _messages.length +
@@ -742,14 +746,21 @@ class _ConversationChatScreenState extends State<ConversationChatScreen> {
                       final Color bubbleFg;
                       if (widget.isAssistant) {
                         bubbleBg = isMe
-                            ? Colors.grey.shade700
+                            ? (isDark
+                                ? cs.surfaceContainerHigh
+                                : Colors.grey.shade700)
                             : AppColors.primaryGreen.withValues(alpha: 0.9);
-                        bubbleFg = Colors.white;
+                        bubbleFg =
+                            isMe && isDark ? cs.onSurface : Colors.white;
                       } else {
                         bubbleBg = isMe
                             ? AppColors.primaryGreen.withValues(alpha: 0.9)
-                            : Colors.grey.shade700;
-                        bubbleFg = Colors.white;
+                            : (isDark
+                                ? cs.surfaceContainerHigh
+                                : Colors.grey.shade700);
+                        bubbleFg = isMe
+                            ? Colors.white
+                            : (isDark ? cs.onSurface : Colors.white);
                       }
                       return Padding(
                         padding: const EdgeInsets.symmetric(

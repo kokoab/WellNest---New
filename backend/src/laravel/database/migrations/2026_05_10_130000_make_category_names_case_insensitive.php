@@ -3,6 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
+// Reverts 122700 case-sensitive collation; final state is case-insensitive category names on MySQL.
+
 return new class extends Migration
 {
     /**

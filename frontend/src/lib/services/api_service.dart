@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../models/post.dart';
+import '../utils/api_http_helper.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -33,8 +34,7 @@ class ApiService {
       final postData = data['post'] as Map<String, dynamic>;
       return Post.fromJson(postData);
     }
-    final err = jsonDecode(response.body) as Map<String, dynamic>?;
-    throw Exception(err?['message'] as String? ?? 'Failed to create post');
+    throwFromApiResponse(response, 'Failed to create post');
   }
 
   /// Upload one image; returns server-assigned id (for reorder/delete).
@@ -55,26 +55,7 @@ class ApiService {
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode != 201) {
-      String? message;
-      try {
-        final err = jsonDecode(response.body) as Map<String, dynamic>;
-        message = err['message'] as String?;
-        final errors = err['errors'];
-        if ((message == null || message.isEmpty) && errors is Map) {
-          final firstErrorList = errors.values.cast<dynamic>().firstWhere(
-            (value) => value is List && value.isNotEmpty,
-            orElse: () => null,
-          );
-          if (firstErrorList is List && firstErrorList.isNotEmpty) {
-            message = firstErrorList.first?.toString();
-          }
-        }
-      } catch (_) {
-        // Ignore non-JSON payloads and fallback below.
-      }
-      throw Exception(
-        message ?? 'Failed to upload image (HTTP ${response.statusCode})',
-      );
+      throwFromApiResponse(response, 'Failed to upload image');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final img = data['image'] as Map<String, dynamic>?;
@@ -89,8 +70,7 @@ class ApiService {
       headers: _headers,
     );
     if (response.statusCode == 200) return;
-    final err = jsonDecode(response.body) as Map<String, dynamic>?;
-    throw Exception(err?['message'] as String? ?? 'Failed to delete image');
+    throwFromApiResponse(response, 'Failed to delete image');
   }
 
   Future<void> reorderPostImages(int postId, List<int> imageIds) async {
@@ -100,8 +80,7 @@ class ApiService {
       body: jsonEncode({'image_ids': imageIds}),
     );
     if (response.statusCode == 200) return;
-    final err = jsonDecode(response.body) as Map<String, dynamic>?;
-    throw Exception(err?['message'] as String? ?? 'Failed to reorder images');
+    throwFromApiResponse(response, 'Failed to reorder images');
   }
 
   Future<PostListResponse> fetchPostsPaginated({
@@ -168,11 +147,12 @@ class ApiService {
           total: posts.length,
           perPage: perPage,
         );
-      } else {
-        throw Exception("Server Error: ${response.statusCode}");
       }
+      throwFromApiResponse(response, 'Failed to load posts');
+    } on ApiHttpException {
+      rethrow;
     } catch (e) {
-      throw Exception("Failed to connect to backend: $e");
+      throw ApiHttpException('Failed to connect to backend: $e');
     }
   }
 

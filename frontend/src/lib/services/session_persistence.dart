@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persists auth token + admin flag so web refresh / app restart keeps the user signed in.
+/// Low-level disk storage for auth token, admin flag, and user id.
+/// See [session_restore.dart] for boot-time hydration into in-memory services.
 class SessionPersistence {
   SessionPersistence._();
 

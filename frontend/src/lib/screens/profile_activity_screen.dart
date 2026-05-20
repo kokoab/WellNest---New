@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/app_route_observer.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/screens/post_detail_screen.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/content_update_notifier.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/profile_activity_helpers.dart';
-import 'package:my_app/widgets/profile_landscape_preview_card.dart';
+import 'package:wellnest/app_route_observer.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/screens/post_detail_screen.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/content_update_notifier.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/profile_activity_helpers.dart';
+import 'package:wellnest/widgets/profile_landscape_preview_card.dart';
 
 /// Full lists for profile activity — opened from Profile **See all** (same 3 tabs).
 class ProfileActivityScreen extends StatefulWidget {

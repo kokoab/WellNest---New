@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/services/saved_recipe_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 class MealPlanRecipePickerResult {
   const MealPlanRecipePickerResult._({this.recipe, this.skipped = false});

@@ -5,14 +5,20 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../models/meal_plan.dart';
+import '../utils/api_http_helper.dart';
 import 'auth_service.dart';
 
-/// Plans for a week plus optional per-meal skipped markers from the API.
+/// Plans for a week plus optional per-meal and whole-day skip markers from the API.
 class MealPlanWeekData {
-  const MealPlanWeekData({required this.plans, required this.skippedMealKeys});
+  const MealPlanWeekData({
+    required this.plans,
+    required this.skippedMealKeys,
+    required this.skippedDayDates,
+  });
 
   final List<MealPlan> plans;
   final Set<String> skippedMealKeys;
+  final Set<String> skippedDayDates;
 }
 
 class MealPlanService {
@@ -55,9 +61,42 @@ class MealPlanService {
           }
         }
       }
-      return MealPlanWeekData(plans: plans, skippedMealKeys: skippedMeals);
+      final skippedDays = <String>{};
+      final rawDays = data['skipped_dates'] as List<dynamic>?;
+      if (rawDays != null) {
+        for (final d in rawDays) {
+          if (d is String && d.isNotEmpty) skippedDays.add(d);
+        }
+      }
+      return MealPlanWeekData(
+        plans: plans,
+        skippedMealKeys: skippedMeals,
+        skippedDayDates: skippedDays,
+      );
     }
-    _throwFromResponse(response);
+    throwFromApiResponse(response, 'Failed to load meal plans');
+  }
+
+  /// POST /api/meal-plans/day-skip — mark entire day as didn't eat.
+  Future<void> setDaySkip({
+    required DateTime plannedDate,
+    required bool didNotEat,
+  }) async {
+    final dateStr =
+        '${plannedDate.year}-${plannedDate.month.toString().padLeft(2, '0')}-${plannedDate.day.toString().padLeft(2, '0')}';
+    final response = await http.post(
+      Uri.parse('$_baseUrl/meal-plans/day-skip'),
+      headers: _headers,
+      body: jsonEncode({
+        'planned_date': dateStr,
+        'did_not_eat': didNotEat,
+      }),
+    );
+    if (response.statusCode == 200) {
+      _notifyChanged();
+      return;
+    }
+    throwFromApiResponse(response, 'Failed to update day skip');
   }
 
   static String mealSkipKey(String isoDate, String mealSlot) =>
@@ -84,7 +123,7 @@ class MealPlanService {
       _notifyChanged();
       return;
     }
-    _throwFromResponse(response);
+    throwFromApiResponse(response, 'Failed to set meal skip');
   }
 
   /// POST /api/meal-plans
@@ -111,7 +150,7 @@ class MealPlanService {
       _notifyChanged();
       return plan;
     }
-    _throwFromResponse(response);
+    throwFromApiResponse(response, 'Failed to create meal plan');
   }
 
   /// DELETE /api/meal-plans/{id}
@@ -124,7 +163,7 @@ class MealPlanService {
       _notifyChanged();
       return;
     }
-    _throwFromResponse(response);
+    throwFromApiResponse(response, 'Failed to delete meal plan');
   }
 
   /// GET /api/meal-plans/export?week_start=YYYY-MM-DD
@@ -140,13 +179,7 @@ class MealPlanService {
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
-    _throwFromResponse(response);
-  }
-
-  static Never _throwFromResponse(http.Response response) {
-    final data = jsonDecode(response.body) as Map<String, dynamic>?;
-    final message = data?['message'] as String?;
-    throw Exception(message ?? 'Request failed: ${response.statusCode}');
+    throwFromApiResponse(response, 'Failed to export meal plan');
   }
 
   static void _notifyChanged() => changes.value++;

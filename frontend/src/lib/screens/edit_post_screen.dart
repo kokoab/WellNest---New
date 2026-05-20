@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/post_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/post_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// One gallery slot while editing — either an existing server image or a new local file.
 class _EditImgSlot {

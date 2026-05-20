@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Wraps a child with a press-scale micro-interaction.
 /// Scales down to 0.95 on tap down and back to 1.0 on release/cancel.

@@ -7,6 +7,7 @@ use App\Events\NewMessageEvent;
 use App\Jobs\GenerateAssistantReply;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
 use App\Notifications\NewMessageNotification;
 use App\Support\Assistant;
 use Illuminate\Http\JsonResponse;
@@ -107,12 +108,6 @@ class MessageController extends Controller
         return response()->json($message, 201);
     }
 
-    /** Legacy create: redirect to store with conversation_id from body. */
-    public function create(Request $request): JsonResponse
-    {
-        return $this->store($request, null);
-    }
-
     public function update(Request $request, Message $message): JsonResponse
     {
         $userId = Auth::id();
@@ -161,7 +156,11 @@ class MessageController extends Controller
     /** PATCH /api/conversations/{conversation}/messages/read — mark all messages in conversation as read. */
     public function markConversationAsRead(Conversation $conversation): JsonResponse
     {
-        $userId = Auth::id();
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+        $userId = $user->id;
         if ((int) $conversation->user1_id !== (int) $userId && (int) $conversation->user2_id !== (int) $userId) {
             abort(403, 'Not in this conversation.');
         }
@@ -169,6 +168,14 @@ class MessageController extends Controller
             ->where('user_id', '!=', $userId)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        $user->unreadNotifications()
+            ->where('data->type', 'new_message')
+            ->where('data->conversation_id', $conversation->id)
+            ->update(['read_at' => now()]);
+
+        event(new UnreadNotificationBadgeUpdated($userId));
+
         return response()->json(['message' => 'Marked as read'], 200);
     }
 }

@@ -34,7 +34,6 @@ class User extends Authenticatable
         'password',
         'role',
         'profile_photo_url',
-        'status',
         'account_status',
         'is_admin',
     ];
@@ -47,6 +46,18 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    /**
+     * Legacy `status` column remains in DB (mapped to account_status in migration);
+     * use `account_status` for all new code. Admin: `role === 'admin'` or `is_admin`.
+     */
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'name',
     ];
 
     /**
@@ -115,10 +126,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(MealPlan::class);
     }
-    public function conversations(): HasMany
+    /**
+     * Query conversations where this user is a participant (not a single HasMany FK).
+     */
+    public function conversationsQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return Conversation::where('user1_id', $this->id)
-            ->orWhere('user2_id', $this->id)
+        return Conversation::query()
+            ->where(function ($q) {
+                $q->where('user1_id', $this->id)
+                    ->orWhere('user2_id', $this->id);
+            })
             ->orderByDesc('last_message_at');
     }
 

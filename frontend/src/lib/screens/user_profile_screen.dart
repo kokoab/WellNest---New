@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/app_route_observer.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/screens/post_detail_screen.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/services/user_service.dart';
+import 'package:wellnest/app_route_observer.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/screens/follow_list_screen.dart';
+import 'package:wellnest/screens/post_detail_screen.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
+import 'package:wellnest/widgets/profile_activity_helpers.dart';
+import 'package:wellnest/widgets/profile_landscape_preview_card.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/services/user_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final int userId;
@@ -78,27 +81,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
     });
 
     try {
-      final results = await Future.wait<dynamic>([
-        UserService.instance.fetchPublicProfile(widget.userId),
-        if (AuthService.instance.isLoggedIn)
-          UserService.instance.fetchCurrentUser()
-        else
-          Future.value(null),
-        RecipeService.instance.fetchRecipes(userId: widget.userId, page: 1),
-        ApiService().fetchPostsPaginated(
-          userId: widget.userId,
-          page: 1,
-          perPage: 10,
-        ),
-      ]);
+      final profile = await UserService.instance.fetchPublicProfile(
+        widget.userId,
+      );
+      final CurrentUser? currentUser = AuthService.instance.isLoggedIn
+          ? await UserService.instance.fetchCurrentUser()
+          : null;
+      final isOwn = currentUser != null && currentUser.id == widget.userId;
+
+      final recipesRes = await RecipeService.instance.fetchRecipes(
+        userId: widget.userId,
+        page: 1,
+      );
+
+      final PostListResponse postsRes = isOwn
+          ? await ApiService().fetchPostsPaginated(
+              userId: widget.userId,
+              page: 1,
+              perPage: 10,
+            )
+          : const PostListResponse(
+              posts: [],
+              currentPage: 1,
+              lastPage: 1,
+              total: 0,
+              perPage: 10,
+            );
 
       if (!mounted) return;
 
-      final recipesRes = results[2] as RecipeListResponse;
-      final postsRes = results[3] as PostListResponse;
       setState(() {
-        _profile = results[0] as PublicUserProfile;
-        _currentUser = results.length > 1 ? results[1] as CurrentUser? : null;
+        _profile = profile;
+        _currentUser = currentUser;
         _recipes = recipesRes.recipes;
         _recipesPage = recipesRes.currentPage;
         _recipesLastPage = recipesRes.lastPage;
@@ -138,13 +152,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
         _recipesTotal = res.total;
         _recipesLoadingMore = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _recipesLoadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not load recipes: '
+            '${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: nestOrange,
+        ),
+      );
     }
   }
 
   Future<void> _loadMorePosts() async {
+    if (!_isOwnProfile) return;
     if (_postsLoadingMore || _postsPage >= _postsLastPage) return;
     setState(() => _postsLoadingMore = true);
     try {
@@ -294,12 +318,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildStat('$_recipesTotal', 'Recipes'),
+              if (_isOwnProfile) ...[
+                const SizedBox(width: 24),
+                _buildStat('$_postsTotal', 'Posts'),
+              ],
               const SizedBox(width: 24),
-              _buildStat('$_postsTotal', 'Posts'),
+              _buildStat(
+                '${profile.followersCount}',
+                'Followers',
+                onTap: () => _openFollowList(FollowTab.followers),
+              ),
               const SizedBox(width: 24),
-              _buildStat('${profile.followersCount}', 'Followers'),
-              const SizedBox(width: 24),
-              _buildStat('${profile.followingCount}', 'Following'),
+              _buildStat(
+                '${profile.followingCount}',
+                'Following',
+                onTap: () => _openFollowList(FollowTab.following),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -346,17 +380,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             )
           else
-            SizedBox(
-              height: 200,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _recipes.length,
-                itemBuilder: (context, index) => Padding(
-                  padding: EdgeInsets.only(
-                    right: index < _recipes.length - 1 ? 15 : 0,
-                  ),
-                  child: _buildRecipeMiniCard(_recipes[index]),
-                ),
+            ..._recipes.map(
+              (recipe) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm2),
+                child: _buildRecipePreviewCard(recipe, profile.displayName),
               ),
             ),
           if (_recipesPage < _recipesLastPage) ...[
@@ -375,41 +402,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
               ),
             ),
           ],
-          const SizedBox(height: 28),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Posts',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: wellGreen,
+          if (_isOwnProfile) ...[
+            const SizedBox(height: 28),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Posts',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: wellGreen,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_posts.isEmpty)
-            Text(
-              'No posts yet.',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            )
-          else
-            ..._posts.map(_buildPostCard),
-          if (_postsPage < _postsLastPage) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _postsLoadingMore ? null : _loadMorePosts,
-              icon: _postsLoadingMore
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.expand_more_rounded),
-              label: Text(_postsLoadingMore ? 'Loading…' : 'Load more posts'),
-            ),
+            const SizedBox(height: 16),
+            if (_posts.isEmpty)
+              Text(
+                'No posts yet.',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              )
+            else
+              ..._posts.map(_buildPostCard),
+            if (_postsPage < _postsLastPage) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _postsLoadingMore ? null : _loadMorePosts,
+                icon: _postsLoadingMore
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.expand_more_rounded),
+                label: Text(_postsLoadingMore ? 'Loading…' : 'Load more posts'),
+              ),
+            ],
           ],
         ],
+      ),
+    );
+  }
+
+  void _openFollowList(FollowTab tab) {
+    final profile = _profile;
+    if (profile == null) return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => FollowListScreen(
+          userId: widget.userId,
+          displayName: profile.displayName,
+          initialTab: tab,
+        ),
       ),
     );
   }
@@ -425,8 +470,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
     }
   }
 
-  Widget _buildStat(String value, String label) {
-    return Column(
+  Widget _buildStat(String value, String label, {VoidCallback? onTap}) {
+    final column = Column(
       children: [
         Text(
           value,
@@ -439,59 +484,36 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
         Text(label),
       ],
     );
-  }
-
-  Widget _buildRecipeMiniCard(Recipe recipe) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
+    if (onTap == null) return column;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: column,
         ),
       ),
-      child: Container(
-        width: 160,
-        height: 180,
-        decoration: BoxDecoration(
-          color: wellGreen,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: wellnestOutlineColor(context), width: 1),
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child:
-                    recipe.displayImageUrl != null &&
-                        recipe.displayImageUrl!.isNotEmpty
-                    ? Image.network(
-                        recipe.displayImageUrl!,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.center,
-                        width: double.infinity,
-                        cacheWidth: 600,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _placeholderImage(),
-                      )
-                    : _placeholderImage(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              recipe.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
+    );
+  }
+
+  Widget _buildRecipePreviewCard(Recipe recipe, String profileOwnerName) {
+    final creator = recipe.userDisplayName.trim().isEmpty
+        ? (profileOwnerName.trim().isEmpty ? 'Creator' : profileOwnerName)
+        : recipe.userDisplayName;
+    final when = formatProfilePostedAt(recipe.createdAt);
+    return ProfileLandscapePreviewCard(
+      title: recipe.title,
+      creatorName: creator,
+      postedLabel: when.isEmpty ? '—' : when,
+      imageUrl: recipePreviewImageUrl(recipe),
+      placeholderIcon: Icons.restaurant_rounded,
+      onTap: () => Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (context) => RecipeDetailScreen(recipeId: recipe.id),
         ),
       ),
     );
@@ -538,13 +560,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> with RouteAware {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _placeholderImage() {
-    return Container(
-      color: Colors.white24,
-      child: const Icon(Icons.restaurant, color: Colors.white70, size: 48),
     );
   }
 }

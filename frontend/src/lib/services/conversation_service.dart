@@ -147,10 +147,20 @@ class ConversationService {
     return res.conversations;
   }
 
-  /// Sum unread message count across all conversations.
+  /// GET /api/conversations/unread-count — total unread messages.
   Future<int> getUnreadMessageCount() async {
-    final conversations = await fetchConversations();
-    return conversations.fold<int>(0, (sum, c) => sum + c.unreadCount);
+    final response = await http.get(
+      Uri.parse('$_baseUrl/conversations/unread-count'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      throw Exception(
+        data?['message'] as String? ?? 'Failed to load unread message count',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['count'] as num?)?.toInt() ?? 0;
   }
 
   /// GET /api/conversations/{id}/messages — messages for one conversation (paginated).

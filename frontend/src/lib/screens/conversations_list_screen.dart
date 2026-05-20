@@ -1,14 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:my_app/models/conversation_list_item.dart';
-import 'package:my_app/models/user_search_result.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/conversation_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
-import 'package:my_app/screens/conversation_chat_screen.dart';
+import 'package:wellnest/models/conversation_list_item.dart';
+import 'package:wellnest/models/user_search_result.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/conversation_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
+import 'package:wellnest/screens/conversation_chat_screen.dart';
 
 /// Lists the user's conversations. Search bar to find users and start a new chat.
 class ConversationsListScreen extends StatefulWidget {
@@ -263,7 +263,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                     ? IconButton(
                         icon: Icon(
                           Icons.clear,
-                          color: Colors.grey.shade600,
+                          color: colorScheme.onSurfaceVariant,
                           size: 20,
                         ),
                         onPressed: () {
@@ -273,7 +273,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: colorScheme.surfaceContainerHigh,
                 border: _messagesSearchOutline(context),
                 enabledBorder: _messagesSearchOutline(context),
                 focusedBorder: _messagesSearchOutline(context),

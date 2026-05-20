@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Format ISO8601 [createdAt] as "X min ago" / "X hours ago" / short date.
 String formatPostTime(String? createdAt) {

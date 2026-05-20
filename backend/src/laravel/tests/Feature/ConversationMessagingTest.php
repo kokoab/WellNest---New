@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageAttachment;
+use App\Notifications\NewMessageNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -168,6 +169,37 @@ class ConversationMessagingTest extends TestCase
 
         $response->assertOk()
             ->assertJsonFragment(['message' => 'Marked as read']);
+    }
+
+    public function test_mark_conversation_as_read_clears_new_message_notifications(): void
+    {
+        [$user, $otherUser, $conversation] = $this->createConversationPair();
+        $this->createMessage($conversation, $otherUser, 'Ping');
+
+        $user->notify(new NewMessageNotification(
+            $conversation->id,
+            1,
+            $otherUser->name,
+            'Ping',
+            $otherUser->id,
+            null,
+            false,
+        ));
+
+        $this->assertSame(
+            1,
+            $user->unreadNotifications()->where('data->type', 'new_message')->count()
+        );
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("api/conversations/{$conversation->id}/messages/read")
+            ->assertOk();
+
+        $this->assertSame(
+            0,
+            $user->unreadNotifications()->where('data->type', 'new_message')->count()
+        );
     }
 
     public function test_user_can_list_message_attachments(): void

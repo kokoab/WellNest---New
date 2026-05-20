@@ -1,3 +1,5 @@
+import '../utils/json_helpers.dart';
+
 /// Single rating/review for a recipe.
 class RecipeRating {
   final int id;
@@ -23,16 +25,16 @@ class RecipeRating {
     if (json['user'] != null) {
       final uj = json['user'] as Map<String, dynamic>;
       u = RecipeRatingUser(
-        id: uj['id'] as int? ?? 0,
+        id: jsonDecodeInt(uj['id']),
         firstName: uj['first_name'] as String? ?? '',
         lastName: uj['last_name'] as String? ?? '',
       );
     }
     return RecipeRating(
-      id: json['id'] as int,
-      recipeId: json['recipe_id'] as int,
-      userId: json['user_id'] as int,
-      rating: json['rating'] as int? ?? 0,
+      id: (json['id'] as num).toInt(),
+      recipeId: (json['recipe_id'] as num).toInt(),
+      userId: (json['user_id'] as num).toInt(),
+      rating: jsonDecodeInt(json['rating']),
       comment: json['comment'] as String?,
       createdAt: json['created_at'] as String?,
       user: u,

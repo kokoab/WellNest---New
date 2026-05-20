@@ -1,4 +1,4 @@
-part of 'package:my_app/screens/admin_dashboard.dart';
+part of 'package:wellnest/screens/admin_dashboard.dart';
 
 /// Matches API bucket count for line charts (two series must use the same N).
 int _adminChartPointCount2(List<AdminStatPoint> a, List<AdminStatPoint> b) {

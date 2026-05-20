@@ -51,16 +51,19 @@ services:
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
-      - REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
-      - REVERB_APP_SECRET=laravel_reverb_secret
-      - REVERB_APP_ID=1
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-efcct5mu8lg3nxzgpixd}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-laravel_reverb_secret}
+      - REVERB_APP_ID=${REVERB_APP_ID:-1}
+      # Ollama runs on the Mac host; host.docker.internal resolves to the host from within Docker Desktop.
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
     depends_on:
       database:
         condition: service_healthy
     networks:
       - backend
 
-  # Reverb WebSocket server (for real-time events)
+  # Reverb WebSocket server (for real-time events; host maps 8081 -> container 8080)
   reverb:
     build:
       context: ./backend
@@ -83,9 +86,9 @@ services:
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
-      - REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
-      - REVERB_APP_SECRET=laravel_reverb_secret
-      - REVERB_APP_ID=1
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-efcct5mu8lg3nxzgpixd}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-laravel_reverb_secret}
+      - REVERB_APP_ID=${REVERB_APP_ID:-1}
     ports:
       - "8081:8080"
     depends_on:
@@ -123,22 +126,16 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME}
-      - MAIL_MAILER=${MAIL_MAILER}
-      - MAIL_SCHEME=${MAIL_SCHEME}
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
-      - MAIL_FROM_NAME=${MAIL_FROM_NAME}
       - BROADCAST_CONNECTION=reverb
       - QUEUE_CONNECTION=database
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
-      - REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
-      - REVERB_APP_SECRET=laravel_reverb_secret
-      - REVERB_APP_ID=1
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-efcct5mu8lg3nxzgpixd}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-laravel_reverb_secret}
+      - REVERB_APP_ID=${REVERB_APP_ID:-1}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
     depends_on:
       database:
         condition: service_healthy
@@ -154,14 +151,21 @@ services:
     image: nginx:alpine
     container_name: laravel_nginx_wellnest
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     ports:
-      - "8080:80" # This is your entry point from the host
+      - "8080:80" # HTTP API entry (Reverb WebSocket is on host :8081)
     volumes:
       - ./backend/src:/var/www
       - ./backend/storage:/var/www/laravel/storage
       - ./backend/nginx:/etc/nginx/conf.d
     depends_on:
-      - backend_app
+      backend_app:
+        condition: service_started
     networks:
       - backend
 

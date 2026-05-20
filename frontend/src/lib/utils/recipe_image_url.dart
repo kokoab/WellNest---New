@@ -1,4 +1,4 @@
-import 'package:my_app/config/app_config.dart';
+import 'package:wellnest/config/app_config.dart';
 
 /// Ensures recipe images load when the API returns a host-relative path or a
 /// full URL whose origin does not match [AppConfig.baseUrl] (common on web).

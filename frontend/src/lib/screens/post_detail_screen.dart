@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/screens/user_profile_screen.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/post_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/screens/edit_post_screen.dart';
-import 'package:my_app/widgets/post_photo_collage.dart';
-import 'package:my_app/widgets/full_screen_photo_gallery.dart';
-import 'package:my_app/widgets/wellnest_popup_menu.dart';
-import 'package:my_app/services/report_service.dart';
-import 'package:my_app/services/vote_service.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/screens/user_profile_screen.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/post_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/screens/edit_post_screen.dart';
+import 'package:wellnest/widgets/post_photo_collage.dart';
+import 'package:wellnest/widgets/full_screen_photo_gallery.dart';
+import 'package:wellnest/widgets/wellnest_popup_menu.dart';
+import 'package:wellnest/services/report_service.dart';
+import 'package:wellnest/services/vote_service.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -229,16 +229,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   InputDecoration _commentFieldDecoration(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final outline = wellnestOutlineColor(context);
     return InputDecoration(
       hintText: 'Add a comment...',
       hintStyle: TextStyle(
-        color: kPrimaryGreen.withValues(alpha: 0.55),
+        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
         fontSize: 15,
         fontFamily: kFontHelveticaNow,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: cs.surfaceContainerHigh,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
         borderSide: BorderSide(color: outline),
@@ -249,7 +250,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: const BorderSide(color: kPrimaryGreen, width: 1.5),
+        borderSide: BorderSide(color: cs.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     );
@@ -491,16 +492,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     }
                                   }
                                 },
-                                itemBuilder: (context) {
+                                itemBuilder: (ctx) {
                                   final owner = _ownsThisPost();
                                   return [
                                     if (owner) ...[
                                       wellnestPopupMenuItem(
+                                        ctx,
                                         value: 'edit',
                                         icon: Icons.edit_outlined,
                                         label: 'Edit',
                                       ),
                                       wellnestPopupMenuItem(
+                                        ctx,
                                         value: 'delete',
                                         icon: Icons.delete_outline_rounded,
                                         label: 'Delete',
@@ -509,6 +512,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     ],
                                     if (!owner)
                                       wellnestPopupMenuItem(
+                                        ctx,
                                         value: 'report',
                                         icon: Icons.flag_outlined,
                                         label: 'Report',
@@ -787,7 +791,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: _commentController,
-                        style: theme.textTheme.bodyLarge,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurface,
+                        ),
                         decoration: _commentFieldDecoration(context),
                       ),
                     ),

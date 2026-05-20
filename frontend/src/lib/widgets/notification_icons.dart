@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/notification_service.dart';
-import 'package:my_app/services/reverb_service.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/notification_service.dart';
+import 'package:wellnest/services/reverb_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Split notification icons for the app bar.
 /// - Message icon (chat bubble) with red badge for new messages
@@ -36,12 +36,19 @@ class _NotificationIconsState extends State<NotificationIcons>
     WidgetsBinding.instance.addObserver(this);
     _notificationUpdateHandler = _fetchCounts;
     _fetchCounts();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureReverbSubscription());
+  }
+
+  Future<void> _ensureReverbSubscription() async {
     final userId = AuthService.instance.userId;
-    if (userId != null) {
-      ReverbService.instance.subscribeToNotificationUpdates(
+    if (userId == null || !mounted) return;
+    try {
+      await ReverbService.instance.subscribeToNotificationUpdates(
         userId,
         _notificationUpdateHandler,
       );
+    } catch (_) {
+      // Counts refresh on resume / when opening notifications.
     }
   }
 

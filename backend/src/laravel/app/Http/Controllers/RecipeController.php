@@ -13,27 +13,32 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\PersonalAccessToken;
 use App\Services\ActivityLogService;
+use App\Services\RecipeCompositionService;
+use App\Support\MediaUrlHelper;
+use Illuminate\Support\Facades\Auth;
 
 class RecipeController extends Controller
 {
+    public function __construct(
+        private readonly RecipeCompositionService $composition,
+    ) {}
+
     /**
-     * Public recipe routes do not use auth:sanctum, so $request->user() is null even with a valid Bearer token.
-     * Resolve the user from the token so view counts and optional personalization work.
+     * Optional auth on public recipe routes: Sanctum guard when present, else Bearer lookup.
      */
     protected function userFromOptionalBearer(Request $request): ?User
     {
-        if ($user = $request->user()) {
-            return $user instanceof User ? $user : null;
+        $user = $request->user('sanctum') ?? Auth::guard('sanctum')->user();
+        if ($user instanceof User) {
+            return $user;
         }
+
         $plain = $request->bearerToken();
         if (! $plain) {
             return null;
         }
         $accessToken = PersonalAccessToken::findToken($plain);
-        if (! $accessToken) {
-            return null;
-        }
-        $model = $accessToken->tokenable;
+        $model = $accessToken?->tokenable;
 
         return $model instanceof User ? $model : null;
     }
@@ -42,7 +47,10 @@ class RecipeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name', 'images:id,path,imageable_id,imageable_type'])->orderBy('created_at', 'desc');
+        $query = Recipe::with(['category:id,name', 'user:id,first_name,last_name', 'images:id,path,imageable_id,imageable_type'])
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'views'])
+            ->orderBy('created_at', 'desc');
         $range = $request->query('range');
 
         if ($request->filled('category_id')) {
@@ -102,9 +110,9 @@ class RecipeController extends Controller
             $recipe = $recipes->getCollection()[$i];
             $cover = $recipe->images->first();
             $data['data'][$i]['image_url'] = $cover ? $baseUrl . '/storage/' . $cover->path : null;
-            $data['data'][$i]['average_rating'] = round($recipe->ratings()->avg('rating') ?? 0, 1);
-            $data['data'][$i]['ratings_count'] = $recipe->ratings()->count();
-            $data['data'][$i]['views_count'] = $recipe->views()->count();
+            $data['data'][$i]['average_rating'] = round((float) ($recipe->ratings_avg_rating ?? 0), 1);
+            $data['data'][$i]['ratings_count'] = (int) ($recipe->ratings_count ?? 0);
+            $data['data'][$i]['views_count'] = (int) ($recipe->views_count ?? 0);
         }
         return response()->json($data);
     }
@@ -178,9 +186,9 @@ class RecipeController extends Controller
         unset($validated['ingredients']);
 
         if ($hasSteps) {
-            $validated['instructions'] = $this->flattenStepsToInstructionsText($stepsPayload);
+            $validated['instructions'] = $this->composition->flattenStepsToInstructionsText($stepsPayload);
             if ($timingMode === 'per_step') {
-                $validated['prep_time'] = $this->sumStepPrepMinutes($stepsPayload);
+                $validated['prep_time'] = $this->composition->sumStepPrepMinutes($stepsPayload);
             } else {
                 $validated['prep_time'] = (int) $validated['prep_time'];
             }
@@ -188,31 +196,16 @@ class RecipeController extends Controller
 
         $recipe = Recipe::create($validated);
         if ($hasSteps) {
-            $this->syncSteps($recipe, $stepsPayload);
+            $this->composition->syncSteps($recipe, $stepsPayload);
         }
 
-        $this->syncIngredients($recipe, $ingredientsData);
+        $this->composition->syncIngredients($recipe, $ingredientsData);
         ActivityLogService::log('recipe', 'create', 'Recipe created successfully', $request->user()->id, $recipe);
         return response()->json([
             'message' => 'Recipe created successfully',
             'id' => $recipe->id,
         ], 201);
     }
-
-    protected function syncIngredients(Recipe $recipe, array $ingredientsData): void
-    {
-        $recipe->ingredients()->detach();
-        foreach ($ingredientsData as $item) {
-            $name = trim($item['name'] ?? '');
-            if ($name === '') continue;
-            $ingredient = \App\Models\Ingredient::firstOrCreate(['name' => $name]);
-            $quantity = (int) round((float) ($item['quantity'] ?? 0));
-            if ($quantity < 1) $quantity = 1;
-            $unit = trim($item['unit'] ?? '') ?: 'unit';
-            $recipe->ingredients()->attach($ingredient->id, ['quantity' => $quantity, 'unit' => $unit]);
-        }
-    }
-
 
     /**
      * Display the specified resource.
@@ -345,9 +338,9 @@ class RecipeController extends Controller
         if ($hasSteps && $stepsPayload !== null) {
             $timingMode = $validated['prep_timing_mode'] ?? $recipe->prep_timing_mode ?? 'overall';
             $validated['prep_timing_mode'] = $timingMode;
-            $validated['instructions'] = $this->flattenStepsToInstructionsText($stepsPayload);
+            $validated['instructions'] = $this->composition->flattenStepsToInstructionsText($stepsPayload);
             if ($timingMode === 'per_step') {
-                $validated['prep_time'] = $this->sumStepPrepMinutes($stepsPayload);
+                $validated['prep_time'] = $this->composition->sumStepPrepMinutes($stepsPayload);
             } elseif (array_key_exists('prep_time', $validated)) {
                 $validated['prep_time'] = (int) $validated['prep_time'];
             }
@@ -357,9 +350,9 @@ class RecipeController extends Controller
 
         if ($stepsKeyPresent) {
             if ($hasSteps && $stepsPayload !== null) {
-                $this->syncSteps($recipe, $stepsPayload);
+                $this->composition->syncSteps($recipe, $stepsPayload);
                 $recipe->refresh();
-                $recipe->instructions = $this->flattenStepsToInstructionsText(
+                $recipe->instructions = $this->composition->flattenStepsToInstructionsText(
                     $recipe->steps()->orderBy('sort_order')->orderBy('id')->get()->map(fn (RecipeStep $s) => [
                         'title' => $s->title,
                         'instructions' => $s->instructions,
@@ -370,7 +363,7 @@ class RecipeController extends Controller
                 }
                 $recipe->save();
             } else {
-                $this->purgeRecipeSteps($recipe);
+                $this->composition->purgeRecipeSteps($recipe);
                 $recipe->refresh();
                 $recipe->prep_timing_mode = 'overall';
                 $recipe->save();
@@ -378,7 +371,7 @@ class RecipeController extends Controller
         }
 
         if ($ingredientsData !== null) {
-            $this->syncIngredients($recipe, $ingredientsData);
+            $this->composition->syncIngredients($recipe, $ingredientsData);
         }
         ActivityLogService::log('recipe', 'update', 'Recipe updated successfully', $request->user()->id, $recipe);
         return response()->json(['message' => 'Recipe updated successfully'], 200);
@@ -392,12 +385,12 @@ class RecipeController extends Controller
         $actor = $request->user();
         $isAdmin = (bool) ($actor->is_admin ?? false) || ($actor->role ?? '') === 'admin';
         if ($recipe->user_id !== $actor->id && ! $isAdmin) {
-            return response()->json(['message' => 'You are not authorized to update this recipe'], 403);
+            return response()->json(['message' => 'You are not authorized to delete this recipe'], 403);
         }
 
         $recipe->load('steps.images');
         foreach ($recipe->steps as $step) {
-            $this->deleteStepImages($step);
+            $this->composition->deleteStepImages($step);
             $step->delete();
         }
 
@@ -444,7 +437,7 @@ class RecipeController extends Controller
             'image' => [
                 'id' => $image->id,
                 'sort_order' => (int) $image->sort_order,
-                'image_url' => str_replace('localhost:8000', 'localhost:8080', $imageUrl),
+                'image_url' => MediaUrlHelper::fixLocalDevPort($imageUrl),
             ],
         ], 201);
     }
@@ -509,7 +502,7 @@ class RecipeController extends Controller
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ]);
 
-        $this->deleteStepImages($step);
+        $this->composition->deleteStepImages($step);
 
         $file = $request->file('image');
         $path = $file->store('recipe-steps', 'public');
@@ -527,7 +520,7 @@ class RecipeController extends Controller
             'image' => [
                 'id' => $image->id,
                 'sort_order' => (int) $image->sort_order,
-                'image_url' => str_replace('localhost:8000', 'localhost:8080', $imageUrl),
+                'image_url' => MediaUrlHelper::fixLocalDevPort($imageUrl),
             ],
         ], 201);
     }
@@ -594,101 +587,4 @@ class RecipeController extends Controller
         return null;
     }
 
-    protected function syncSteps(Recipe $recipe, array $stepsPayload): void
-    {
-        $keepIds = [];
-        foreach ($stepsPayload as $row) {
-            if (! empty($row['id'])) {
-                $keepIds[] = (int) $row['id'];
-            }
-        }
-
-        $existingIds = $recipe->steps()->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $toDelete = array_diff($existingIds, $keepIds);
-        foreach ($recipe->steps()->whereIn('id', $toDelete)->get() as $step) {
-            $this->deleteStepImages($step);
-            $step->delete();
-        }
-
-        foreach ($stepsPayload as $index => $row) {
-            $title = isset($row['title']) ? trim((string) $row['title']) : '';
-            $title = $title === '' ? null : $title;
-            $instr = isset($row['instructions']) ? trim((string) $row['instructions']) : '';
-            $instr = $instr === '' ? null : $instr;
-            $prepMin = array_key_exists('prep_time_minutes', $row) && $row['prep_time_minutes'] !== null
-                ? (int) $row['prep_time_minutes']
-                : null;
-
-            $attrs = [
-                'sort_order' => $index,
-                'title' => $title,
-                'instructions' => $instr,
-                'prep_time_minutes' => $prepMin,
-            ];
-
-            if (! empty($row['id'])) {
-                $step = RecipeStep::where('recipe_id', $recipe->id)->where('id', (int) $row['id'])->first();
-                if ($step) {
-                    $step->update($attrs);
-
-                    continue;
-                }
-            }
-            $recipe->steps()->create($attrs);
-        }
-    }
-
-    protected function purgeRecipeSteps(Recipe $recipe): void
-    {
-        $recipe->load('steps.images');
-        foreach ($recipe->steps as $step) {
-            $this->deleteStepImages($step);
-            $step->delete();
-        }
-    }
-
-    protected function deleteStepImages(RecipeStep $step): void
-    {
-        foreach ($step->images as $image) {
-            Storage::disk('public')->delete($image->path);
-            $image->delete();
-        }
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $steps
-     */
-    protected function flattenStepsToInstructionsText(array $steps): string
-    {
-        $parts = [];
-        foreach ($steps as $i => $s) {
-            $title = isset($s['title']) ? trim((string) $s['title']) : '';
-            $inst = isset($s['instructions']) ? trim((string) $s['instructions']) : '';
-            $n = $i + 1;
-            if ($title !== '' && $inst !== '') {
-                $parts[] = "Step {$n}: {$title}\n{$inst}";
-            } elseif ($title !== '') {
-                $parts[] = "Step {$n}: {$title}";
-            } elseif ($inst !== '') {
-                $parts[] = "Step {$n}\n{$inst}";
-            }
-        }
-
-        return implode("\n\n", $parts);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $steps
-     */
-    protected function sumStepPrepMinutes(array $steps): int
-    {
-        $sum = 0;
-        foreach ($steps as $s) {
-            if (isset($s['prep_time_minutes']) && $s['prep_time_minutes'] !== null) {
-                $sum += (int) $s['prep_time_minutes'];
-            }
-        }
-
-        return $sum;
-    }
 }

@@ -45,7 +45,7 @@ class ActivityLogTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('api/admin/activity-logs');
+        $response = $this->getJson('api/admin/audit-logs');
 
         $response->assertOk()
             ->assertJsonFragment(['action' => 'create_recipe']);
@@ -56,7 +56,7 @@ class ActivityLogTest extends TestCase
         $user = $this->createUser();
         Sanctum::actingAs($user);
 
-        $response = $this->getJson('api/admin/activity-logs');
+        $response = $this->getJson('api/admin/audit-logs');
 
         $response->assertStatus(403);
     }

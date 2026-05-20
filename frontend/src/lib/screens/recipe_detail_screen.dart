@@ -2,20 +2,20 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/screens/recipe_cook_mode_screen.dart';
-import 'package:my_app/screens/recipe_form_screen.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/report_service.dart';
-import 'package:my_app/services/vote_service.dart';
-import 'package:my_app/models/recipe_rating.dart';
-import 'package:my_app/services/rating_service.dart';
-import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/screens/user_profile_screen.dart';
-import 'package:my_app/widgets/full_screen_photo_gallery.dart';
-import 'package:my_app/widgets/wellnest_popup_menu.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/screens/recipe_cook_mode_screen.dart';
+import 'package:wellnest/screens/recipe_form_screen.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/report_service.dart';
+import 'package:wellnest/services/vote_service.dart';
+import 'package:wellnest/models/recipe_rating.dart';
+import 'package:wellnest/services/rating_service.dart';
+import 'package:wellnest/services/saved_recipe_service.dart';
+import 'package:wellnest/screens/user_profile_screen.dart';
+import 'package:wellnest/widgets/full_screen_photo_gallery.dart';
+import 'package:wellnest/widgets/wellnest_popup_menu.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
@@ -368,6 +368,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   Widget _buildCreatorAndPostedRow() {
     final posted = _postedDateLabel(context);
+    final cs = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -389,7 +390,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   : 'By Unknown',
               style: TextStyle(
                 fontFamily: 'HelveticaNow',
-                color: Colors.grey.shade600,
+                color: cs.onSurfaceVariant,
                 fontSize: 14,
                 decoration: _recipe!.userId != null
                     ? TextDecoration.underline
@@ -405,7 +406,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             textAlign: TextAlign.right,
             style: TextStyle(
               fontFamily: 'HelveticaNow',
-              color: Colors.grey.shade600,
+              color: cs.onSurfaceVariant,
               fontSize: 14,
             ),
           ),
@@ -476,7 +477,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       bottomNavigationBar: _buildBottomRecipeActions(),
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppGradients.discoverHeroFadeTo(Colors.white),
+          gradient: AppGradients.discoverHeroFor(context),
         ),
         child: CustomScrollView(
             controller: _recipeScrollController,
@@ -490,7 +491,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 expandedHeight: _recipeHeroExpandedHeight,
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                backgroundColor: Colors.white,
+                backgroundColor: colorScheme.surface,
                 surfaceTintColor: Colors.transparent,
                 systemOverlayStyle: SystemUiOverlayStyle.light,
                 automaticallyImplyLeading: false,
@@ -531,14 +532,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           await _deleteRecipe();
                         }
                       },
-                      itemBuilder: (context) => [
+                      itemBuilder: (ctx) => [
                         if (_isOwner) ...[
                           wellnestPopupMenuItem(
+                            ctx,
                             value: 'edit',
                             icon: Icons.edit_outlined,
                             label: 'Edit',
                           ),
                           wellnestPopupMenuItem(
+                            ctx,
                             value: 'delete',
                             icon: Icons.delete_outline_rounded,
                             label: 'Delete',
@@ -547,6 +550,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         ],
                         if (AuthService.instance.isLoggedIn && !_isOwner)
                           wellnestPopupMenuItem(
+                            ctx,
                             value: 'report',
                             icon: Icons.flag_outlined,
                             label: 'Report',
@@ -616,12 +620,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                               fontFamily: 'HelveticaNow',
                               fontSize: 16,
                               height: 1.45,
-                              color: Colors.grey.shade800,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ],
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildSectionTitleWithSeeAll(
                           title: 'Ingredients',
@@ -634,7 +638,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         const SizedBox(height: 12),
                         _buildIngredientsList(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildSectionTitleWithSeeAll(
                           title: 'Instructions',
@@ -647,7 +651,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         const SizedBox(height: 12),
                         _buildInstructions(),
                         const SizedBox(height: 24),
-                        Divider(height: 1, color: Colors.grey[300]),
+                        Divider(height: 1, color: colorScheme.outlineVariant),
                         const SizedBox(height: 16),
                         _buildRatingsAndReviewsSection(),
                         const SizedBox(height: 32),
@@ -664,8 +668,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   /// Persistent footer: like + save + Start cooking (not tied to scroll).
   Widget _buildBottomRecipeActions() {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.white,
+      color: cs.surface,
       elevation: 6,
       shadowColor: Colors.black.withValues(alpha: 0.1),
       surfaceTintColor: Colors.transparent,
@@ -675,7 +680,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           decoration: BoxDecoration(
             border: Border(
               top: BorderSide(
-                color: Colors.grey.shade300.withValues(alpha: 0.55),
+                color: cs.outlineVariant.withValues(alpha: 0.65),
               ),
             ),
           ),
@@ -766,7 +771,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppGradients.recipeDetailHeroImageBottomFade(Colors.white),
+            gradient: AppGradients.recipeDetailHeroImageBottomFadeFor(context),
           ),
         ),
       ),
@@ -784,7 +789,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            gradient: AppGradients.recipeDetailHeroToBodyCurve(Colors.white),
+            gradient: AppGradients.recipeDetailHeroToBodyCurveFor(context),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.12),
@@ -936,7 +941,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         }
         return Icon(
           Icons.star_border_rounded,
-          color: Colors.grey.shade400,
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.55),
           size: size,
         );
       }),
@@ -1043,7 +1048,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cs.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: wellnestOutlineColor(context)),
                     ),
@@ -1122,9 +1127,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     if (hasUserRating) {
       return Text(
         'You rated this ${_userRating!.rating}/5${_userRating!.comment != null && _userRating!.comment!.trim().isNotEmpty ? ': "${_userRating!.comment}"' : ''}',
-        style: TextStyle(
-          fontFamily: 'HelveticaNow',
-          color: Colors.grey.shade700,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: cs.onSurfaceVariant,
           fontSize: 14,
           fontStyle: FontStyle.italic,
         ),
@@ -1188,7 +1192,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                   : Icons.star_outline_rounded,
                               color: selected
                                   ? _reviewStarGold
-                                  : Colors.grey.shade400,
+                                  : cs.outline.withValues(alpha: 0.55),
                               size: 32,
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1207,7 +1211,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           hintText: 'Tell others what you thought (optional)…',
                           hintStyle: TextStyle(
                             fontFamily: 'HelveticaNow',
-                            color: Colors.grey.shade500,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
                           ),
                           filled: true,
                           fillColor: cs.surface,
@@ -1442,8 +1446,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   /// Visual hint under clipped sections; tap expands same as **See all**.
   Widget _collapsedMoreBelowHint({required VoidCallback onTap}) {
+    final surface = Theme.of(context).colorScheme.surface;
     final bottomTint =
-        Color.lerp(AppColors.heroPaleGreen, Colors.white, 0.42) ?? Colors.white;
+        Color.lerp(AppColors.heroPaleGreen, surface, 0.42) ?? surface;
     return Tooltip(
       message: 'See all',
       child: Material(
@@ -1515,7 +1520,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           'No ingredients listed.',
           style: TextStyle(
             fontFamily: 'HelveticaNow',
-            color: Colors.grey.shade600,
+            color: colorScheme.onSurfaceVariant,
             fontSize: 15,
           ),
         ),
@@ -1602,14 +1607,16 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   static const double _instructionStepImageAspectRatio = 16 / 10;
 
   /// Matches create-recipe review step cards ([RecipeFormScreen] review list).
-  BoxDecoration _instructionReviewCardDecoration() {
+  BoxDecoration _instructionReviewCardDecoration(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      color: Colors.white,
+      color: cs.surface,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFBDBDBD)),
+      border: Border.all(color: wellnestOutlineColor(context)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -1646,7 +1653,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               padding: const EdgeInsets.only(bottom: 10),
               child: Container(
                 width: double.infinity,
-                decoration: _instructionReviewCardDecoration(),
+                decoration: _instructionReviewCardDecoration(context),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1778,7 +1785,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       final card = Container(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
-        decoration: _instructionReviewCardDecoration(),
+        decoration: _instructionReviewCardDecoration(context),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1847,7 +1854,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: _instructionReviewCardDecoration(),
+              decoration: _instructionReviewCardDecoration(context),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

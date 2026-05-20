@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Solid [BottomAppBar] with center notch for a docked FAB ([CircularNotchedRectangle]).
 /// Pair [fab] + [fabLocation] with the root [Scaffold].

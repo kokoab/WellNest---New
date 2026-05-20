@@ -1,5 +1,5 @@
-name: my_app
-description: "A new Flutter project."
+name: wellnest
+description: "WellNest — recipe and wellness social app."
 publish_to: 'none' 
 version: 1.0.0+1
 
@@ -12,6 +12,7 @@ dependencies:
   http: ^1.2.0
   provider: ^6.1.2
   pusher_reverb_flutter: ^0.0.4
+  web_socket_channel: ^2.4.0
   shared_preferences: ^2.2.3
   cupertino_icons: ^1.0.8
   google_fonts: ^8.0.2

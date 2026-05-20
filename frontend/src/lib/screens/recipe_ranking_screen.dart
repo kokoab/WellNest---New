@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/recipe_ranking_item.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/recipe_ranking_item.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
-/// Selected row in dropdown menus — green at low opacity over light grey (Flutter uses
-/// [ThemeData.focusColor] for that Ink layer on touch; see Material `dropdown.dart`).
-Color _filterDropdownSelectedWash() => Color.alphaBlend(
-      kPrimaryGreen.withValues(alpha: 0.12),
-      Colors.grey.shade100,
-    );
+/// Selected row in dropdown — green wash over a surface that matches the theme.
+Color _filterDropdownSelectedWash(BuildContext context) {
+  final base = Theme.of(context).colorScheme.surfaceContainerHighest;
+  return Color.alphaBlend(kPrimaryGreen.withValues(alpha: 0.12), base);
+}
 
 /// Public recipe leaderboard — aligned with recipe detail / instructions card styling.
 class RecipeRankingScreen extends StatefulWidget {
@@ -69,14 +68,17 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
   }
 
   /// Same shell as instruction step cards on [RecipeDetailScreen].
-  BoxDecoration _rankingCardDecoration() {
+  BoxDecoration _rankingCardDecoration(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return BoxDecoration(
-      color: Colors.white,
+      color: cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFBDBDBD)),
+      border: Border.all(color: wellnestOutlineColor(context)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
+          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.04),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -85,12 +87,13 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
   }
 
   InputDecoration _filterDecoration(BuildContext context, String label) {
+    final cs = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
       labelStyle: helveticaNow(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: kCaptionGray,
+        color: wellnestCaptionColor(context),
       ),
       floatingLabelStyle: helveticaNow(
         fontSize: 13,
@@ -98,7 +101,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
         color: AppColors.primaryGreen,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: cs.surfaceContainerHigh,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.sm),
         borderSide: BorderSide(color: wellnestOutlineColor(context)),
@@ -118,26 +121,27 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
   /// Softer surfaces + no primary tint on popup menus (matches WellNest cards).
   ThemeData _filterControlsTheme(BuildContext context) {
     final base = Theme.of(context);
+    final cs = base.colorScheme;
     final outline = wellnestOutlineColor(context);
     final menuShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppRadii.sm),
       side: BorderSide(color: outline),
     );
-    final wash = _filterDropdownSelectedWash();
+    final wash = _filterDropdownSelectedWash(context);
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
         primary: wash,
-        onPrimary: kBodyTextDark,
+        onPrimary: cs.onSurface,
         primaryContainer: wash,
-        onPrimaryContainer: kBodyTextDark,
+        onPrimaryContainer: cs.onSurface,
       ),
       // Critical for dropdown selected-row Ink on mobile (touch highlight mode).
       focusColor: wash,
       splashColor: AppColors.primaryGreen.withValues(alpha: 0.08),
       highlightColor: wash,
-      canvasColor: Colors.white,
+      canvasColor: cs.surface,
       popupMenuTheme: PopupMenuThemeData(
-        color: Colors.white,
+        color: cs.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -145,12 +149,12 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
         textStyle: helveticaNow(
           fontSize: 15,
           fontWeight: FontWeight.w500,
-          color: kBodyTextDark,
+          color: cs.onSurface,
         ),
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
         menuStyle: MenuStyle(
-          backgroundColor: WidgetStateProperty.all(Colors.white),
+          backgroundColor: WidgetStateProperty.all(cs.surface),
           surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
           elevation: WidgetStateProperty.all(6),
           shadowColor: WidgetStateProperty.all(
@@ -171,11 +175,10 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
         color: kPrimaryGreen,
       );
 
-  /// Always dark text — reads on white rows and on the light green-gray selected wash.
-  TextStyle get _filterMenuItemTextStyle => helveticaNow(
+  TextStyle _filterMenuItemTextStyle(BuildContext context) => helveticaNow(
         fontSize: 15,
         fontWeight: FontWeight.w500,
-        color: kBodyTextDark,
+        color: Theme.of(context).colorScheme.onSurface,
       );
 
   /// Top 3: trophy + medal tones. Rank ≥ 4: numbered badge (stronger emphasis for 4–10).
@@ -237,14 +240,15 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
   }
 
   /// Mirrors [_RecipeDetailScreenState._buildRatingSummaryPill] + compact views.
-  Widget _buildRatingAndViewsRow(RecipeRankingItem item) {
+  Widget _buildRatingAndViewsRow(BuildContext context, RecipeRankingItem item) {
+    final cs = Theme.of(context).colorScheme;
     final avg = item.averageRating;
     final count = item.ratingsCount;
-    const labelStyle = TextStyle(
+    final labelStyle = TextStyle(
       fontFamily: kFontHelveticaNow,
       fontSize: 14,
       fontWeight: FontWeight.w600,
-      color: kPrimaryGreen,
+      color: wellnestHeadingGreen(context),
     );
     return Transform.translate(
       // The rounded star glyph has built-in left whitespace inside its icon box.
@@ -266,7 +270,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
               Icon(
                 Icons.person_outline_rounded,
                 size: 16,
-                color: kPrimaryGreen.withValues(alpha: 0.9),
+                color: wellnestHeadingGreen(context).withValues(alpha: 0.9),
               ),
               const SizedBox(width: 3),
               Text('$count', style: labelStyle),
@@ -278,16 +282,16 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
               Icon(
                 Icons.visibility_outlined,
                 size: 16,
-                color: kCaptionGray,
+                color: cs.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
               Text(
                 '${item.viewsCount} views',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: kFontHelveticaNow,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: kCaptionGray,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ],
@@ -376,7 +380,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(AppRadii.md),
                     border: Border.all(color: wellnestOutlineColor(context)),
                   ),
@@ -394,7 +398,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                       const Divider(height: AppSpacing.lg),
                       _ScoreBreakdownRow(
                         icon: Icons.visibility_outlined,
-                        iconColor: kCaptionGray,
+                        iconColor: cs.onSurfaceVariant,
                         label: 'Views',
                         value: '${item.viewsCount} of $maxViews top views',
                         detail:
@@ -446,7 +450,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
           ),
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            decoration: _rankingCardDecoration(),
+            decoration: _rankingCardDecoration(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -521,7 +525,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                                   ? 4
                                   : 6,
                             ),
-                            _buildRatingAndViewsRow(item),
+                            _buildRatingAndViewsRow(context, item),
                           ],
                         ),
                       ),
@@ -613,7 +617,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.sm2),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cs.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(AppRadii.sm),
                 border: Border.all(color: wellnestOutlineColor(context)),
               ),
@@ -627,7 +631,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                         isExpanded: true,
                         value: _window,
                         decoration: _filterDecoration(context, 'Window'),
-                        dropdownColor: Colors.white,
+                        dropdownColor: cs.surface,
                         borderRadius:
                             BorderRadius.circular(AppRadii.sm),
                         style: _filterValueTextStyle,
@@ -637,7 +641,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: '7d',
                             child: Text(
                               'Last 7 days',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -645,7 +649,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: '30d',
                             child: Text(
                               'Last 30 days',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -653,7 +657,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: 'all',
                             child: Text(
                               'All time',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -671,7 +675,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                         isExpanded: true,
                         value: _mode,
                         decoration: _filterDecoration(context, 'Sort by'),
-                        dropdownColor: Colors.white,
+                        dropdownColor: cs.surface,
                         borderRadius:
                             BorderRadius.circular(AppRadii.sm),
                         style: _filterValueTextStyle,
@@ -681,7 +685,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: 'combined',
                             child: Text(
                               'Combined',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -689,7 +693,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: 'views',
                             child: Text(
                               'Views',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -697,7 +701,7 @@ class _RecipeRankingScreenState extends State<RecipeRankingScreen> {
                             value: 'ratings',
                             child: Text(
                               'Ratings',
-                              style: _filterMenuItemTextStyle,
+                              style: _filterMenuItemTextStyle(context),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),

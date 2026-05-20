@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/screens/post_detail_screen.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/screens/user_profile_screen.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/search_history_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/screens/post_detail_screen.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/screens/user_profile_screen.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/search_history_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
 
 /// Full-screen search for the feed; respects [followingOnly] (following vs global feed).
 class FeedSearchScreen extends StatefulWidget {

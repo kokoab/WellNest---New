@@ -64,9 +64,7 @@ class VoteController extends Controller
         return response()->json(['message' => 'Recipe unliked', 'liked' => false]);
     }
 
-    /**
-     * Like a post. Could add PostLikedNotification if needed later.
-     */
+    /** Like a post and notify the post owner. */
     public function likePost(Request $request, Post $post): JsonResponse
     {
         $user = $request->user();

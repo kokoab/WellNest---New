@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 const String _refusalPrefix = 'I cannot help you with that';
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:my_app/models/post.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
 
 /// Timeline Card widget for the feed.
 /// Displays a post in a modern card format with relative time.

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/app_route_observer.dart';
-import 'package:my_app/screens/user_dashboard.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/animated_press_scale.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/screens/saved_recipes_search_screen.dart';
-import 'package:my_app/widgets/wellnest_header.dart';
-import 'package:my_app/services/content_update_notifier.dart';
-import 'package:my_app/services/saved_recipe_service.dart';
+import 'package:wellnest/app_route_observer.dart';
+import 'package:wellnest/screens/user_dashboard.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/animated_press_scale.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/screens/saved_recipes_search_screen.dart';
+import 'package:wellnest/widgets/wellnest_header.dart';
+import 'package:wellnest/services/content_update_notifier.dart';
+import 'package:wellnest/services/saved_recipe_service.dart';
 
 class SavedRecipesScreen extends StatefulWidget {
   const SavedRecipesScreen({super.key});
@@ -357,7 +357,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware
                       recipe.title,
                       style: georgiaProTextStyle(
                         fontSize: 16,
-                        color: const Color(0xFF097333),
+                        color: wellnestHeadingGreen(context),
                       ).copyWith(letterSpacing: 0),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -368,7 +368,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware
                       style: TextStyle(
                         fontFamily: 'HelveticaNow',
                         fontSize: 12,
-                        color: Colors.grey.shade700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -383,7 +383,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware
                           style: TextStyle(
                             fontFamily: 'HelveticaNow',
                             fontSize: 12,
-                            color: Colors.grey.shade700,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -392,7 +392,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen> with RouteAware
                 ),
               ),
             ),
-            Icon(Icons.favorite, color: nestOrange, size: 24),
+            Icon(Icons.bookmark_rounded, color: nestOrange, size: 24),
           ],
         ),
       ),

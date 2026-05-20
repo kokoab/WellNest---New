@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Services\ActivityLogService;
+use App\Support\MediaUrlHelper;
+use App\Support\UserPayload;
 
 class AuthController extends Controller
 {
@@ -37,7 +39,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'User created successfully',
-            'user' => $user,
+            'user' => UserPayload::make($user),
             'token' => $token
         ], 201);
     }
@@ -54,6 +56,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Intentional: deactivated users are reactivated automatically on successful login.
         if ($user->isDeactivatedAccount()) {
             $user->account_status = 'active';
             $user->save();
@@ -76,7 +79,7 @@ class AuthController extends Controller
         ActivityLogService::log('auth', 'login_successful', 'Login successful', $user?->id, null, ['email' => $request->email]);
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
+            'user' => UserPayload::make($user),
             'token' => $token
         ], 200);
     }
@@ -156,8 +159,11 @@ class AuthController extends Controller
 
     public function deleteAccount(Request $request)
     {
-        $request->user()->delete();
-        ActivityLogService::log('auth', 'delete_account', 'Account deleted successfully', $request->user()->id);
+        $user = $request->user();
+        $userId = $user->id;
+        ActivityLogService::log('auth', 'delete_account', 'Account deleted successfully', $userId);
+        $user->delete();
+
         return response()->json(['message' => 'Account deleted successfully'], 200);
     }
 
@@ -203,7 +209,10 @@ class AuthController extends Controller
             );
         }
 
-        return response()->json(['message' => 'Profile updated', 'user' => $user]);
+        return response()->json([
+            'message' => 'Profile updated',
+            'user' => UserPayload::make($user->fresh()),
+        ]);
     }
 
     public function uploadProfilePhoto(Request $request): JsonResponse
@@ -235,8 +244,8 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Profile photo uploaded successfully',
-            'profile_photo_url' => $imageUrl,
-            'user' => $user->fresh(),
+            'profile_photo_url' => MediaUrlHelper::fixLocalDevPort($imageUrl),
+            'user' => UserPayload::make($user->fresh()),
         ], 201);
     }
 

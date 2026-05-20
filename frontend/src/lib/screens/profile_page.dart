@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/providers/theme_provider.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/widgets/wellnest_header.dart';
-import 'package:my_app/widgets/edit_profile_overlay.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/screens/post_detail_screen.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/content_update_notifier.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/screens/profile_activity_screen.dart';
-import 'package:my_app/widgets/profile_activity_helpers.dart';
-import 'package:my_app/widgets/profile_landscape_preview_card.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/providers/theme_provider.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/widgets/wellnest_header.dart';
+import 'package:wellnest/widgets/edit_profile_overlay.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/screens/post_detail_screen.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/content_update_notifier.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/screens/follow_list_screen.dart';
+import 'package:wellnest/screens/profile_activity_screen.dart';
+import 'package:wellnest/widgets/profile_activity_helpers.dart';
+import 'package:wellnest/widgets/profile_landscape_preview_card.dart';
 
 enum _ActivityTab { recipes, posts, liked }
 
@@ -351,6 +352,22 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _openFollowList(FollowTab tab) {
+    final id = _user?.id;
+    if (id == null) return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => FollowListScreen(
+          userId: id,
+          displayName: _user?.displayName,
+          initialTab: tab,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatsRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -362,17 +379,25 @@ class _ProfilePageState extends State<ProfilePage> {
           child: _buildStatCell('$_myPostsTotal', 'Posts'),
         ),
         Expanded(
-          child: _buildStatCell('${_user?.followersCount ?? 0}', 'Followers'),
+          child: _buildStatCell(
+            '${_user?.followersCount ?? 0}',
+            'Followers',
+            onTap: () => _openFollowList(FollowTab.followers),
+          ),
         ),
         Expanded(
-          child: _buildStatCell('${_user?.followingCount ?? 0}', 'Following'),
+          child: _buildStatCell(
+            '${_user?.followingCount ?? 0}',
+            'Following',
+            onTap: () => _openFollowList(FollowTab.following),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildStatCell(String value, String label) {
-    return Column(
+  Widget _buildStatCell(String value, String label, {VoidCallback? onTap}) {
+    final column = Column(
       children: [
         Text(
           value,
@@ -394,6 +419,18 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ],
+    );
+    if (onTap == null) return column;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: column,
+        ),
+      ),
     );
   }
 

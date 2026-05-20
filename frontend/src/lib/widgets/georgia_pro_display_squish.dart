@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Condensed editorial look: slightly narrower + taller than raw Georgia Pro (cf. news display headlines).
 class GeorgiaProDisplaySquish extends StatelessWidget {

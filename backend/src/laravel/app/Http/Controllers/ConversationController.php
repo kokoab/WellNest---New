@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conversation;
+use App\Support\MediaUrlHelper;
 use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -94,6 +95,22 @@ class ConversationController extends Controller
         return response()->json(['data' => $sorted], 200);
     }
 
+    /** GET /api/conversations/unread-count — total unread messages across all conversations. */
+    public function unreadCount(): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $total = Message::query()
+            ->whereHas('conversation', function ($q) use ($userId) {
+                $q->where('user1_id', $userId)->orWhere('user2_id', $userId);
+            })
+            ->where('user_id', '!=', $userId)
+            ->whereNull('read_at')
+            ->count();
+
+        return response()->json(['count' => $total], 200);
+    }
+
     /** GET /api/conversations/{conversation} — show one conversation (with paginated messages). */
     public function show(Request $request, Conversation $conversation): JsonResponse
     {
@@ -180,10 +197,6 @@ class ConversationController extends Controller
 
     private function fixMediaUrl(string $url): string
     {
-        if ($url === '') {
-            return '';
-        }
-
-        return str_replace('localhost:8000', 'localhost:8080', $url);
+        return MediaUrlHelper::fixLocalDevPort($url);
     }
 }

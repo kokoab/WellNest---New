@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Discover masonry card — ratings chip on the image; prep time plain in the footer.
 class WellnestRecipeCard extends StatelessWidget {

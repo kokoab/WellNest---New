@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Support\Assistant;
+use App\Support\UserPayload;
+use App\Support\MediaUrlHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,11 +52,7 @@ class UserController extends Controller
 
     private function fixMediaUrl(string $url): string
     {
-        if ($url === '') {
-            return '';
-        }
-
-        return str_replace('localhost:8000', 'localhost:8080', $url);
+        return MediaUrlHelper::fixLocalDevPort($url);
     }
 
     /**
@@ -91,6 +89,62 @@ class UserController extends Controller
         $viewer = request()->user('sanctum');
 
         return response()->json($this->publicProfilePayload($user, $viewer));
+    }
+
+    /**
+     * GET /api/users/{user}/followers — paginated list of users who follow this user.
+     */
+    public function followers(Request $request, User $user): JsonResponse
+    {
+        $viewer = $request->user('sanctum');
+
+        $paginator = $user->followers()
+            ->where('users.account_status', 'active')
+            ->withCount(['followers', 'following'])
+            ->orderBy('users.first_name')
+            ->orderBy('users.last_name')
+            ->paginate(20)
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $paginator->getCollection()
+                ->map(fn (User $follower) => $this->publicProfilePayload($follower, $viewer))
+                ->values()
+                ->all(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/users/{user}/following — paginated list of users this user follows.
+     */
+    public function followingList(Request $request, User $user): JsonResponse
+    {
+        $viewer = $request->user('sanctum');
+
+        $paginator = $user->following()
+            ->where('users.account_status', 'active')
+            ->withCount(['followers', 'following'])
+            ->orderBy('users.first_name')
+            ->orderBy('users.last_name')
+            ->paginate(20)
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $paginator->getCollection()
+                ->map(fn (User $followed) => $this->publicProfilePayload($followed, $viewer))
+                ->values()
+                ->all(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
     }
 
     public function follow(Request $request, User $user): JsonResponse
@@ -173,16 +227,11 @@ class UserController extends Controller
             ]);
         }
 
-        return response()->json([
-            'id' => $user->id,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'email' => $user->email,
-            'account_status' => $user->account_status ?? 'active',
-            'profile_photo_url' => $this->fixMediaUrl($user->profile_photo_url ?? ''),
-            'followers_count' => (int) ($user->followers_count ?? 0),
-            'following_count' => (int) ($user->following_count ?? 0),
-        ]);
+        $payload = UserPayload::make($user);
+        $payload['followers_count'] = (int) ($user->followers_count ?? 0);
+        $payload['following_count'] = (int) ($user->following_count ?? 0);
+
+        return response()->json($payload);
     }
 
     private function publicProfilePayload(User $user, ?User $viewer = null): array

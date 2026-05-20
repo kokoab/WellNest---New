@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/screens/splash_screen.dart';
-import 'package:my_app/widgets/georgia_pro_display_squish.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/screens/splash_screen.dart';
+import 'package:wellnest/widgets/georgia_pro_display_squish.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

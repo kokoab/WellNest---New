@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_app/utils/meal_plan_week_utils.dart';
+import 'package:wellnest/utils/meal_plan_week_utils.dart';
 
 void main() {
   group('MealPlanWeekUtils', () {

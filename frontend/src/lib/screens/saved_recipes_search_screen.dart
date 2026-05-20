@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/services/content_update_notifier.dart';
-import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/services/search_history_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/animated_press_scale.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/services/content_update_notifier.dart';
+import 'package:wellnest/services/saved_recipe_service.dart';
+import 'package:wellnest/services/search_history_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/animated_press_scale.dart';
 
 /// Full-screen search for the current user's saved recipes only.
 class SavedRecipesSearchScreen extends StatefulWidget {
@@ -573,7 +573,7 @@ class _SavedRecipeHitTile extends StatelessWidget {
                       recipe.title,
                       style: georgiaProTextStyle(
                         fontSize: 16,
-                        color: wellGreen,
+                        color: wellnestHeadingGreen(context),
                       ).copyWith(letterSpacing: 0),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -584,7 +584,7 @@ class _SavedRecipeHitTile extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'HelveticaNow',
                         fontSize: 12,
-                        color: Colors.grey.shade700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -599,7 +599,7 @@ class _SavedRecipeHitTile extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'HelveticaNow',
                             fontSize: 12,
-                            color: Colors.grey.shade700,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -608,7 +608,7 @@ class _SavedRecipeHitTile extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.favorite, color: nestOrange, size: 24),
+            Icon(Icons.bookmark_rounded, color: nestOrange, size: 24),
           ],
         ),
       ),

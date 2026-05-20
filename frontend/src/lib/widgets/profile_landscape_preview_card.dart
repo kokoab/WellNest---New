@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Full-width landscape row aligned with [WellnestRecipeCard] / cooking-step rows:
 /// white surface, grey outline, text left, thumbnail right.

@@ -3,6 +3,9 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
+// Intentional two-step migration (MySQL only): case-sensitive names first, then reverted
+// by 2026_05_10_130000_make_category_names_case_insensitive for production collation needs.
+
 return new class extends Migration
 {
     /**

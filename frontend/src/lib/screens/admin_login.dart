@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/services/admin_auth_service.dart';
-import 'package:my_app/services/auth_service.dart';
+import 'package:wellnest/services/admin_auth_service.dart';
+import 'package:wellnest/services/auth_service.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});

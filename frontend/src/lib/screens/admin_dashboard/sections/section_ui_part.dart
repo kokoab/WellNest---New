@@ -1,4 +1,4 @@
-part of 'package:my_app/screens/admin_dashboard.dart';
+part of 'package:wellnest/screens/admin_dashboard.dart';
 
 class _StatCard extends StatelessWidget {
   final ThemeData theme;
@@ -385,15 +385,36 @@ class _CustomDateRangeButton extends StatelessWidget {
 
   Future<void> _pickRange(BuildContext context) async {
     final now = DateTime.now();
+    final lastDate = DateTime(now.year + 1);
     final initialRange =
         value ??
         DateTimeRange(start: now.subtract(const Duration(days: 29)), end: now);
-    final picked = await showDateRangePicker(
+
+    final picked = await showDialog<DateTimeRange>(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(now.year + 1),
-      initialDateRange: initialRange,
-      helpText: 'Select date range',
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: DateRangePickerDialog(
+                firstDate: DateTime(2020),
+                lastDate: lastDate,
+                currentDate: now,
+                initialDateRange: initialRange,
+              ),
+            ),
+          ),
+        );
+      },
     );
     if (picked != null) {
       onChanged(picked);

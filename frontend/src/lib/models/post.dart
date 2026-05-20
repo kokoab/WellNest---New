@@ -1,3 +1,4 @@
+import '../utils/json_helpers.dart';
 import '../utils/media_url.dart';
 
 /// One image attached to a post (gallery); ordered by [sortOrder].
@@ -14,7 +15,7 @@ class PostGalleryImage {
 
   factory PostGalleryImage.fromJson(Map<String, dynamic> json) {
     return PostGalleryImage(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       url: json['url'] as String? ?? '',
     );
@@ -70,9 +71,9 @@ class Post {
     }
 
     return Post(
-      id: json['id'] as int,
-      userId: json['user_id'] as int?,
-      recipeId: json['recipe_id'] as int?,
+      id: (json['id'] as num).toInt(),
+      userId: jsonDecodeIntNullable(json['user_id']),
+      recipeId: jsonDecodeIntNullable(json['recipe_id']),
       title: json['title'] as String?,
       userName: userName,
       userProfilePhotoUrl: photo,
@@ -80,8 +81,8 @@ class Post {
       imageUrl: json['image_url'] as String? ?? '',
       galleryImages: gallery,
       createdAt: json['created_at'] as String?,
-      likesCount: json['likes_count'] as int? ?? 0,
-      commentsCount: json['comments_count'] as int? ?? 0,
+      likesCount: jsonDecodeInt(json['likes_count']),
+      commentsCount: jsonDecodeInt(json['comments_count']),
       isLiked: json['is_liked'] as bool? ?? false,
     );
   }

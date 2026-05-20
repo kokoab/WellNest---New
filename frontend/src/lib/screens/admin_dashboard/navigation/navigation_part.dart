@@ -1,4 +1,4 @@
-part of 'package:my_app/screens/admin_dashboard.dart';
+part of 'package:wellnest/screens/admin_dashboard.dart';
 
 class _Sidebar extends StatelessWidget {
   final bool collapsed;
@@ -237,12 +237,16 @@ class _Sidebar extends StatelessWidget {
                   Icon(Icons.logout_rounded, size: 16, color: kAccentOrange),
                   if (!collapsed) ...[
                     const SizedBox(width: 10),
-                    Text(
-                      'Logout',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: kAccentOrange,
+                    Flexible(
+                      child: Text(
+                        'Logout',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: kAccentOrange,
+                        ),
                       ),
                     ),
                   ],
@@ -319,14 +323,18 @@ class _NavItem extends StatelessWidget {
               ),
               if (!collapsed) ...[
                 const SizedBox(width: 10),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: isActive
-                        ? kPrimaryGreen
-                        : theme.colorScheme.onSurfaceVariant,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      color: isActive
+                          ? kPrimaryGreen
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -376,6 +384,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.overview,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
           _BottomNavItem(
             icon: Icons.insights_outlined,
@@ -383,6 +392,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.analytics,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
           _BottomNavItem(
             icon: Icons.people_outline_rounded,
@@ -390,6 +400,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.users,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
           _BottomNavItem(
             icon: Icons.restaurant_menu_outlined,
@@ -397,6 +408,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.recipes,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
           _BottomNavItem(
             icon: Icons.shield_outlined,
@@ -404,6 +416,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.moderation,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
           _BottomNavItem(
             icon: Icons.history_rounded,
@@ -411,6 +424,7 @@ class _BottomNav extends StatelessWidget {
             section: _Section.auditLogs,
             currentSection: currentSection,
             onTap: onSectionChanged,
+            theme: theme,
           ),
         ],
         ),
@@ -425,17 +439,21 @@ class _BottomNavItem extends StatelessWidget {
   final _Section section;
   final _Section currentSection;
   final ValueChanged<_Section> onTap;
+  final ThemeData theme;
   const _BottomNavItem({
     required this.icon,
     required this.label,
     required this.section,
     required this.currentSection,
     required this.onTap,
+    required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
     final isActive = section == currentSection;
+    final inactiveColor = theme.colorScheme.onSurfaceVariant
+        .withValues(alpha: 0.55);
     return InkWell(
       onTap: () => onTap(section),
       borderRadius: BorderRadius.circular(8),
@@ -447,7 +465,7 @@ class _BottomNavItem extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: isActive ? kPrimaryGreen : Colors.grey.shade400,
+              color: isActive ? kPrimaryGreen : inactiveColor,
             ),
             const SizedBox(height: 3),
             Text(
@@ -455,7 +473,7 @@ class _BottomNavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? kPrimaryGreen : Colors.grey.shade400,
+                color: isActive ? kPrimaryGreen : inactiveColor,
               ),
             ),
           ],

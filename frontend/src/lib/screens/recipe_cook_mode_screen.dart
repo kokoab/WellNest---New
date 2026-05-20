@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/models/recipe_rating.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/rating_service.dart';
-import 'package:my_app/utils/media_url.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/models/recipe_rating.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/rating_service.dart';
+import 'package:wellnest/utils/media_url.dart';
 
 /// Full-screen step-by-step cooking flow; prompts for a review when finished.
 class RecipeCookModeScreen extends StatefulWidget {
@@ -215,7 +215,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                 borderRadius: BorderRadius.circular(22),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: AppGradients.discoverHeroFadeTo(Colors.white),
+                    gradient: AppGradients.discoverHeroFor(context),
                   ),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
@@ -273,7 +273,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                               fontFamily: kFontHelveticaNow,
                             ),
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.92),
+                            fillColor: cs.surfaceContainerHigh,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 14,
@@ -404,16 +404,20 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
     );
   }
 
-  Widget _prepTimeChip(int minutes) {
+  Widget _prepTimeChip(BuildContext context, int minutes) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _wellGreen.withValues(alpha: 0.42)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.28 : 0.06,
+            ),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -426,11 +430,11 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
           const SizedBox(width: 6),
           Text(
             '$minutes min',
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: kFontHelveticaNow,
               fontWeight: FontWeight.w600,
               fontSize: 13,
-              color: _wellGreen,
+              color: wellnestHeadingGreen(context),
             ),
           ),
         ],
@@ -438,7 +442,11 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
     );
   }
 
-  Widget _buildIngredientChecklist(ThemeData theme, ColorScheme cs) {
+  Widget _buildIngredientChecklist(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme cs,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
@@ -447,7 +455,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
           Text(
             'Gather your ingredients',
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: _wellGreen,
+              color: wellnestHeadingGreen(context),
               fontWeight: FontWeight.w700,
               fontFamily: kFontHelveticaNow,
             ),
@@ -504,12 +512,14 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cs.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBDBDBD)),
+                border: Border.all(color: wellnestOutlineColor(context)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(
+                      alpha: theme.brightness == Brightness.dark ? 0.35 : 0.04,
+                    ),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -528,6 +538,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                       style: theme.textTheme.bodyLarge?.copyWith(
                         height: 1.45,
                         fontFamily: kFontHelveticaNow,
+                        color: cs.onSurface,
                       ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -541,7 +552,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
     );
   }
 
-  Widget _buildStepsPageView(ThemeData theme) {
+  Widget _buildStepsPageView(ThemeData theme, ColorScheme cs) {
     return PageView.builder(
       controller: _pageController,
       itemCount: _pages.length,
@@ -556,7 +567,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
               Text(
                 p.title,
                 style: theme.textTheme.headlineSmall?.copyWith(
-                  color: _wellGreen,
+                  color: wellnestHeadingGreen(context),
                   fontWeight: FontWeight.w700,
                   fontFamily: kFontHelveticaNow,
                 ),
@@ -568,6 +579,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                   style: theme.textTheme.bodyLarge?.copyWith(
                     height: 1.6,
                     fontFamily: kFontHelveticaNow,
+                    color: cs.onSurface,
                   ),
                 ),
               ],
@@ -603,9 +615,11 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        systemOverlayStyle: theme.brightness == Brightness.light
+            ? SystemUiOverlayStyle.dark
+            : SystemUiOverlayStyle.light,
         foregroundColor: cs.onSurface,
         iconTheme: IconThemeData(color: cs.onSurface),
         leading: IconButton(
@@ -625,7 +639,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
       ),
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppGradients.discoverHeroFadeTo(Colors.white),
+          gradient: AppGradients.discoverHeroFor(context),
         ),
         child: Column(
           children: [
@@ -661,7 +675,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                           page != null &&
                           page.prepMinutes != null &&
                           page.prepMinutes! > 0)
-                        _prepTimeChip(page.prepMinutes!),
+                        _prepTimeChip(context, page.prepMinutes!),
                     ],
                   ),
                 ],
@@ -669,14 +683,14 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
             ),
             Expanded(
               child: _phaseController == null
-                  ? _buildStepsPageView(theme)
+                  ? _buildStepsPageView(theme, cs)
                   : PageView(
                       controller: _phaseController,
                       physics: const NeverScrollableScrollPhysics(),
                       onPageChanged: (i) => setState(() => _phaseIndex = i),
                       children: [
-                        _buildIngredientChecklist(theme, cs),
-                        _buildStepsPageView(theme),
+                        _buildIngredientChecklist(context, theme, cs),
+                        _buildStepsPageView(theme, cs),
                       ],
                     ),
             ),
@@ -710,6 +724,8 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: _wellGreen,
                             foregroundColor: Colors.white,
+                            disabledBackgroundColor: cs.surfaceContainerHighest,
+                            disabledForegroundColor: cs.onSurfaceVariant,
                             minimumSize: const Size.fromHeight(_navButtonHeight),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),

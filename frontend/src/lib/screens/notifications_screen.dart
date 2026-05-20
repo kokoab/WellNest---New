@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:my_app/app_route_observer.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/utils/media_url.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:wellnest/app_route_observer.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/reverb_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/utils/media_url.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
 import '../models/notification.dart';
 import '../services/notification_service.dart';
+import 'conversation_chat_screen.dart';
 import 'recipe_detail_screen.dart';
 
 String _notificationActorDisplayName(AppNotification n) {
@@ -67,10 +72,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  late final VoidCallback _reverbRefreshHandler;
 
   @override
   void initState() {
     super.initState();
+    _reverbRefreshHandler = () {
+      if (mounted) unawaited(_load());
+    };
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -81,6 +90,15 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
     _scrollController.addListener(_onScroll);
     _load();
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      unawaited(
+        ReverbService.instance.subscribeToNotificationUpdates(
+          userId,
+          _reverbRefreshHandler,
+        ),
+      );
+    }
   }
 
   @override
@@ -103,6 +121,15 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   @override
   void dispose() {
+    final userId = AuthService.instance.userId;
+    if (userId != null) {
+      unawaited(
+        ReverbService.instance.unsubscribeFromNotificationUpdates(
+          userId,
+          _reverbRefreshHandler,
+        ),
+      );
+    }
     appRouteObserver.unsubscribe(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -218,11 +245,43 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     }
   }
 
+  int? _dataInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return null;
+  }
+
+  String _senderNameFromNotification(AppNotification n) {
+    final name = _notificationActorDisplayName(n);
+    if (name.isNotEmpty) return name;
+    return 'Chat';
+  }
+
   void _onTapNotification(AppNotification n) {
     _markAsRead(n);
-    final recipeId = n.data['recipe_id'] as int?;
-    final postId = n.data['post_id'] as int?;
-    if (recipeId != null && mounted) {
+    final recipeId = _dataInt(n.data['recipe_id']);
+    final postId = _dataInt(n.data['post_id']);
+    final conversationId = _dataInt(n.data['conversation_id']);
+    if (!mounted) return;
+
+    if (conversationId != null && n.type == 'new_message') {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ConversationChatScreen(
+            conversationId: conversationId,
+            otherUserName: _senderNameFromNotification(n),
+            otherUserProfilePhotoUrl:
+                n.data['actor_profile_photo_url'] as String?,
+            isAssistant: _notificationIsWellnestAi(n),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (recipeId != null) {
       Navigator.pop(context);
       Navigator.push(
         context,
@@ -231,7 +290,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           builder: (context) => RecipeDetailScreen(recipeId: recipeId),
         ),
       );
-    } else if (postId != null && mounted) {
+    } else if (postId != null) {
       Navigator.pop(context);
     }
   }
@@ -248,34 +307,44 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         return Icons.chat_bubble_rounded;
       case 'content_reported':
         return Icons.flag_rounded;
+      case 'new_message':
+        return Icons.chat_rounded;
       default:
         return Icons.notifications_rounded;
     }
   }
 
-  ({Color bg, Color icon, Color dot}) _colorsForType(String type) {
+  ({Color bg, Color icon, Color dot}) _colorsForType(String type, bool isDark) {
     switch (type) {
       case 'recipe_liked':
       case 'post_liked':
         return (
-          bg: const Color(0xFFFFEBF0),
+          bg: isDark ? const Color(0xFF3A2630) : const Color(0xFFFFEBF0),
           icon: const Color(0xFFE91E63),
           dot: const Color(0xFFE91E63),
         );
       case 'recipe_rated':
         return (
-          bg: const Color(0xFFFFF8E1),
+          bg: isDark ? const Color(0xFF3A3626) : const Color(0xFFFFF8E1),
           icon: const Color(0xFFF9A825),
           dot: const Color(0xFFF9A825),
         );
       case 'recipe_comment':
       case 'comment_received':
-        return (bg: wellGreenLight, icon: wellGreen, dot: wellGreen);
+        return (
+          bg: isDark ? wellGreen.withValues(alpha: 0.22) : wellGreenLight,
+          icon: wellGreen,
+          dot: wellGreen,
+        );
       case 'content_reported':
-        return (bg: nestOrangeLight, icon: nestOrange, dot: nestOrange);
+        return (
+          bg: isDark ? nestOrange.withValues(alpha: 0.22) : nestOrangeLight,
+          icon: nestOrange,
+          dot: nestOrange,
+        );
       default:
         return (
-          bg: const Color(0xFFF0F0F0),
+          bg: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0),
           icon: const Color(0xFF757575),
           dot: const Color(0xFF757575),
         );
@@ -288,6 +357,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     final read = _notifications.where((n) => n.isRead).toList();
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -344,7 +414,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       body: _loading
           ? Center(child: CircularProgressIndicator(color: cs.primary))
           : _notifications.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(context)
           : FadeTransition(
               opacity: _fadeAnimation,
               child: RefreshIndicator(
@@ -354,14 +424,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   controller: _scrollController,
                   slivers: [
                     if (unread.isNotEmpty) ...[
-                      _buildSectionHeader('New', unread.length),
+                      _buildSectionHeader(context, 'New', unread.length),
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (ctx, i) => _NotificationCard(
                               notification: unread[i],
-                              colors: _colorsForType(unread[i].type),
+                              colors: _colorsForType(unread[i].type, isDark),
                               icon: _iconForType(unread[i].type),
                               isUnread: true,
                               onTap: () => _onTapNotification(unread[i]),
@@ -374,14 +444,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       ),
                     ],
                     if (read.isNotEmpty) ...[
-                      _buildSectionHeader('Earlier', null),
+                      _buildSectionHeader(context, 'Earlier', null),
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (ctx, i) => _NotificationCard(
                               notification: read[i],
-                              colors: _colorsForType(read[i].type),
+                              colors: _colorsForType(read[i].type, isDark),
                               icon: _iconForType(read[i].type),
                               isUnread: false,
                               onTap: () => _onTapNotification(read[i]),
@@ -413,7 +483,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  Widget _buildSectionHeader(String label, int? count) {
+  Widget _buildSectionHeader(BuildContext context, String label, int? count) {
+    final cs = Theme.of(context).colorScheme;
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
@@ -421,10 +492,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF9E9E9E),
+                color: cs.onSurfaceVariant,
                 letterSpacing: 0.8,
               ),
             ),
@@ -438,10 +509,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 ),
                 child: Text(
                   '$count',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF097333),
+                    color: cs.primary,
                   ),
                 ),
               ),
@@ -452,7 +523,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -471,12 +543,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'All caught up!',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF2D2D2D),
+              color: cs.onSurface,
               letterSpacing: -0.3,
             ),
           ),
@@ -486,7 +558,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey.shade500,
+              color: cs.onSurfaceVariant,
               height: 1.5,
             ),
           ),
@@ -532,6 +604,7 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -542,11 +615,11 @@ class _NotificationCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
-              color: isUnread ? Colors.white : const Color(0xFFFAFAFA),
+              color: isUnread ? cs.surface : cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isUnread
-                    ? const Color(0xFF097333).withValues(alpha: 0.35)
+                    ? cs.primary.withValues(alpha: 0.45)
                     : wellnestOutlineColor(context),
                 width: isUnread ? 1.5 : 1,
               ),
@@ -574,8 +647,8 @@ class _NotificationCard extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.w400,
                           color: isUnread
-                              ? const Color(0xFF1A1A1A)
-                              : const Color(0xFF555555),
+                              ? cs.onSurface
+                              : cs.onSurfaceVariant,
                           height: 1.45,
                         ),
                       ),
@@ -585,14 +658,14 @@ class _NotificationCard extends StatelessWidget {
                           Icon(
                             Icons.access_time_rounded,
                             size: 12,
-                            color: Colors.grey.shade400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.75),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             formatTime(notification.createdAt),
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.75),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

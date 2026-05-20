@@ -2,6 +2,27 @@
 
 Two ways to run the Flutter app: **on your Mac (recommended)** or **inside Docker**.
 
+### Reverb / `REVERB_APP_KEY`
+
+Docker Compose reads **`REVERB_APP_KEY` and `REVERB_APP_SECRET` from the repo root `.env`** (same directory as `docker-compose.yml`) and passes them into the `reverb`, `backend_app`, and `queue_worker` services. Your Flutter `--dart-define=REVERB_APP_KEY` **must match that value** (it may differ from `backend/src/laravel/.env` if you only run the API through Docker).
+
+If the key mismatches, the WebSocket can open but Reverb responds with `pusher:error` and the client never gets a `socket_id` — you will see **Reverb: timed out waiting for socket id** in the console.
+
+**Check what the running Reverb container is using:**
+
+```bash
+# from the WellNest repo root (where docker-compose.yml lives)
+docker compose exec reverb printenv REVERB_APP_KEY
+```
+
+Use that output in your `flutter run` `--dart-define=REVERB_APP_KEY=...`, **or** change the root `.env` `REVERB_APP_KEY` / `REVERB_APP_SECRET` pair to match your Flutter defines, then recreate PHP + Reverb so everything agrees:
+
+```bash
+docker compose up -d --force-recreate reverb backend_app queue_worker
+```
+
+The commands below use the **compose default app key** (`efcct5mu8lg3nxzgpixd`) with `REVERB_APP_SECRET=laravel_reverb_secret` in the root `.env`. If you override the root `.env` pair, update `--dart-define=REVERB_APP_KEY` to match `printenv` above.
+
 ---
 # Chrome (macOS)
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
@@ -23,6 +44,13 @@ flutter run -d emulator-5554 \
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d BE3ADADD-5382-4422-93DD-2552A3728A47 \
   --dart-define=BASE_URL=http://localhost:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+
+# phone
+cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
+flutter run -d 00008110-00111D1A0130A01E \
+  --dart-define=BASE_URL=http://192.168.1.130:8080 \
   --dart-define=REVERB_PORT=8081 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
@@ -91,7 +119,10 @@ flutter run -d chrome \
    ```bash
    cd frontend/src
    flutter devices   # phone should appear
-   flutter run -d <device-id> --dart-define=BASE_URL=http://<YOUR_MAC_IP>:8080
+   flutter run -d <device-id> \
+     --dart-define=BASE_URL=http://<YOUR_MAC_IP>:8080 \
+     --dart-define=REVERB_PORT=8081 \
+     --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
    ```
 
    Use your Mac’s IP (e.g. `192.168.1.x`) so the phone can reach the backend. Find it: **System Settings → Wi‑Fi → your network → Details**.
@@ -117,7 +148,9 @@ cd /app
 flutter pub get
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d chrome --web-hostname 0.0.0.0 --web-port 3000 \
-  --dart-define=BASE_URL=http://localhost:8080
+  --dart-define=BASE_URL=http://localhost:8080 \
+  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 ```
 
 Then on your Mac open **http://localhost:3000** (port 3000 must be published; add `ports: - "3000:3000"` to `flutter_dev` in `docker-compose.yml` if needed).

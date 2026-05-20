@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Support;
 
 use App\Models\Category;
 use App\Models\Conversation;
@@ -22,264 +22,146 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Each API route from routes/api.php is exercised twice (redundant by design).
- * PHPUnit counts each data set as its own test.
+ * Shared helpers for smoke-testing each API route once per test case.
  */
-class ApiEveryRouteDoubleTest extends TestCase
+abstract class ApiRouteDoubleTestCase extends TestCase
 {
     use RefreshDatabase;
 
-    public static function routeTwiceProvider(): \Generator
+    abstract protected static function routeKeys(): array;
+
+    public static function routeKeysProvider(): \Generator
     {
-        foreach (self::routeKeys() as $key) {
-            yield $key.'__a' => [$key, 0];
-            yield $key.'__b' => [$key, 1];
+        foreach (static::routeKeys() as $key) {
+            yield $key => [$key];
         }
     }
 
-    /** @dataProvider routeTwiceProvider */
-    public function test_each_api_route_executed_twice(string $routeKey, int $round): void
+    /** @dataProvider routeKeysProvider */
+    public function test_each_api_route(string $routeKey): void
     {
-        $this->invokeRouteKey($routeKey, $round);
+        $this->invokeRouteKey($routeKey);
     }
 
-    /**
-     * @return list<string>
-     */
-    private static function routeKeys(): array
-    {
-        return [
-            'POST_register',
-            'POST_login',
-            'POST_forgot_password',
-            'POST_reset_password',
-            'POST_login_admin',
-            'GET_posts',
-            'GET_posts_show',
-            'GET_posts_comments',
-            'GET_users_show',
-            'GET_categories',
-            'GET_categories_show',
-            'GET_recipes',
-            'GET_recipes_rankings',
-            'GET_recipes_show',
-            'GET_recipes_ratings',
-            'GET_user',
-            'PATCH_user',
-            'POST_user_profile_photo',
-            'POST_logout',
-            'POST_logout_admin',
-            'POST_categories_for_recipe',
-            'POST_recipes',
-            'PUT_recipes',
-            'DELETE_recipes',
-            'POST_recipes_images',
-            'DELETE_recipes_images',
-            'PUT_recipes_images_reorder',
-            'POST_recipes_steps_images',
-            'DELETE_recipes_steps_images',
-            'POST_recipes_like',
-            'DELETE_recipes_like',
-            'POST_recipes_report',
-            'POST_recipes_ratings',
-            'GET_recipes_ratings_me',
-            'POST_posts',
-            'PUT_posts',
-            'DELETE_posts',
-            'POST_posts_images',
-            'DELETE_posts_images',
-            'PUT_posts_images_reorder',
-            'GET_posts_likes',
-            'POST_posts_like',
-            'DELETE_posts_like',
-            'POST_posts_report',
-            'POST_posts_comments',
-            'GET_notifications',
-            'GET_notifications_unread_count',
-            'PATCH_notifications_read',
-            'POST_notifications_read_all',
-            'GET_users_search',
-            'POST_users_follow',
-            'DELETE_users_follow',
-            'POST_users_report',
-            'POST_recipes_save',
-            'DELETE_recipes_save',
-            'GET_saved_recipes',
-            'GET_recipes_saved',
-            'GET_meal_plans_export',
-            'GET_meal_plans',
-            'POST_meal_plans',
-            'POST_meal_plans_day_skip',
-            'POST_meal_plans_meal_skip',
-            'DELETE_meal_plans',
-            'GET_conversations_assistant',
-            'GET_conversations',
-            'GET_conversations_show',
-            'POST_conversations',
-            'PUT_conversations',
-            'DELETE_conversations',
-            'GET_conversations_messages',
-            'POST_conversations_messages',
-            'PATCH_conversations_messages_read',
-            'GET_messages',
-            'GET_messages_show',
-            'POST_messages',
-            'PUT_messages',
-            'DELETE_messages',
-            'PATCH_messages_read',
-            'POST_messages_attachments',
-            'POST_meal_planner_log',
-            'GET_message_attachments',
-            'GET_message_attachments_show',
-            'POST_message_attachments',
-            'PUT_message_attachments',
-            'DELETE_message_attachments',
-            'POST_broadcasting_auth',
-            'PATCH_me_deactivate',
-            'POST_register_admin',
-            'GET_admin_users',
-            'PATCH_admin_users_status',
-            'DELETE_admin_users',
-            'POST_admin_categories',
-            'PUT_admin_categories',
-            'DELETE_admin_categories',
-            'GET_admin_reports',
-            'PATCH_admin_reports_approve',
-            'PATCH_admin_reports_remove_content',
-            'PATCH_admin_reports_suspend_user',
-            'PATCH_admin_reports_unban_user',
-            'PATCH_admin_reports_dismiss',
-            'DELETE_admin_reports',
-            'GET_admin_audit_logs',
-            'GET_admin_audit_logs_export',
-            'GET_admin_activity_logs',
-            'GET_admin_activity_logs_export',
-            'GET_admin_recipes_rankings',
-            'GET_admin_stats_overview',
-            'GET_admin_stats_user_growth',
-            'GET_admin_stats_post_frequency',
-            'GET_admin_stats_chatbot_interactions',
-        ];
-    }
-
-    private function invokeRouteKey(string $key, int $round): void
+    protected function invokeRouteKey(string $key): void
     {
         match ($key) {
-            'POST_register' => $this->dupPostRegister($round),
-            'POST_login' => $this->dupPostLogin($round),
-            'POST_forgot_password' => $this->dupPostForgotPassword($round),
-            'POST_reset_password' => $this->dupPostResetPassword($round),
-            'POST_login_admin' => $this->dupPostLoginAdmin($round),
-            'GET_posts' => $this->dupGetPosts($round),
-            'GET_posts_show' => $this->dupGetPostsShow($round),
-            'GET_posts_comments' => $this->dupGetPostsComments($round),
-            'GET_users_show' => $this->dupGetUsersShow($round),
-            'GET_categories' => $this->dupGetCategories($round),
-            'GET_categories_show' => $this->dupGetCategoriesShow($round),
-            'GET_recipes' => $this->dupGetRecipes($round),
-            'GET_recipes_rankings' => $this->dupGetRecipesRankings($round),
-            'GET_recipes_show' => $this->dupGetRecipesShow($round),
-            'GET_recipes_ratings' => $this->dupGetRecipesRatings($round),
-            'GET_user' => $this->dupGetUser($round),
-            'PATCH_user' => $this->dupPatchUser($round),
-            'POST_user_profile_photo' => $this->dupPostProfilePhoto($round),
-            'POST_logout' => $this->dupPostLogout($round),
-            'POST_logout_admin' => $this->dupPostLogoutAdmin($round),
-            'POST_categories_for_recipe' => $this->dupPostCategoriesForRecipe($round),
-            'POST_recipes' => $this->dupPostRecipes($round),
-            'PUT_recipes' => $this->dupPutRecipes($round),
-            'DELETE_recipes' => $this->dupDeleteRecipes($round),
-            'POST_recipes_images' => $this->dupPostRecipeImages($round),
-            'DELETE_recipes_images' => $this->dupDeleteRecipeImages($round),
-            'PUT_recipes_images_reorder' => $this->dupPutRecipeImagesReorder($round),
-            'POST_recipes_steps_images' => $this->dupPostRecipeStepImages($round),
-            'DELETE_recipes_steps_images' => $this->dupDeleteRecipeStepImages($round),
-            'POST_recipes_like' => $this->dupPostRecipeLike($round),
-            'DELETE_recipes_like' => $this->dupDeleteRecipeLike($round),
-            'POST_recipes_report' => $this->dupPostRecipeReport($round),
-            'POST_recipes_ratings' => $this->dupPostRecipeRatings($round),
-            'GET_recipes_ratings_me' => $this->dupGetRecipeRatingsMe($round),
-            'POST_posts' => $this->dupPostPosts($round),
-            'PUT_posts' => $this->dupPutPosts($round),
-            'DELETE_posts' => $this->dupDeletePosts($round),
-            'POST_posts_images' => $this->dupPostPostImages($round),
-            'DELETE_posts_images' => $this->dupDeletePostImages($round),
-            'PUT_posts_images_reorder' => $this->dupPutPostImagesReorder($round),
-            'GET_posts_likes' => $this->dupGetPostLikes($round),
-            'POST_posts_like' => $this->dupPostPostLike($round),
-            'DELETE_posts_like' => $this->dupDeletePostLike($round),
-            'POST_posts_report' => $this->dupPostPostReport($round),
-            'POST_posts_comments' => $this->dupPostPostComments($round),
-            'GET_notifications' => $this->dupGetNotifications($round),
-            'GET_notifications_unread_count' => $this->dupGetNotificationsUnread($round),
-            'PATCH_notifications_read' => $this->dupPatchNotificationRead($round),
-            'POST_notifications_read_all' => $this->dupPostNotificationsReadAll($round),
-            'GET_users_search' => $this->dupGetUsersSearch($round),
-            'POST_users_follow' => $this->dupPostUsersFollow($round),
-            'DELETE_users_follow' => $this->dupDeleteUsersFollow($round),
-            'POST_users_report' => $this->dupPostUsersReport($round),
-            'POST_recipes_save' => $this->dupPostRecipesSave($round),
-            'DELETE_recipes_save' => $this->dupDeleteRecipesSave($round),
-            'GET_saved_recipes' => $this->dupGetSavedRecipes($round),
-            'GET_recipes_saved' => $this->dupGetRecipesSaved($round),
-            'GET_meal_plans_export' => $this->dupGetMealPlansExport($round),
-            'GET_meal_plans' => $this->dupGetMealPlans($round),
-            'POST_meal_plans' => $this->dupPostMealPlans($round),
-            'POST_meal_plans_day_skip' => $this->dupPostMealPlansDaySkip($round),
-            'POST_meal_plans_meal_skip' => $this->dupPostMealPlansMealSkip($round),
-            'DELETE_meal_plans' => $this->dupDeleteMealPlans($round),
-            'GET_conversations_assistant' => $this->dupGetConversationsAssistant($round),
-            'GET_conversations' => $this->dupGetConversations($round),
-            'GET_conversations_show' => $this->dupGetConversationsShow($round),
-            'POST_conversations' => $this->dupPostConversations($round),
-            'PUT_conversations' => $this->dupPutConversations($round),
-            'DELETE_conversations' => $this->dupDeleteConversations($round),
-            'GET_conversations_messages' => $this->dupGetConversationsMessages($round),
-            'POST_conversations_messages' => $this->dupPostConversationsMessages($round),
-            'PATCH_conversations_messages_read' => $this->dupPatchConversationsMessagesRead($round),
-            'GET_messages' => $this->dupGetMessages($round),
-            'GET_messages_show' => $this->dupGetMessagesShow($round),
-            'POST_messages' => $this->dupPostMessages($round),
-            'PUT_messages' => $this->dupPutMessages($round),
-            'DELETE_messages' => $this->dupDeleteMessages($round),
-            'PATCH_messages_read' => $this->dupPatchMessagesRead($round),
-            'POST_messages_attachments' => $this->dupPostMessagesAttachments($round),
-            'POST_meal_planner_log' => $this->dupPostMealPlannerLog($round),
-            'GET_message_attachments' => $this->dupGetMessageAttachments($round),
-            'GET_message_attachments_show' => $this->dupGetMessageAttachmentsShow($round),
-            'POST_message_attachments' => $this->dupPostMessageAttachments($round),
-            'PUT_message_attachments' => $this->dupPutMessageAttachments($round),
-            'DELETE_message_attachments' => $this->dupDeleteMessageAttachments($round),
-            'POST_broadcasting_auth' => $this->dupPostBroadcastingAuth($round),
-            'PATCH_me_deactivate' => $this->dupPatchMeDeactivate($round),
-            'POST_register_admin' => $this->dupPostRegisterAdmin($round),
-            'GET_admin_users' => $this->dupGetAdminUsers($round),
-            'PATCH_admin_users_status' => $this->dupPatchAdminUsersStatus($round),
-            'DELETE_admin_users' => $this->dupDeleteAdminUsers($round),
-            'POST_admin_categories' => $this->dupPostAdminCategories($round),
-            'PUT_admin_categories' => $this->dupPutAdminCategories($round),
-            'DELETE_admin_categories' => $this->dupDeleteAdminCategories($round),
-            'GET_admin_reports' => $this->dupGetAdminReports($round),
-            'PATCH_admin_reports_approve' => $this->dupPatchAdminReportsApprove($round),
-            'PATCH_admin_reports_remove_content' => $this->dupPatchAdminReportsRemove($round),
-            'PATCH_admin_reports_suspend_user' => $this->dupPatchAdminReportsSuspend($round),
-            'PATCH_admin_reports_unban_user' => $this->dupPatchAdminReportsUnban($round),
-            'PATCH_admin_reports_dismiss' => $this->dupPatchAdminReportsDismiss($round),
-            'DELETE_admin_reports' => $this->dupDeleteAdminReports($round),
-            'GET_admin_audit_logs' => $this->dupGetAdminAuditLogs($round),
-            'GET_admin_audit_logs_export' => $this->dupGetAdminAuditLogsExport($round),
-            'GET_admin_activity_logs' => $this->dupGetAdminActivityLogs($round),
-            'GET_admin_activity_logs_export' => $this->dupGetAdminActivityLogsExport($round),
-            'GET_admin_recipes_rankings' => $this->dupGetAdminRecipesRankings($round),
-            'GET_admin_stats_overview' => $this->dupGetAdminStatsOverview($round),
-            'GET_admin_stats_user_growth' => $this->dupGetAdminStatsUserGrowth($round),
-            'GET_admin_stats_post_frequency' => $this->dupGetAdminStatsPostFrequency($round),
-            'GET_admin_stats_chatbot_interactions' => $this->dupGetAdminStatsChatbot($round),
+            'POST_register' => $this->dupPostRegister(),
+            'POST_login' => $this->dupPostLogin(),
+            'POST_forgot_password' => $this->dupPostForgotPassword(),
+            'POST_reset_password' => $this->dupPostResetPassword(),
+            'POST_login_admin' => $this->dupPostLoginAdmin(),
+            'GET_posts' => $this->dupGetPosts(),
+            'GET_posts_show' => $this->dupGetPostsShow(),
+            'GET_posts_comments' => $this->dupGetPostsComments(),
+            'GET_users_show' => $this->dupGetUsersShow(),
+            'GET_users_followers' => $this->dupGetUsersFollowers(),
+            'GET_users_following' => $this->dupGetUsersFollowing(),
+            'GET_categories' => $this->dupGetCategories(),
+            'GET_categories_show' => $this->dupGetCategoriesShow(),
+            'GET_recipes' => $this->dupGetRecipes(),
+            'GET_recipes_rankings' => $this->dupGetRecipesRankings(),
+            'GET_recipes_show' => $this->dupGetRecipesShow(),
+            'GET_recipes_ratings' => $this->dupGetRecipesRatings(),
+            'GET_user' => $this->dupGetUser(),
+            'PATCH_user' => $this->dupPatchUser(),
+            'POST_user_profile_photo' => $this->dupPostProfilePhoto(),
+            'POST_logout' => $this->dupPostLogout(),
+            'POST_logout_admin' => $this->dupPostLogoutAdmin(),
+            'POST_categories_for_recipe' => $this->dupPostCategoriesForRecipe(),
+            'POST_recipes' => $this->dupPostRecipes(),
+            'PUT_recipes' => $this->dupPutRecipes(),
+            'DELETE_recipes' => $this->dupDeleteRecipes(),
+            'POST_recipes_images' => $this->dupPostRecipeImages(),
+            'DELETE_recipes_images' => $this->dupDeleteRecipeImages(),
+            'PUT_recipes_images_reorder' => $this->dupPutRecipeImagesReorder(),
+            'POST_recipes_steps_images' => $this->dupPostRecipeStepImages(),
+            'DELETE_recipes_steps_images' => $this->dupDeleteRecipeStepImages(),
+            'POST_recipes_like' => $this->dupPostRecipeLike(),
+            'DELETE_recipes_like' => $this->dupDeleteRecipeLike(),
+            'POST_recipes_report' => $this->dupPostRecipeReport(),
+            'POST_recipes_ratings' => $this->dupPostRecipeRatings(),
+            'GET_recipes_ratings_me' => $this->dupGetRecipeRatingsMe(),
+            'POST_posts' => $this->dupPostPosts(),
+            'PUT_posts' => $this->dupPutPosts(),
+            'DELETE_posts' => $this->dupDeletePosts(),
+            'POST_posts_images' => $this->dupPostPostImages(),
+            'DELETE_posts_images' => $this->dupDeletePostImages(),
+            'PUT_posts_images_reorder' => $this->dupPutPostImagesReorder(),
+            'GET_posts_likes' => $this->dupGetPostLikes(),
+            'POST_posts_like' => $this->dupPostPostLike(),
+            'DELETE_posts_like' => $this->dupDeletePostLike(),
+            'POST_posts_report' => $this->dupPostPostReport(),
+            'POST_posts_comments' => $this->dupPostPostComments(),
+            'GET_notifications' => $this->dupGetNotifications(),
+            'GET_notifications_unread_count' => $this->dupGetNotificationsUnread(),
+            'PATCH_notifications_read' => $this->dupPatchNotificationRead(),
+            'POST_notifications_read_all' => $this->dupPostNotificationsReadAll(),
+            'GET_users_search' => $this->dupGetUsersSearch(),
+            'POST_users_follow' => $this->dupPostUsersFollow(),
+            'DELETE_users_follow' => $this->dupDeleteUsersFollow(),
+            'POST_users_report' => $this->dupPostUsersReport(),
+            'POST_recipes_save' => $this->dupPostRecipesSave(),
+            'DELETE_recipes_save' => $this->dupDeleteRecipesSave(),
+            'GET_saved_recipes' => $this->dupGetSavedRecipes(),
+            'GET_recipes_saved' => $this->dupGetRecipesSaved(),
+            'GET_meal_plans_export' => $this->dupGetMealPlansExport(),
+            'GET_meal_plans' => $this->dupGetMealPlans(),
+            'POST_meal_plans' => $this->dupPostMealPlans(),
+            'POST_meal_plans_day_skip' => $this->dupPostMealPlansDaySkip(),
+            'POST_meal_plans_meal_skip' => $this->dupPostMealPlansMealSkip(),
+            'DELETE_meal_plans' => $this->dupDeleteMealPlans(),
+            'GET_conversations_assistant' => $this->dupGetConversationsAssistant(),
+            'GET_conversations_unread_count' => $this->dupGetConversationsUnreadCount(),
+            'GET_conversations' => $this->dupGetConversations(),
+            'GET_conversations_show' => $this->dupGetConversationsShow(),
+            'POST_conversations' => $this->dupPostConversations(),
+            'PUT_conversations' => $this->dupPutConversations(),
+            'DELETE_conversations' => $this->dupDeleteConversations(),
+            'GET_conversations_messages' => $this->dupGetConversationsMessages(),
+            'POST_conversations_messages' => $this->dupPostConversationsMessages(),
+            'PATCH_conversations_messages_read' => $this->dupPatchConversationsMessagesRead(),
+            'GET_messages' => $this->dupGetMessages(),
+            'GET_messages_show' => $this->dupGetMessagesShow(),
+            'POST_messages' => $this->dupPostMessages(),
+            'PUT_messages' => $this->dupPutMessages(),
+            'DELETE_messages' => $this->dupDeleteMessages(),
+            'PATCH_messages_read' => $this->dupPatchMessagesRead(),
+            'POST_messages_attachments' => $this->dupPostMessagesAttachments(),
+            'POST_meal_planner_log' => $this->dupPostMealPlannerLog(),
+            'GET_message_attachments' => $this->dupGetMessageAttachments(),
+            'GET_message_attachments_show' => $this->dupGetMessageAttachmentsShow(),
+            'POST_message_attachments' => $this->dupPostMessageAttachments(),
+            'PUT_message_attachments' => $this->dupPutMessageAttachments(),
+            'DELETE_message_attachments' => $this->dupDeleteMessageAttachments(),
+            'POST_broadcasting_auth' => $this->dupPostBroadcastingAuth(),
+            'PATCH_me_deactivate' => $this->dupPatchMeDeactivate(),
+            'POST_register_admin' => $this->dupPostRegisterAdmin(),
+            'GET_admin_users' => $this->dupGetAdminUsers(),
+            'PATCH_admin_users_status' => $this->dupPatchAdminUsersStatus(),
+            'DELETE_admin_users' => $this->dupDeleteAdminUsers(),
+            'POST_admin_categories' => $this->dupPostAdminCategories(),
+            'PUT_admin_categories' => $this->dupPutAdminCategories(),
+            'DELETE_admin_categories' => $this->dupDeleteAdminCategories(),
+            'GET_admin_reports' => $this->dupGetAdminReports(),
+            'PATCH_admin_reports_approve' => $this->dupPatchAdminReportsApprove(),
+            'PATCH_admin_reports_remove_content' => $this->dupPatchAdminReportsRemove(),
+            'PATCH_admin_reports_suspend_user' => $this->dupPatchAdminReportsSuspend(),
+            'PATCH_admin_reports_unban_user' => $this->dupPatchAdminReportsUnban(),
+            'PATCH_admin_reports_dismiss' => $this->dupPatchAdminReportsDismiss(),
+            'DELETE_admin_reports' => $this->dupDeleteAdminReports(),
+            'GET_admin_audit_logs' => $this->dupGetAdminAuditLogs(),
+            'GET_admin_audit_logs_export' => $this->dupGetAdminAuditLogsExport(),
+            'GET_admin_recipes_rankings' => $this->dupGetAdminRecipesRankings(),
+            'GET_admin_stats_overview' => $this->dupGetAdminStatsOverview(),
+            'GET_admin_stats_user_growth' => $this->dupGetAdminStatsUserGrowth(),
+            'GET_admin_stats_post_frequency' => $this->dupGetAdminStatsPostFrequency(),
+            'GET_admin_stats_chatbot_interactions' => $this->dupGetAdminStatsChatbot(),
             default => $this->fail('Unknown route key: '.$key),
         };
     }
 
-    private function assistantBot(): User
+    protected function assistantBot(): User
     {
         return User::query()->firstOrCreate(
             ['email' => config('assistant.bot_email', 'assistant@wellnest.local')],
@@ -295,7 +177,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         );
     }
 
-    private function actingFreshUser(): User
+    protected function actingFreshUser(): User
     {
         $u = $this->createUser();
         Sanctum::actingAs($u);
@@ -303,7 +185,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         return $u;
     }
 
-    private function actingFreshAdmin(): User
+    protected function actingFreshAdmin(): User
     {
         $a = $this->createAdmin();
         Sanctum::actingAs($a);
@@ -311,9 +193,9 @@ class ApiEveryRouteDoubleTest extends TestCase
         return $a;
     }
 
-    private function dupPostRegister(int $round): void
+    protected function dupPostRegister(): void
     {
-        $email = 'reg'.$round.uniqid('', true).'@example.com';
+        $email = 'reg'.uniqid('', true).'@example.com';
         $this->postJson('api/register', [
             'first_name' => 'T',
             'last_name' => 'U',
@@ -323,26 +205,27 @@ class ApiEveryRouteDoubleTest extends TestCase
         ])->assertCreated();
     }
 
-    private function dupPostLogin(int $round): void
+    protected function dupPostLogin(): void
     {
-        $u = $this->createUser(['email' => "login{$round}@example.com", 'password' => Hash::make('password123')]);
+        $u = $this->createUser(['email' => 'login'.uniqid('', true).'@example.com', 'password' => Hash::make('password123')]);
         $this->postJson('api/login', [
             'email' => $u->email,
             'password' => 'password123',
         ])->assertOk();
     }
 
-    private function dupPostForgotPassword(int $round): void
+    protected function dupPostForgotPassword(): void
     {
-        $this->createUser(['email' => "fp{$round}@example.com"]);
-        $this->postJson('api/forgot-password', ['email' => "fp{$round}@example.com"])->assertOk();
+        $email = 'fp'.uniqid('', true).'@example.com';
+        $this->createUser(['email' => $email]);
+        $this->postJson('api/forgot-password', ['email' => $email])->assertOk();
     }
 
-    private function dupPostResetPassword(int $round): void
+    protected function dupPostResetPassword(): void
     {
-        $email = "rs{$round}@example.com";
+        $email = 'rs'.uniqid('', true).'@example.com';
         $this->createUser(['email' => $email, 'password' => Hash::make('oldpass123')]);
-        $code = (string) (600000 + $round);
+        $code = (string) (600000 + random_int(0, 99999));
         \Illuminate\Support\Facades\Cache::put(
             'password-reset-code:'.strtolower($email),
             Hash::make($code),
@@ -356,21 +239,21 @@ class ApiEveryRouteDoubleTest extends TestCase
         ])->assertOk();
     }
 
-    private function dupPostLoginAdmin(int $round): void
+    protected function dupPostLoginAdmin(): void
     {
-        $a = $this->createAdmin(['email' => "adm{$round}@example.com", 'password' => Hash::make('adminpass1')]);
+        $a = $this->createAdmin(['email' => 'adm'.uniqid('', true).'@example.com', 'password' => Hash::make('adminpass1')]);
         $this->postJson('api/login-admin', [
             'email' => $a->email,
             'password' => 'adminpass1',
         ])->assertOk();
     }
 
-    private function dupGetPosts(int $round): void
+    protected function dupGetPosts(): void
     {
         $u = $this->createUser();
         Post::create([
             'user_id' => $u->id,
-            'content' => 'c'.$round,
+            'content' => 'c'.uniqid('', true),
             'title' => null,
             'recipe_id' => null,
             'image_url' => null,
@@ -378,12 +261,12 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson('api/posts?per_page=5')->assertOk();
     }
 
-    private function dupGetPostsShow(int $round): void
+    protected function dupGetPostsShow(): void
     {
         $u = $this->createUser();
         $p = Post::create([
             'user_id' => $u->id,
-            'content' => 's'.$round,
+            'content' => 's'.uniqid('', true),
             'title' => null,
             'recipe_id' => null,
             'image_url' => null,
@@ -391,12 +274,12 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/posts/{$p->id}")->assertOk();
     }
 
-    private function dupGetPostsComments(int $round): void
+    protected function dupGetPostsComments(): void
     {
         $u = $this->createUser();
         $p = Post::create([
             'user_id' => $u->id,
-            'content' => 'p'.$round,
+            'content' => 'p'.uniqid('', true),
             'title' => null,
             'recipe_id' => null,
             'image_url' => null,
@@ -404,158 +287,174 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/posts/{$p->id}/comments")->assertOk();
     }
 
-    private function dupGetUsersShow(int $round): void
+    protected function dupGetUsersShow(): void
     {
-        $u = $this->createUser(['first_name' => 'Pub'.$round]);
+        $u = $this->createUser(['first_name' => 'Pub'.uniqid('', true)]);
         $this->getJson("api/users/{$u->id}")->assertOk();
     }
 
-    private function dupGetCategories(int $round): void
+    protected function dupGetUsersFollowers(): void
     {
-        Category::factory()->create(['name' => 'CatDup'.$round]);
+        $u = $this->createUser(['first_name' => 'PubF'.uniqid('', true)]);
+        $follower = $this->createUser(['email' => 'flw'.uniqid('', true).'@example.com']);
+        $follower->following()->attach($u->id);
+        $this->getJson("api/users/{$u->id}/followers")->assertOk();
+    }
+
+    protected function dupGetUsersFollowing(): void
+    {
+        $u = $this->createUser(['first_name' => 'PubG'.uniqid('', true)]);
+        $followed = $this->createUser(['email' => 'fd'.uniqid('', true).'@example.com']);
+        $u->following()->attach($followed->id);
+        $this->getJson("api/users/{$u->id}/following")->assertOk();
+    }
+
+    protected function dupGetCategories(): void
+    {
+        Category::factory()->create(['name' => 'CatDup'.uniqid('', true)]);
         $this->getJson('api/categories')->assertOk();
     }
 
-    private function dupGetCategoriesShow(int $round): void
+    protected function dupGetCategoriesShow(): void
     {
-        $c = Category::factory()->create(['name' => 'ShowCat'.$round]);
+        $c = Category::factory()->create(['name' => 'ShowCat'.uniqid('', true)]);
         $this->getJson("api/categories/{$c->id}")->assertOk();
     }
 
-    private function dupGetRecipes(int $round): void
+    protected function dupGetRecipes(): void
     {
-        $this->createRecipe(['title' => 'R'.$round]);
+        $this->createRecipe(['title' => 'R'.uniqid('', true)]);
         $this->getJson('api/recipes?per_page=3')->assertOk();
     }
 
-    private function dupGetRecipesRankings(int $round): void
+    protected function dupGetRecipesRankings(): void
     {
         $this->getJson('api/recipes/rankings?window=all&mode=combined')->assertOk();
     }
 
-    private function dupGetRecipesShow(int $round): void
+    protected function dupGetRecipesShow(): void
     {
-        $r = $this->createRecipe(['title' => 'Show'.$round]);
+        $r = $this->createRecipe(['title' => 'Show'.uniqid('', true)]);
         $this->getJson("api/recipes/{$r->id}")->assertOk();
     }
 
-    private function dupGetRecipesRatings(int $round): void
+    protected function dupGetRecipesRatings(): void
     {
         $r = $this->createRecipe();
         $u = $this->createUser();
-        $r->ratings()->create(['user_id' => $u->id, 'rating' => 4, 'comment' => 'x'.$round]);
+        $r->ratings()->create(['user_id' => $u->id, 'rating' => 4, 'comment' => 'x'.uniqid('', true)]);
         $this->getJson("api/recipes/{$r->id}/ratings")->assertOk();
     }
 
-    private function dupGetUser(int $round): void
+    protected function dupGetUser(): void
     {
         $u = $this->actingFreshUser();
         $this->getJson('api/user')->assertOk()->assertJsonPath('id', $u->id);
     }
 
-    private function dupPatchUser(int $round): void
+    protected function dupPatchUser(): void
     {
         $u = $this->actingFreshUser();
         $this->patchJson('api/user', [
-            'first_name' => 'N'.$round,
-            'last_name' => 'L'.$round,
+            'first_name' => 'N'.uniqid('', true),
+            'last_name' => 'L'.uniqid('', true),
         ])->assertOk();
     }
 
-    private function dupPostProfilePhoto(int $round): void
+    protected function dupPostProfilePhoto(): void
     {
         Storage::fake('public');
         $this->actingFreshUser();
         $this->postJson('api/user/profile-photo', [
-            'image' => UploadedFile::fake()->create('p'.$round.'.jpg', 50, 'image/jpeg'),
+            'image' => UploadedFile::fake()->create('p'.uniqid('', true).'.jpg', 50, 'image/jpeg'),
         ])->assertCreated();
     }
 
-    private function dupPostLogout(int $round): void
+    protected function dupPostLogout(): void
     {
         $u = $this->createUser();
-        $u->createToken('t'.$round);
+        $u->createToken('t'.uniqid('', true));
         Sanctum::actingAs($u);
         $this->postJson('api/logout')->assertOk();
     }
 
-    private function dupPostLogoutAdmin(int $round): void
+    protected function dupPostLogoutAdmin(): void
     {
         $a = $this->createAdmin();
-        $a->createToken('adm'.$round);
+        $a->createToken('adm'.uniqid('', true));
         Sanctum::actingAs($a);
         $this->postJson('api/logout-admin')->assertOk();
     }
 
-    private function dupPostCategoriesForRecipe(int $round): void
+    protected function dupPostCategoriesForRecipe(): void
     {
         $this->actingFreshUser();
         $this->postJson('api/categories/for-recipe', [
-            'name' => 'ForRecipe'.$round.uniqid(),
+            'name' => 'ForRecipe'.uniqid('', true).uniqid(),
         ])->assertSuccessful();
     }
 
-    private function dupPostRecipes(int $round): void
+    protected function dupPostRecipes(): void
     {
         $u = $this->actingFreshUser();
         $cat = Category::factory()->create();
         $this->postJson('api/recipes', [
             'category_id' => $cat->id,
-            'title' => 'NewR'.$round.uniqid(),
+            'title' => 'NewR'.uniqid('', true).uniqid(),
             'description' => 'd',
             'instructions' => 'do it',
             'prep_time' => 10,
         ])->assertCreated();
     }
 
-    private function dupPutRecipes(int $round): void
+    protected function dupPutRecipes(): void
     {
         $u = $this->actingFreshUser();
-        $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id, 'title' => 'T'.$round]);
+        $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id, 'title' => 'T'.uniqid('', true)]);
         $this->putJson("api/recipes/{$r->id}", [
-            'title' => 'U'.$round,
+            'title' => 'U'.uniqid('', true),
             'instructions' => 'still good',
             'prep_time' => 12,
         ])->assertOk();
     }
 
-    private function dupDeleteRecipes(int $round): void
+    protected function dupDeleteRecipes(): void
     {
         $u = $this->actingFreshUser();
         $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id]);
         $this->deleteJson("api/recipes/{$r->id}")->assertOk();
     }
 
-    private function dupPostRecipeImages(int $round): void
+    protected function dupPostRecipeImages(): void
     {
         Storage::fake('public');
         $u = $this->actingFreshUser();
         $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id]);
         $this->post("api/recipes/{$r->id}/images", [
-            'image' => UploadedFile::fake()->create('ri'.$round.'.jpg', 50, 'image/jpeg'),
+            'image' => UploadedFile::fake()->create('ri'.uniqid('', true).'.jpg', 50, 'image/jpeg'),
         ])->assertCreated();
     }
 
-    private function dupDeleteRecipeImages(int $round): void
+    protected function dupDeleteRecipeImages(): void
     {
         $u = $this->actingFreshUser();
         $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id]);
-        $img = $r->images()->create(['path' => 'recipes/d'.$round.'.jpg', 'sort_order' => 0]);
+        $img = $r->images()->create(['path' => 'recipes/d'.uniqid('', true).'.jpg', 'sort_order' => 0]);
         $this->deleteJson("api/recipes/{$r->id}/images/{$img->id}")->assertOk();
     }
 
-    private function dupPutRecipeImagesReorder(int $round): void
+    protected function dupPutRecipeImagesReorder(): void
     {
         $u = $this->actingFreshUser();
         $r = Recipe::factory()->withoutIngredients()->create(['user_id' => $u->id]);
-        $a = $r->images()->create(['path' => 'r/a'.$round.'.jpg', 'sort_order' => 0]);
-        $b = $r->images()->create(['path' => 'r/b'.$round.'.jpg', 'sort_order' => 1]);
+        $a = $r->images()->create(['path' => 'r/a'.uniqid('', true).'.jpg', 'sort_order' => 0]);
+        $b = $r->images()->create(['path' => 'r/b'.uniqid('', true).'.jpg', 'sort_order' => 1]);
         $this->putJson("api/recipes/{$r->id}/images/reorder", [
             'image_ids' => [$b->id, $a->id],
         ])->assertOk();
     }
 
-    private function dupPostRecipeStepImages(int $round): void
+    protected function dupPostRecipeStepImages(): void
     {
         Storage::fake('public');
         $u = $this->actingFreshUser();
@@ -568,11 +467,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'prep_time_minutes' => 1,
         ]);
         $this->post("api/recipes/{$r->id}/steps/{$step->id}/images", [
-            'image' => UploadedFile::fake()->create('st'.$round.'.jpg', 50, 'image/jpeg'),
+            'image' => UploadedFile::fake()->create('st'.uniqid('', true).'.jpg', 50, 'image/jpeg'),
         ])->assertCreated();
     }
 
-    private function dupDeleteRecipeStepImages(int $round): void
+    protected function dupDeleteRecipeStepImages(): void
     {
         Storage::fake('public');
         $u = $this->actingFreshUser();
@@ -584,11 +483,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'instructions' => 'i',
             'prep_time_minutes' => 1,
         ]);
-        $img = $step->images()->create(['path' => 'steps/x'.$round.'.jpg', 'sort_order' => 0]);
+        $img = $step->images()->create(['path' => 'steps/x'.uniqid('', true).'.jpg', 'sort_order' => 0]);
         $this->deleteJson("api/recipes/{$r->id}/steps/{$step->id}/images/{$img->id}")->assertOk();
     }
 
-    private function dupPostRecipeLike(int $round): void
+    protected function dupPostRecipeLike(): void
     {
         $u = $this->actingFreshUser();
         $owner = $this->createUser();
@@ -596,7 +495,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->postJson("api/recipes/{$r->id}/like")->assertCreated();
     }
 
-    private function dupDeleteRecipeLike(int $round): void
+    protected function dupDeleteRecipeLike(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
@@ -604,27 +503,27 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/recipes/{$r->id}/like")->assertOk();
     }
 
-    private function dupPostRecipeReport(int $round): void
+    protected function dupPostRecipeReport(): void
     {
         $this->createAdmin();
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
         $this->postJson("api/recipes/{$r->id}/report", [
-            'reason' => 'r'.$round,
+            'reason' => 'r'.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupPostRecipeRatings(int $round): void
+    protected function dupPostRecipeRatings(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
         $this->postJson("api/recipes/{$r->id}/ratings", [
             'rating' => 4,
-            'comment' => 'c'.$round,
+            'comment' => 'c'.uniqid('', true),
         ])->assertSuccessful();
     }
 
-    private function dupGetRecipeRatingsMe(int $round): void
+    protected function dupGetRecipeRatingsMe(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
@@ -632,15 +531,15 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/recipes/{$r->id}/ratings/me")->assertOk();
     }
 
-    private function dupPostPosts(int $round): void
+    protected function dupPostPosts(): void
     {
         $this->actingFreshUser();
         $this->postJson('api/posts', [
-            'content' => 'Post body '.$round,
+            'content' => 'Post body '.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupPutPosts(int $round): void
+    protected function dupPutPosts(): void
     {
         $u = $this->actingFreshUser();
         $p = Post::create([
@@ -651,11 +550,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'image_url' => null,
         ]);
         $this->putJson("api/posts/{$p->id}", [
-            'content' => 'updated '.$round,
+            'content' => 'updated '.uniqid('', true),
         ])->assertOk();
     }
 
-    private function dupDeletePosts(int $round): void
+    protected function dupDeletePosts(): void
     {
         $u = $this->actingFreshUser();
         $p = Post::create([
@@ -668,7 +567,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/posts/{$p->id}")->assertOk();
     }
 
-    private function dupPostPostImages(int $round): void
+    protected function dupPostPostImages(): void
     {
         Storage::fake('public');
         $u = $this->actingFreshUser();
@@ -680,11 +579,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'image_url' => null,
         ]);
         $this->postJson("api/posts/{$p->id}/images", [
-            'image' => UploadedFile::fake()->create('pi'.$round.'.jpg', 50, 'image/jpeg'),
+            'image' => UploadedFile::fake()->create('pi'.uniqid('', true).'.jpg', 50, 'image/jpeg'),
         ])->assertCreated();
     }
 
-    private function dupDeletePostImages(int $round): void
+    protected function dupDeletePostImages(): void
     {
         $u = $this->actingFreshUser();
         $p = Post::create([
@@ -694,11 +593,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'recipe_id' => null,
             'image_url' => null,
         ]);
-        $img = $p->images()->create(['path' => 'posts/dp'.$round.'.jpg', 'sort_order' => 0]);
+        $img = $p->images()->create(['path' => 'posts/dp'.uniqid('', true).'.jpg', 'sort_order' => 0]);
         $this->deleteJson("api/posts/{$p->id}/images/{$img->id}")->assertOk();
     }
 
-    private function dupPutPostImagesReorder(int $round): void
+    protected function dupPutPostImagesReorder(): void
     {
         $u = $this->actingFreshUser();
         $p = Post::create([
@@ -708,14 +607,14 @@ class ApiEveryRouteDoubleTest extends TestCase
             'recipe_id' => null,
             'image_url' => null,
         ]);
-        $a = $p->images()->create(['path' => 'p/a'.$round.'.jpg', 'sort_order' => 0]);
-        $b = $p->images()->create(['path' => 'p/b'.$round.'.jpg', 'sort_order' => 1]);
+        $a = $p->images()->create(['path' => 'p/a'.uniqid('', true).'.jpg', 'sort_order' => 0]);
+        $b = $p->images()->create(['path' => 'p/b'.uniqid('', true).'.jpg', 'sort_order' => 1]);
         $this->putJson("api/posts/{$p->id}/images/reorder", [
             'image_ids' => [$b->id, $a->id],
         ])->assertOk();
     }
 
-    private function dupGetPostLikes(int $round): void
+    protected function dupGetPostLikes(): void
     {
         $u = $this->actingFreshUser();
         $p = Post::create([
@@ -728,7 +627,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/posts/{$p->id}/likes")->assertOk();
     }
 
-    private function dupPostPostLike(int $round): void
+    protected function dupPostPostLike(): void
     {
         $author = $this->createUser();
         $fan = $this->actingFreshUser();
@@ -742,7 +641,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->postJson("api/posts/{$p->id}/like")->assertCreated();
     }
 
-    private function dupDeletePostLike(int $round): void
+    protected function dupDeletePostLike(): void
     {
         $author = $this->createUser();
         $fan = $this->actingFreshUser();
@@ -757,7 +656,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/posts/{$p->id}/like")->assertOk();
     }
 
-    private function dupPostPostReport(int $round): void
+    protected function dupPostPostReport(): void
     {
         $this->createAdmin();
         $u = $this->actingFreshUser();
@@ -769,10 +668,10 @@ class ApiEveryRouteDoubleTest extends TestCase
             'recipe_id' => null,
             'image_url' => null,
         ]);
-        $this->postJson("api/posts/{$p->id}/report", ['reason' => 'x'.$round])->assertCreated();
+        $this->postJson("api/posts/{$p->id}/report", ['reason' => 'x'.uniqid('', true)])->assertCreated();
     }
 
-    private function dupPostPostComments(int $round): void
+    protected function dupPostPostComments(): void
     {
         $u = $this->actingFreshUser();
         $author = $this->createUser();
@@ -784,23 +683,23 @@ class ApiEveryRouteDoubleTest extends TestCase
             'image_url' => null,
         ]);
         $this->postJson("api/posts/{$p->id}/comments", [
-            'comment' => 'hi '.$round,
+            'comment' => 'hi '.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupGetNotifications(int $round): void
+    protected function dupGetNotifications(): void
     {
         $this->actingFreshUser();
         $this->getJson('api/notifications')->assertOk();
     }
 
-    private function dupGetNotificationsUnread(int $round): void
+    protected function dupGetNotificationsUnread(): void
     {
         $this->actingFreshUser();
         $this->getJson('api/notifications/unread-count')->assertOk();
     }
 
-    private function dupPatchNotificationRead(int $round): void
+    protected function dupPatchNotificationRead(): void
     {
         $u = $this->actingFreshUser();
         $id = (string) Str::uuid();
@@ -809,7 +708,7 @@ class ApiEveryRouteDoubleTest extends TestCase
             'type' => 'App\\Notifications\\NewMessageNotification',
             'notifiable_type' => User::class,
             'notifiable_id' => $u->id,
-            'data' => json_encode(['type' => 'new_message', 'message' => 'm'.$round]),
+            'data' => json_encode(['type' => 'new_message', 'message' => 'm'.uniqid('', true)]),
             'read_at' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -817,52 +716,52 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->patchJson("api/notifications/{$id}/read")->assertOk();
     }
 
-    private function dupPostNotificationsReadAll(int $round): void
+    protected function dupPostNotificationsReadAll(): void
     {
         $this->actingFreshUser();
         $this->postJson('api/notifications/read-all')->assertOk();
     }
 
-    private function dupGetUsersSearch(int $round): void
+    protected function dupGetUsersSearch(): void
     {
-        $this->createUser(['first_name' => 'Searchable'.$round, 'last_name' => 'X']);
+        $this->createUser(['first_name' => 'Searchable'.uniqid('', true), 'last_name' => 'X']);
         $this->actingFreshUser();
         $this->getJson('api/users/search?q=Searchable')->assertOk();
     }
 
-    private function dupPostUsersFollow(int $round): void
+    protected function dupPostUsersFollow(): void
     {
         $u = $this->actingFreshUser();
-        $other = $this->createUser(['email' => "fol{$round}@example.com"]);
+        $other = $this->createUser(['email' => 'fol'.uniqid('', true).'@example.com']);
         $this->postJson("api/users/{$other->id}/follow")->assertCreated();
     }
 
-    private function dupDeleteUsersFollow(int $round): void
+    protected function dupDeleteUsersFollow(): void
     {
         $u = $this->actingFreshUser();
-        $other = $this->createUser(['email' => "uf{$round}@example.com"]);
+        $other = $this->createUser(['email' => 'uf'.uniqid('', true).'@example.com']);
         $u->following()->attach($other->id);
         $this->deleteJson("api/users/{$other->id}/follow")->assertOk();
     }
 
-    private function dupPostUsersReport(int $round): void
+    protected function dupPostUsersReport(): void
     {
         $this->createAdmin();
         $u = $this->actingFreshUser();
-        $other = $this->createUser(['email' => "rep{$round}@example.com"]);
+        $other = $this->createUser(['email' => 'rep'.uniqid('', true).'@example.com']);
         $this->postJson("api/users/{$other->id}/report", [
-            'reason' => 'bad'.$round,
+            'reason' => 'bad'.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupPostRecipesSave(int $round): void
+    protected function dupPostRecipesSave(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
         $this->postJson("api/recipes/{$r->id}/save")->assertCreated();
     }
 
-    private function dupDeleteRecipesSave(int $round): void
+    protected function dupDeleteRecipesSave(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
@@ -870,38 +769,38 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/recipes/{$r->id}/save")->assertOk();
     }
 
-    private function dupGetSavedRecipes(int $round): void
+    protected function dupGetSavedRecipes(): void
     {
         $this->actingFreshUser();
         $this->getJson('api/saved-recipes')->assertOk();
     }
 
-    private function dupGetRecipesSaved(int $round): void
+    protected function dupGetRecipesSaved(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
         $this->getJson("api/recipes/{$r->id}/saved")->assertOk();
     }
 
-    private function dupGetMealPlansExport(int $round): void
+    protected function dupGetMealPlansExport(): void
     {
         $u = $this->actingFreshUser();
         $ws = now()->startOfWeek()->toDateString();
         $this->getJson('api/meal-plans/export?week_start='.$ws)->assertOk();
     }
 
-    private function dupGetMealPlans(int $round): void
+    protected function dupGetMealPlans(): void
     {
         $this->actingFreshUser();
         $ws = now()->startOfWeek()->toDateString();
         $this->getJson('api/meal-plans?week_start='.$ws)->assertOk();
     }
 
-    private function dupPostMealPlans(int $round): void
+    protected function dupPostMealPlans(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
-        $date = now()->addDays(30 + $round)->toDateString();
+        $date = now()->addDays(30 + random_int(0, 30))->toDateString();
         $this->postJson('api/meal-plans', [
             'recipe_id' => $r->id,
             'planned_date' => $date,
@@ -909,20 +808,20 @@ class ApiEveryRouteDoubleTest extends TestCase
         ])->assertSuccessful();
     }
 
-    private function dupPostMealPlansDaySkip(int $round): void
+    protected function dupPostMealPlansDaySkip(): void
     {
         $this->actingFreshUser();
-        $d = now()->addDays(40 + $round)->toDateString();
+        $d = now()->addDays(40 + random_int(0, 30))->toDateString();
         $this->postJson('api/meal-plans/day-skip', [
             'planned_date' => $d,
             'did_not_eat' => true,
         ])->assertOk();
     }
 
-    private function dupPostMealPlansMealSkip(int $round): void
+    protected function dupPostMealPlansMealSkip(): void
     {
         $this->actingFreshUser();
-        $d = now()->addDays(50 + $round)->toDateString();
+        $d = now()->addDays(50 + random_int(0, 30))->toDateString();
         $this->postJson('api/meal-plans/meal-skip', [
             'planned_date' => $d,
             'meal_slot' => 'breakfast',
@@ -930,33 +829,39 @@ class ApiEveryRouteDoubleTest extends TestCase
         ])->assertOk();
     }
 
-    private function dupDeleteMealPlans(int $round): void
+    protected function dupDeleteMealPlans(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
         $plan = MealPlan::create([
             'user_id' => $u->id,
             'recipe_id' => $r->id,
-            'planned_date' => now()->addDays(60 + $round)->toDateString(),
+            'planned_date' => now()->addDays(60 + random_int(0, 30))->toDateString(),
             'meal_slot' => 'lunch',
         ]);
         $this->deleteJson("api/meal-plans/{$plan->id}")->assertOk();
     }
 
-    private function dupGetConversationsAssistant(int $round): void
+    protected function dupGetConversationsAssistant(): void
     {
         $this->assistantBot();
         $this->actingFreshUser();
         $this->getJson('api/conversations/assistant')->assertOk();
     }
 
-    private function dupGetConversations(int $round): void
+    protected function dupGetConversationsUnreadCount(): void
+    {
+        $this->actingFreshUser();
+        $this->getJson('api/conversations/unread-count')->assertOk();
+    }
+
+    protected function dupGetConversations(): void
     {
         $this->actingFreshUser();
         $this->getJson('api/conversations')->assertOk();
     }
 
-    private function dupGetConversationsShow(int $round): void
+    protected function dupGetConversationsShow(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -968,14 +873,14 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/conversations/{$c->id}")->assertOk();
     }
 
-    private function dupPostConversations(int $round): void
+    protected function dupPostConversations(): void
     {
         $u = $this->actingFreshUser();
-        $o = $this->createUser(['email' => "conv{$round}@example.com"]);
+        $o = $this->createUser(['email' => 'conv'.uniqid('', true).'@example.com']);
         $this->postJson('api/conversations', ['user_id' => $o->id])->assertCreated();
     }
 
-    private function dupPutConversations(int $round): void
+    protected function dupPutConversations(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -987,7 +892,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->putJson("api/conversations/{$c->id}", [])->assertOk();
     }
 
-    private function dupDeleteConversations(int $round): void
+    protected function dupDeleteConversations(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -999,7 +904,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/conversations/{$c->id}")->assertNoContent();
     }
 
-    private function dupGetConversationsMessages(int $round): void
+    protected function dupGetConversationsMessages(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1011,7 +916,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/conversations/{$c->id}/messages")->assertOk();
     }
 
-    private function dupPostConversationsMessages(int $round): void
+    protected function dupPostConversationsMessages(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1021,11 +926,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'last_message_at' => now(),
         ]);
         $this->postJson("api/conversations/{$c->id}/messages", [
-            'content' => 'm'.$round,
+            'content' => 'm'.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupPatchConversationsMessagesRead(int $round): void
+    protected function dupPatchConversationsMessagesRead(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1037,13 +942,13 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->patchJson("api/conversations/{$c->id}/messages/read")->assertOk();
     }
 
-    private function dupGetMessages(int $round): void
+    protected function dupGetMessages(): void
     {
-        $this->dupPostConversationsMessages($round);
+        $this->dupPostConversationsMessages();
         $this->getJson('api/messages')->assertOk();
     }
 
-    private function dupGetMessagesShow(int $round): void
+    protected function dupGetMessagesShow(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1055,12 +960,12 @@ class ApiEveryRouteDoubleTest extends TestCase
         $m = Message::create([
             'conversation_id' => $c->id,
             'user_id' => $u->id,
-            'content' => 'show'.$round,
+            'content' => 'show'.uniqid('', true),
         ]);
         $this->getJson("api/messages/{$m->id}")->assertOk();
     }
 
-    private function dupPostMessages(int $round): void
+    protected function dupPostMessages(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1071,11 +976,11 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
         $this->postJson('api/messages', [
             'conversation_id' => $c->id,
-            'content' => 'legacy '.$round,
+            'content' => 'legacy '.uniqid('', true),
         ])->assertCreated();
     }
 
-    private function dupPutMessages(int $round): void
+    protected function dupPutMessages(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1089,10 +994,10 @@ class ApiEveryRouteDoubleTest extends TestCase
             'user_id' => $u->id,
             'content' => 'old',
         ]);
-        $this->putJson("api/messages/{$m->id}", ['content' => 'new '.$round])->assertOk();
+        $this->putJson("api/messages/{$m->id}", ['content' => 'new '.uniqid('', true)])->assertOk();
     }
 
-    private function dupDeleteMessages(int $round): void
+    protected function dupDeleteMessages(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1109,7 +1014,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/messages/{$m->id}")->assertNoContent();
     }
 
-    private function dupPatchMessagesRead(int $round): void
+    protected function dupPatchMessagesRead(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1126,7 +1031,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->patchJson("api/messages/{$m->id}/read")->assertOk();
     }
 
-    private function dupPostMessagesAttachments(int $round): void
+    protected function dupPostMessagesAttachments(): void
     {
         Storage::fake('public');
         $u = $this->actingFreshUser();
@@ -1142,11 +1047,11 @@ class ApiEveryRouteDoubleTest extends TestCase
             'content' => 'att',
         ]);
         $this->post("api/messages/{$m->id}/attachments", [
-            'file' => UploadedFile::fake()->create('f'.$round.'.jpg', 50, 'image/jpeg'),
+            'file' => UploadedFile::fake()->create('f'.uniqid('', true).'.jpg', 50, 'image/jpeg'),
         ])->assertCreated();
     }
 
-    private function dupPostMealPlannerLog(int $round): void
+    protected function dupPostMealPlannerLog(): void
     {
         $u = $this->actingFreshUser();
         $r = $this->createRecipe();
@@ -1160,13 +1065,13 @@ class ApiEveryRouteDoubleTest extends TestCase
         ])->assertSuccessful();
     }
 
-    private function dupGetMessageAttachments(int $round): void
+    protected function dupGetMessageAttachments(): void
     {
         $this->actingFreshUser();
         $this->getJson('api/message-attachments')->assertOk();
     }
 
-    private function dupGetMessageAttachmentsShow(int $round): void
+    protected function dupGetMessageAttachmentsShow(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1182,7 +1087,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
         $att = MessageAttachment::create([
             'message_id' => $m->id,
-            'file_path' => 'p/'.$round,
+            'file_path' => 'p/'.uniqid('', true),
             'file_name' => 'n',
             'file_type' => 't',
             'file_size' => 1,
@@ -1190,7 +1095,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->getJson("api/message-attachments/{$att->id}")->assertOk();
     }
 
-    private function dupPostMessageAttachments(int $round): void
+    protected function dupPostMessageAttachments(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1206,14 +1111,14 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
         $this->postJson('api/message-attachments', [
             'message_id' => $m->id,
-            'file_path' => 'manual/'.$round,
+            'file_path' => 'manual/'.uniqid('', true),
             'file_name' => 'n',
             'file_type' => 't',
             'file_size' => 2,
         ])->assertCreated();
     }
 
-    private function dupPutMessageAttachments(int $round): void
+    protected function dupPutMessageAttachments(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1229,17 +1134,17 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
         $att = MessageAttachment::create([
             'message_id' => $m->id,
-            'file_path' => 'p/u'.$round,
+            'file_path' => 'p/u'.uniqid('', true),
             'file_name' => 'old',
             'file_type' => 't',
             'file_size' => 1,
         ]);
         $this->putJson("api/message-attachments/{$att->id}", [
-            'file_name' => 'new'.$round,
+            'file_name' => 'new'.uniqid('', true),
         ])->assertOk();
     }
 
-    private function dupDeleteMessageAttachments(int $round): void
+    protected function dupDeleteMessageAttachments(): void
     {
         $u = $this->actingFreshUser();
         $o = $this->createUser();
@@ -1255,7 +1160,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
         $att = MessageAttachment::create([
             'message_id' => $m->id,
-            'file_path' => 'p/d'.$round,
+            'file_path' => 'p/d'.uniqid('', true),
             'file_name' => 'n',
             'file_type' => 't',
             'file_size' => 1,
@@ -1263,184 +1168,172 @@ class ApiEveryRouteDoubleTest extends TestCase
         $this->deleteJson("api/message-attachments/{$att->id}")->assertNoContent();
     }
 
-    private function dupPostBroadcastingAuth(int $round): void
+    protected function dupPostBroadcastingAuth(): void
     {
         $u = $this->actingFreshUser();
         $this->postJson('/api/broadcasting/auth', [
-            'socket_id' => '1.'.$round,
+            'socket_id' => '1.'.random_int(100000, 999999),
             'channel_name' => 'private-notifications.'.$u->id,
         ])->assertOk();
     }
 
-    private function dupPatchMeDeactivate(int $round): void
+    protected function dupPatchMeDeactivate(): void
     {
         $u = $this->createUser();
         Sanctum::actingAs($u);
-        $this->patchJson('api/me/deactivate', ['reason' => 't'.$round])->assertOk();
+        $this->patchJson('api/me/deactivate', ['reason' => 't'.uniqid('', true)])->assertOk();
     }
 
-    private function dupPostRegisterAdmin(int $round): void
+    protected function dupPostRegisterAdmin(): void
     {
         $this->actingFreshAdmin();
         $this->postJson('api/register-admin', [
             'first_name' => 'Ad',
-            'last_name' => 'Min'.$round,
-            'email' => 'newadm'.$round.substr(bin2hex(random_bytes(8)), 0, 12).'@gmail.com',
+            'last_name' => 'Min'.uniqid('', true),
+            'email' => 'newadm'.uniqid('', true).substr(bin2hex(random_bytes(8)), 0, 12).'@gmail.com',
             'password' => 'password123',
         ])->assertCreated();
     }
 
-    private function dupGetAdminUsers(int $round): void
+    protected function dupGetAdminUsers(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/users')->assertOk();
     }
 
-    private function dupPatchAdminUsersStatus(int $round): void
+    protected function dupPatchAdminUsersStatus(): void
     {
         $this->actingFreshAdmin();
-        $target = $this->createUser(['email' => "st{$round}@example.com"]);
+        $target = $this->createUser(['email' => 'st'.uniqid('', true).'@example.com']);
         $this->patchJson("api/admin/users/{$target->id}/status", [
             'account_status' => 'active',
         ])->assertOk();
     }
 
-    private function dupDeleteAdminUsers(int $round): void
+    protected function dupDeleteAdminUsers(): void
     {
         $this->actingFreshAdmin();
-        $target = $this->createUser(['email' => "delu{$round}@example.com"]);
+        $target = $this->createUser(['email' => 'delu'.uniqid('', true).'@example.com']);
         $this->deleteJson("api/admin/users/{$target->id}")->assertNoContent();
     }
 
-    private function dupPostAdminCategories(int $round): void
+    protected function dupPostAdminCategories(): void
     {
         $this->actingFreshAdmin();
         $this->postJson('api/categories', [
-            'name' => 'AdminCat'.$round.uniqid(),
+            'name' => 'AdminCat'.uniqid('', true).uniqid(),
             'description' => 'd',
         ])->assertCreated();
     }
 
-    private function dupPutAdminCategories(int $round): void
+    protected function dupPutAdminCategories(): void
     {
         $this->actingFreshAdmin();
-        $c = Category::factory()->create(['name' => 'PutCat'.$round]);
+        $c = Category::factory()->create(['name' => 'PutCat'.uniqid('', true)]);
         $this->putJson("api/categories/{$c->id}", [
-            'name' => 'PutCat'.$round.'U',
+            'name' => 'PutCat'.uniqid('', true).'U',
             'description' => 'e',
         ])->assertOk();
     }
 
-    private function dupDeleteAdminCategories(int $round): void
+    protected function dupDeleteAdminCategories(): void
     {
         $this->actingFreshAdmin();
-        $c = Category::factory()->create(['name' => 'DelCat'.$round.uniqid()]);
+        $c = Category::factory()->create(['name' => 'DelCat'.uniqid('', true).uniqid()]);
         $this->deleteJson("api/categories/{$c->id}")->assertOk();
     }
 
-    private function dupGetAdminReports(int $round): void
+    protected function dupGetAdminReports(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/reports')->assertOk();
     }
 
-    private function dupPatchAdminReportsApprove(int $round): void
+    protected function dupPatchAdminReportsApprove(): void
     {
         $this->actingFreshAdmin();
-        $rep = $this->makePendingRecipeReport($round);
+        $rep = $this->makePendingRecipeReport(random_int(0, 99999));
         $this->patchJson("api/admin/reports/{$rep->id}/approve")->assertOk();
     }
 
-    private function dupPatchAdminReportsRemove(int $round): void
+    protected function dupPatchAdminReportsRemove(): void
     {
         $this->actingFreshAdmin();
-        $rep = $this->makePendingRecipeReport($round + 100);
+        $rep = $this->makePendingRecipeReport(random_int(0, 30) + 100);
         $this->patchJson("api/admin/reports/{$rep->id}/remove-content")->assertOk();
     }
 
-    private function dupPatchAdminReportsSuspend(int $round): void
+    protected function dupPatchAdminReportsSuspend(): void
     {
         $this->actingFreshAdmin();
-        $rep = $this->makePendingUserReport($round);
+        $rep = $this->makePendingUserReport(random_int(0, 99999));
         $this->patchJson("api/admin/reports/{$rep->id}/suspend-user")->assertOk();
     }
 
-    private function dupPatchAdminReportsUnban(int $round): void
+    protected function dupPatchAdminReportsUnban(): void
     {
         $this->actingFreshAdmin();
-        $rep = $this->makePendingUserReport($round + 200);
+        $rep = $this->makePendingUserReport(random_int(0, 30) + 200);
         $this->patchJson("api/admin/reports/{$rep->id}/suspend-user")->assertOk();
         $this->patchJson("api/admin/reports/{$rep->id}/unban-user")->assertOk();
     }
 
-    private function dupPatchAdminReportsDismiss(int $round): void
+    protected function dupPatchAdminReportsDismiss(): void
     {
         $this->actingFreshAdmin();
-        $rep = $this->makePendingRecipeReport($round + 300);
+        $rep = $this->makePendingRecipeReport(random_int(0, 30) + 300);
         $this->patchJson("api/admin/reports/{$rep->id}/dismiss")->assertOk();
     }
 
-    private function dupDeleteAdminReports(int $round): void
+    protected function dupDeleteAdminReports(): void
     {
         $this->actingFreshAdmin();
         $this->deleteJson('api/admin/reports')->assertOk();
     }
 
-    private function dupGetAdminAuditLogs(int $round): void
+    protected function dupGetAdminAuditLogs(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/audit-logs')->assertOk();
     }
 
-    private function dupGetAdminAuditLogsExport(int $round): void
+    protected function dupGetAdminAuditLogsExport(): void
     {
         $this->actingFreshAdmin();
         $this->get('api/admin/audit-logs/export')->assertOk();
     }
 
-    private function dupGetAdminActivityLogs(int $round): void
-    {
-        $this->actingFreshAdmin();
-        $this->getJson('api/admin/activity-logs')->assertOk();
-    }
-
-    private function dupGetAdminActivityLogsExport(int $round): void
-    {
-        $this->actingFreshAdmin();
-        $this->get('api/admin/activity-logs/export')->assertOk();
-    }
-
-    private function dupGetAdminRecipesRankings(int $round): void
+    protected function dupGetAdminRecipesRankings(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/recipes/rankings?window=all')->assertOk();
     }
 
-    private function dupGetAdminStatsOverview(int $round): void
+    protected function dupGetAdminStatsOverview(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/stats/overview')->assertOk();
     }
 
-    private function dupGetAdminStatsUserGrowth(int $round): void
+    protected function dupGetAdminStatsUserGrowth(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/stats/user-growth?range=weekly')->assertOk();
     }
 
-    private function dupGetAdminStatsPostFrequency(int $round): void
+    protected function dupGetAdminStatsPostFrequency(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/stats/post-frequency?range=monthly')->assertOk();
     }
 
-    private function dupGetAdminStatsChatbot(int $round): void
+    protected function dupGetAdminStatsChatbot(): void
     {
         $this->actingFreshAdmin();
         $this->getJson('api/admin/stats/chatbot-interactions?range=monthly')->assertOk();
     }
 
-    private function makePendingRecipeReport(int $salt): Report
+    protected function makePendingRecipeReport(int $salt): Report
     {
         $reporter = $this->createUser(['email' => "repR{$salt}@example.com"]);
         $recipe = $this->createRecipe();
@@ -1454,7 +1347,7 @@ class ApiEveryRouteDoubleTest extends TestCase
         ]);
     }
 
-    private function makePendingUserReport(int $salt): Report
+    protected function makePendingUserReport(int $salt): Report
     {
         $reporter = $this->createUser(['email' => "repU{$salt}@example.com"]);
         $target = $this->createUser(['email' => "tgtU{$salt}@example.com"]);

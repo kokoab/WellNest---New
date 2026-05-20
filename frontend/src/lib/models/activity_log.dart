@@ -1,6 +1,6 @@
 import '../utils/json_helpers.dart';
 
-/// Activity log entry for admin (matches backend GET admin/activity-logs item).
+/// Activity log entry for admin (matches backend GET admin/audit-logs item).
 class ActivityLog {
   final int id;
   final String? createdAt;

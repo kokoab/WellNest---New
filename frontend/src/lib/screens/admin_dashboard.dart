@@ -4,26 +4,26 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
-import 'package:my_app/models/activity_log.dart';
-import 'package:my_app/models/admin_user.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/models/recipe_ranking_item.dart';
-import 'package:my_app/models/report.dart';
-import 'package:my_app/widgets/notifications_bell_button.dart';
-import 'package:my_app/services/admin_auth_service.dart';
-import 'package:my_app/services/auth_service.dart';
-import 'package:my_app/services/admin_user_service.dart';
-import 'package:my_app/services/admin_moderation_service.dart';
-import 'package:my_app/services/admin_activity_log_service.dart';
-import 'package:my_app/services/admin_dashboard_service.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/post_service.dart';
-import 'package:my_app/services/recipe_service.dart';
-import 'package:my_app/models/post.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/models/activity_log.dart';
+import 'package:wellnest/models/admin_user.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/models/recipe_ranking_item.dart';
+import 'package:wellnest/models/report.dart';
+import 'package:wellnest/widgets/notifications_bell_button.dart';
+import 'package:wellnest/services/admin_auth_service.dart';
+import 'package:wellnest/services/auth_service.dart';
+import 'package:wellnest/services/admin_user_service.dart';
+import 'package:wellnest/services/admin_moderation_service.dart';
+import 'package:wellnest/services/admin_activity_log_service.dart';
+import 'package:wellnest/services/admin_dashboard_service.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/post_service.dart';
+import 'package:wellnest/services/recipe_service.dart';
+import 'package:wellnest/models/post.dart';
+import 'package:wellnest/theme/app_theme.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:my_app/providers/theme_provider.dart';
+import 'package:wellnest/providers/theme_provider.dart';
 
 part 'admin_dashboard/sections/section_ui_part.dart';
 part 'admin_dashboard/sections/overview_section_part.dart';
@@ -113,7 +113,6 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   _Section _currentSection = _Section.overview;
   bool _sidebarCollapsed = false;
-  final ScrollController _mainScrollController = ScrollController();
 
   final _overviewKey = GlobalKey<_OverviewSectionContainerState>();
   final _analyticsKey = GlobalKey<_AnalyticsSectionContainerState>();
@@ -121,12 +120,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _recipesKey = GlobalKey<_RecipesSectionContainerState>();
   final _moderationKey = GlobalKey<_ModerationSectionContainerState>();
   final _auditLogsKey = GlobalKey<_AuditLogsSectionContainerState>();
-
-  @override
-  void dispose() {
-    _mainScrollController.dispose();
-    super.dispose();
-  }
 
   Future<void> _refreshCurrentSection() async {
     switch (_currentSection) {
@@ -230,10 +223,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   onRefresh: _refreshCurrentSection,
                   color: kPrimaryGreen,
                   child: Scrollbar(
-                    controller: _mainScrollController,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
-                      controller: _mainScrollController,
+                      primary: true,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(24),
                       child: _buildSectionStack(theme, isWide: true),
@@ -264,10 +256,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
             onRefresh: _refreshCurrentSection,
             color: kPrimaryGreen,
             child: Scrollbar(
-              controller: _mainScrollController,
               thumbVisibility: true,
               child: SingleChildScrollView(
-                controller: _mainScrollController,
+                primary: true,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 child: _buildSectionStack(theme, isWide: false),

@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:my_app/models/recipe.dart';
-import 'package:my_app/services/api_service.dart';
-import 'package:my_app/services/saved_recipe_service.dart';
-import 'package:my_app/services/user_service.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/widgets/initials_avatar.dart';
+import 'package:wellnest/models/recipe.dart';
+import 'package:wellnest/services/api_service.dart';
+import 'package:wellnest/services/saved_recipe_service.dart';
+import 'package:wellnest/services/user_service.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/widgets/initials_avatar.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -151,11 +151,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Create Post',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: cs.onSurface,
+          ),
         ),
       ),
       body: SafeArea(
@@ -178,10 +184,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     Expanded(
                       child: Text(
                         _currentUser?.displayName ?? 'Guest',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.bodyText,
+                          color: cs.onSurface,
                         ),
                       ),
                     ),
@@ -193,11 +199,28 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 maxLines: 8,
                 autofocus: true,
                 enabled: !_posting,
+                style: TextStyle(color: cs.onSurface),
+                cursorColor: cs.primary,
                 decoration: InputDecoration(
                   hintText: "What's on your mind?",
                   hintStyle: TextStyle(
-                    color: AppColors.primaryGreen.withValues(alpha: 0.55),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
                   ),
+                  filled: true,
+                  fillColor: cs.surfaceContainerHigh,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: wellnestOutlineColor(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: wellnestOutlineColor(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: cs.primary, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.all(14),
                 ),
               ),
               const SizedBox(height: 14),
@@ -251,9 +274,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
                                     height: 140,
-                                    color: const Color(0xFFEFF3EF),
+                                    color: cs.surfaceContainerHighest,
                                     alignment: Alignment.center,
-                                    child: const Icon(Icons.image_rounded),
+                                    child: Icon(
+                                      Icons.image_rounded,
+                                      color: cs.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -306,10 +332,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F1),
+                    color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.primaryGreen.withValues(alpha: 0.2),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.35),
                     ),
                   ),
                   child: Row(
@@ -324,13 +350,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           _selectedRecipe!.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       IconButton(
                         onPressed: _posting
                             ? null
                             : () => setState(() => _selectedRecipe = null),
-                        icon: const Icon(Icons.close_rounded),
+                        icon: Icon(Icons.close_rounded, color: cs.onSurface),
                       ),
                     ],
                   ),
@@ -339,13 +369,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               const SizedBox(height: 18),
               ElevatedButton(
                 onPressed: _posting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                ),
                 child: _posting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: cs.onPrimary,
                         ),
                       )
                     : const Text('Post'),

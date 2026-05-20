@@ -1,19 +1,20 @@
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 
-import 'package:my_app/app_route_observer.dart';
-import 'package:my_app/models/meal_plan.dart';
-import 'package:my_app/screens/notifications_screen.dart';
-import 'package:my_app/screens/recipe_detail_screen.dart';
-import 'package:my_app/services/meal_plan_service.dart';
-import 'package:my_app/theme/app_spacing.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/utils/meal_plan_week_utils.dart';
-import 'package:my_app/utils/recipe_image_url.dart';
-import 'package:my_app/widgets/meal_plan_pdf_export.dart';
-import 'package:my_app/widgets/meal_plan_recipe_picker_sheet.dart';
+import 'package:wellnest/app_route_observer.dart';
+import 'package:wellnest/models/meal_plan.dart';
+import 'package:wellnest/screens/notifications_screen.dart';
+import 'package:wellnest/screens/recipe_detail_screen.dart';
+import 'package:wellnest/services/meal_plan_service.dart';
+import 'package:wellnest/theme/app_spacing.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/utils/meal_plan_week_utils.dart';
+import 'package:wellnest/utils/recipe_image_url.dart';
+import 'package:wellnest/widgets/meal_plan_pdf_export.dart';
+import 'package:wellnest/widgets/meal_plan_recipe_picker_sheet.dart';
 
 /// Full-screen weekly planner: one week strip, day pager, breakfast/lunch/dinner slots.
+/// Supports per-meal skip (`meal-skip`) and whole-day skip (`day-skip`) via the meal plan API.
 class MealPlannerScreen extends StatefulWidget {
   const MealPlannerScreen({super.key});
 
@@ -36,6 +37,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
 
   List<MealPlan> _plans = [];
   Set<String> _skippedMealKeys = {};
+  Set<String> _skippedDayDates = {};
   bool _loading = false;
   bool _exporting = false;
   late DateTime _weekStart;
@@ -95,6 +97,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
       setState(() {
         _plans = week.plans;
         _skippedMealKeys = week.skippedMealKeys;
+        _skippedDayDates = week.skippedDayDates;
         _loading = false;
       });
     } catch (e) {
@@ -117,7 +120,11 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
     return null;
   }
 
+  bool _daySkipped(DateTime day) =>
+      _skippedDayDates.contains(MealPlanWeekUtils.toIsoDate(day));
+
   bool _mealSkipped(DateTime day, String slotKey) {
+    if (_daySkipped(day)) return true;
     final key = MealPlanService.mealSkipKey(
       MealPlanWeekUtils.toIsoDate(day),
       slotKey,
@@ -153,11 +160,44 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
   }
 
   int _completedSlotCount(DateTime day) {
+    if (_daySkipped(day)) return _slots.length;
     var n = 0;
     for (final s in _slots) {
       if (_planFor(day, s.key) != null || _mealSkipped(day, s.key)) n++;
     }
     return n;
+  }
+
+  Future<void> _setDaySkipped(DateTime day, bool skipped) async {
+    final d = MealPlanWeekUtils.normalize(day);
+    final iso = MealPlanWeekUtils.toIsoDate(d);
+    setState(() {
+      if (skipped) {
+        _skippedDayDates = {..._skippedDayDates, iso};
+      } else {
+        _skippedDayDates = {..._skippedDayDates}..remove(iso);
+      }
+    });
+    try {
+      await MealPlanService.instance.setDaySkip(
+        plannedDate: d,
+        didNotEat: skipped,
+      );
+      if (!mounted) return;
+      await _loadPlans(silent: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (skipped) {
+          _skippedDayDates = {..._skippedDayDates}..remove(iso);
+        } else {
+          _skippedDayDates = {..._skippedDayDates, iso};
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   Future<void> _setMealSkipped(
@@ -475,6 +515,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
   }
 
   IconData _dayMarkerIcon(DateTime day) {
+    if (_daySkipped(day)) return Icons.no_meals_outlined;
     final wd = day.weekday;
     if (wd == DateTime.saturday || wd == DateTime.sunday) {
       return Icons.weekend_outlined;
@@ -890,6 +931,22 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> with RouteAware {
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: const Text("Didn't eat this day"),
+                              subtitle: Text(
+                                _daySkipped(day)
+                                    ? 'Whole day marked as skipped'
+                                    : 'Mark if you did not eat anything today',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              value: _daySkipped(day),
+                              onChanged: (v) => _setDaySkipped(day, v),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             ..._slots.map((slot) {

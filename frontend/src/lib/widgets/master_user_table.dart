@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:my_app/models/admin_user.dart';
-import 'package:my_app/theme/app_theme.dart';
-import 'package:my_app/theme/app_spacing.dart';
+import 'package:wellnest/models/admin_user.dart';
+import 'package:wellnest/theme/app_theme.dart';
+import 'package:wellnest/theme/app_spacing.dart';
 
 /// Master User Table for Admin Dashboard.
 /// Displays: User Name, Email, Total Posts, Last Login.

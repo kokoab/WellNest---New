@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 class _Bone extends StatelessWidget {
   final double? width;

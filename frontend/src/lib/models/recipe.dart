@@ -1,3 +1,4 @@
+import '../utils/json_helpers.dart';
 import '../utils/media_url.dart';
 
 /// One recipe photo from the API (ordered gallery).
@@ -147,7 +148,7 @@ class Recipe {
     if (json['category'] != null) {
       final c = json['category'] as Map<String, dynamic>;
       cat = CategoryInfo(
-        id: c['id'] as int? ?? 0,
+        id: jsonDecodeInt(c['id']),
         name: c['name'] as String? ?? '',
       );
     }
@@ -155,7 +156,7 @@ class Recipe {
     if (json['user'] != null) {
       final uj = json['user'] as Map<String, dynamic>;
       u = UserInfo(
-        id: uj['id'] as int? ?? 0,
+        id: jsonDecodeInt(uj['id']),
         firstName: uj['first_name'] as String? ?? '',
         lastName: uj['last_name'] as String? ?? '',
       );
@@ -168,7 +169,7 @@ class Recipe {
         final pivot = m['pivot'] as Map<String, dynamic>? ?? {};
         return RecipeIngredientInfo(
           name: m['name'] as String? ?? '',
-          quantity: (pivot['quantity'] as num?)?.toDouble() ?? 0,
+          quantity: (pivot['quantity'] as num?)?.toInt() ?? 0,
           unit: pivot['unit'] as String? ?? '',
         );
       }).toList();
@@ -190,9 +191,9 @@ class Recipe {
     }
 
     return Recipe(
-      id: json['id'] as int,
-      userId: json['user_id'] as int?,
-      categoryId: json['category_id'] as int,
+      id: (json['id'] as num).toInt(),
+      userId: (json['user_id'] as num?)?.toInt(),
+      categoryId: (json['category_id'] as num).toInt(),
       title: json['title'] as String? ?? '',
       description: json['description'] as String?,
       instructions: json['instructions'] as String? ?? '',
@@ -207,7 +208,7 @@ class Recipe {
       galleryImages: gallery,
       steps: steps,
       averageRating: (json['average_rating'] as num?)?.toDouble(),
-      ratingsCount: json['ratings_count'] as int?,
+      ratingsCount: (json['ratings_count'] as num?)?.toInt(),
       viewsCount: (json['views_count'] as num?)?.toInt(),
       isLiked: json['is_liked'] as bool? ?? false,
     );
@@ -275,7 +276,7 @@ class UserInfo {
 
 class RecipeIngredientInfo {
   final String name;
-  final double quantity;
+  final int quantity;
   final String unit;
   RecipeIngredientInfo({
     required this.name,
@@ -286,11 +287,10 @@ class RecipeIngredientInfo {
   /// Single line for UI and editing. Free-text lines are stored with quantity 1 and unit `unit`.
   String get displayLine {
     final u = unit.trim().toLowerCase();
-    if ((u.isEmpty || u == 'unit') && quantity == 1.0) {
+    if ((u.isEmpty || u == 'unit') && quantity == 1) {
       return name;
     }
-    final qtyStr =
-        quantity.toInt() == quantity ? quantity.toInt().toString() : quantity.toString();
+    final qtyStr = quantity.toString();
     final unitPart = unit.trim();
     final amount = unitPart.isEmpty ? qtyStr : '$qtyStr $unitPart';
     return '$amount $name'.trim();

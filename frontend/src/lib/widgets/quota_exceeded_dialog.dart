@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_app/theme/app_theme.dart';
+import 'package:wellnest/theme/app_theme.dart';
 
 /// Friendly modal shown when the user hits the daily assistant message limit.
 class QuotaExceededDialog extends StatelessWidget {

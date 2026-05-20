@@ -1,31 +1,35 @@
 # WellNest System Overview
 
 ## Overview
-WellNest is a modern application consisting of a Flutter-based frontend and a containerized Laravel (PHP) backend. The system is designed with a clear separation of concerns, utilizing a REST API and WebSockets for communication between the client and server.
+
+WellNest is a Flutter client and a Dockerized Laravel 12 API for recipes, social feed, meal planning, messaging, and an Ollama-powered assistant.
 
 ## Frontend
-- **Framework:** Flutter (Dart)
+
+- **Framework:** Flutter (Dart), package name `wellnest`
 - **Location:** `frontend/src/`
-- **Architecture:** 
-  - **Screens:** UI components like `admin_dashboard.dart` and `admin_login_screen.dart`.
-  - **Widgets:** Reusable UI elements such as `master_user_table.dart`.
-  - **Services:** Handles external API communication (`api_service.dart`, `recipe_service.dart`).
-  - **Models:** Data structures mapping JSON responses to Dart objects (`admin_user.dart`).
+- **Screens / services / models** under `lib/`
 
 ## Backend
-- **Framework:** Laravel (PHP)
+
+- **Framework:** Laravel 12 (PHP 8.4)
 - **Location:** `backend/src/laravel/`
-- **Infrastructure:** Docker & Docker Compose (`docker-compose.yml`)
 
-### Docker Services
-The backend is composed of several specialized microservices to ensure scalability and performance:
-1. **backend_nginx:** The Nginx web server acting as the main entry point (port 8080), handling incoming HTTP requests and serving the Laravel application.
-2. **backend_app:** A PHP-FPM container running the core Laravel application logic.
-3. **database:** A MySQL 8.0 instance handling persistent data storage with a dedicated volume (`db_data`).
-4. **reverb:** Laravel Reverb WebSocket server (port 8081) enabling real-time, bi-directional communication for events and broadcasting.
-5. **queue_worker:** A background worker running Laravel's queue system to process asynchronous jobs, broadcasts, and notifications.
+### Docker services
 
-## Network & Data Flow
-1. The **Flutter Frontend** makes HTTP REST API requests to the Nginx server (`backend_nginx`), which forwards them to the PHP-FPM service (`backend_app`).
-2. The **Laravel Application** queries the **MySQL Database** for necessary data and returns the response.
-3. For real-time functionality, the frontend subscribes to the **Reverb WebSocket** server. When the Laravel application dispatches an event, the **Queue Worker** processes it and broadcasts it through Reverb to connected clients.
+| Service | Port | Role |
+| ------- | ---- | ---- |
+| `backend_nginx` | 8080 | REST API entry |
+| `backend_app` | — | PHP-FPM |
+| `database` | 3306 | MySQL |
+| `reverb` | 8081 (host) | WebSockets (Laravel Reverb) |
+| `queue_worker` | — | Broadcast + async jobs |
+
+## Real-time flow
+
+1. Flutter connects to Reverb (`pusher_reverb_flutter`) on port **8081** with Sanctum Bearer auth via `POST /api/broadcasting/auth`.
+2. Channels: `private-notifications.{userId}` (`notification.badge.updated`), `private-conversation.{id}` (`message.new`, `assistant.stream`).
+3. Laravel stores notifications in the **database**; badge events nudge clients to refetch counts. Chat messages use `NewMessageEvent` (broadcast immediately via `ShouldBroadcastNow`).
+4. **`queue_worker` must be running** for queued assistant jobs and any `ShouldBroadcast` events.
+
+See [DOCKER.md](DOCKER.md) for setup and `backend/src/laravel/.env.example` for Reverb keys.

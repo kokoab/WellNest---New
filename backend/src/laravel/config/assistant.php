@@ -18,7 +18,7 @@ return [
 
     'ollama_url' => rtrim(env('OLLAMA_URL', 'http://127.0.0.1:11434'), '/'),
 
-    'ollama_model' => env('OLLAMA_MODEL', 'llama3.1'),
+    'ollama_model' => env('OLLAMA_MODEL', 'llama3.2:1b'),
 
     'history_days' => (int) env('ASSISTANT_HISTORY_DAYS', 7),
 

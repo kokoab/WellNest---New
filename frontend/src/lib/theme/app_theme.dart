@@ -412,6 +412,48 @@ class AppGradients {
       stops: const [0.0, 0.58, 1.0],
     );
   }
+
+  /// [recipeDetailHeroImageBottomFade] without the pale-green wash (dark mode).
+  static LinearGradient recipeDetailHeroImageBottomFadeFor(
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    final surface = theme.colorScheme.surface;
+    if (theme.brightness == Brightness.light) {
+      return recipeDetailHeroImageBottomFade(surface);
+    }
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Colors.transparent,
+        Colors.black.withValues(alpha: 0.42),
+        surface.withValues(alpha: 0.72),
+        surface.withValues(alpha: 0.96),
+        surface,
+      ],
+      stops: const [0.0, 0.28, 0.52, 0.8, 1.0],
+    );
+  }
+
+  /// [recipeDetailHeroToBodyCurve] without pale-green seam (dark mode).
+  static LinearGradient recipeDetailHeroToBodyCurveFor(BuildContext context) {
+    final theme = Theme.of(context);
+    final surface = theme.colorScheme.surface;
+    if (theme.brightness == Brightness.light) {
+      return recipeDetailHeroToBodyCurve(surface);
+    }
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        surface.withValues(alpha: 0),
+        surface.withValues(alpha: 0.88),
+        surface,
+      ],
+      stops: const [0.0, 0.55, 1.0],
+    );
+  }
 }
 
 /// Standardized curves

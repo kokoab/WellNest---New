@@ -101,21 +101,49 @@ class PublicUserProfile {
   String? get displayProfilePhotoUrl =>
       resolveStorageDisplayUrl(profilePhotoUrl);
 
+  static int _parseId(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  static int _parseCount(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
-      id: json['id'] as int,
+      id: _parseId(json['id']),
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       name: json['name'] as String? ?? '',
       accountStatus: json['account_status'] as String? ?? 'active',
       profilePhotoUrl: json['profile_photo_url'] as String?,
-      followersCount: json['followers_count'] as int? ?? 0,
-      followingCount: json['following_count'] as int? ?? 0,
+      followersCount: _parseCount(json['followers_count']),
+      followingCount: _parseCount(json['following_count']),
       isFollowing: json['is_following'] as bool?,
       isAvailable: json['is_available'] as bool? ?? true,
       availabilityMessage: json['availability_message'] as String?,
     );
   }
+}
+
+/// Paginated followers or following list from GET /api/users/{id}/followers|following.
+class FollowListPageResult {
+  final List<PublicUserProfile> users;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+
+  const FollowListPageResult({
+    required this.users,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+  });
 }
 
 class UserService {
@@ -163,6 +191,71 @@ class UserService {
     }
 
     throw Exception('Failed to load profile');
+  }
+
+  /// GET /api/users/{userId}/followers — paginated followers (public; optional auth for is_following).
+  Future<FollowListPageResult> fetchFollowers(
+    int userId, {
+    int page = 1,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/users/$userId/followers').replace(
+      queryParameters: {'page': '$page'},
+    );
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw Exception(
+        _messageFromResponse(response, fallback: 'Failed to load followers'),
+      );
+    }
+    return _parseFollowListPage(response.body);
+  }
+
+  /// GET /api/users/{userId}/following — paginated following list.
+  Future<FollowListPageResult> fetchFollowingList(
+    int userId, {
+    int page = 1,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/users/$userId/following').replace(
+      queryParameters: {'page': '$page'},
+    );
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw Exception(
+        _messageFromResponse(response, fallback: 'Failed to load following'),
+      );
+    }
+    return _parseFollowListPage(response.body);
+  }
+
+  FollowListPageResult _parseFollowListPage(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response');
+    }
+    final rawList = decoded['data'];
+    final list = rawList is List<dynamic>
+        ? rawList
+        : const <dynamic>[];
+    final users = list
+        .whereType<Map<String, dynamic>>()
+        .map(PublicUserProfile.fromJson)
+        .toList();
+
+    final meta = decoded['meta'];
+    int metaInt(String key, int fallback) {
+      if (meta is! Map<String, dynamic>) return fallback;
+      final v = meta[key];
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v?.toString() ?? '') ?? fallback;
+    }
+
+    return FollowListPageResult(
+      users: users,
+      currentPage: metaInt('current_page', 1),
+      lastPage: metaInt('last_page', 1),
+      total: metaInt('total', users.length),
+    );
   }
 
   Future<PublicUserProfile> followUser(int userId) async {

@@ -1,4 +1,4 @@
-part of 'package:my_app/screens/admin_dashboard.dart';
+part of 'package:wellnest/screens/admin_dashboard.dart';
 
 class _WebModal extends StatelessWidget {
   final String title;
@@ -92,6 +92,7 @@ class _WebModal extends StatelessWidget {
                 child: Scrollbar(
                   thumbVisibility: true,
                   child: SingleChildScrollView(
+                    primary: true,
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                     child: child,
                   ),
