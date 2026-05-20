@@ -43,7 +43,7 @@ class RecipeSeeder extends Seeder
         $templates = $this->imageTemplatePaths();
         $remoteUrls = $this->foodImageUrls();
 
-        /** @var array<string, list<array{name: string, quantity: int, unit: string}>> $ingredientPools */
+        /** @var array<string, list<array{name: string}>> $ingredientPools */
         $ingredientPools = require __DIR__.'/data/recipe_ingredient_pools.php';
 
         // Generic per-step blueprint applied to every recipe so that the
@@ -240,7 +240,7 @@ class RecipeSeeder extends Seeder
     }
 
     /**
-     * @param  array<string, list<array{name: string, quantity: int, unit: string}>>  $pools
+     * @param  array<string, list<array{name: string}>>  $pools
      */
     private function syncRecipeIngredients(Recipe $recipe, string $categoryName, string $title, array $pools): void
     {
@@ -259,8 +259,8 @@ class RecipeSeeder extends Seeder
     }
 
     /**
-     * @param  list<array{name: string, quantity: int, unit: string}>  $pool
-     * @return list<array{name: string, quantity: int, unit: string}>
+     * @param  list<array{name: string}>  $pool
+     * @return list<array{name: string}>
      */
     private function pickIngredientLines(array $pool, string $title, int $count): array
     {

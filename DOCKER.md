@@ -29,6 +29,7 @@ docker compose exec backend_app php artisan db:seed --force
 ```
 
 - `--force` is required in non-interactive environments.
+- **Recipe ingredients** are name-only (`recipe_ingredients` has no `quantity` / `unit` columns). That requires migration `2026_05_20_000001_drop_quantity_unit_from_recipe_ingredients_table`. If `migrate` prints *Nothing to migrate*, that migration has already run. On a **fresh** database, `migrate` runs all migrations in order (create table, then drop those columns) before you seed.
 - User uploads live under `backend/storage/app/public/` (gitignored). Run `storage:link` on new machines.
 
 ## Default admin credentials (after seeding)
