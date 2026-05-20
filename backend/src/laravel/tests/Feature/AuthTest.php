@@ -189,5 +189,90 @@ class AuthTest extends TestCase
             'account_status' => 'deactivated',
         ]);
     }
+
+    public function test_patch_user_guest_unauthorized(): void
+    {
+        $this->patchJson('api/user', ['first_name' => fake()->firstName()])
+            ->assertUnauthorized();
+    }
+
+    public function test_patch_user_validation_rejects_empty_name(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $this->patchJson('api/user', [
+            'first_name' => '',
+            'last_name' => '',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['first_name']);
+    }
+
+    public function test_profile_photo_upload_guest_unauthorized(): void
+    {
+        Storage::fake('public');
+
+        $this->postJson('api/user/profile-photo', [
+            'image' => UploadedFile::fake()->create('avatar.jpg', 100, 'image/jpeg'),
+        ])->assertUnauthorized();
+    }
+
+    public function test_profile_photo_upload_rejects_invalid_file_type(): void
+    {
+        Storage::fake('public');
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $this->postJson('api/user/profile-photo', [
+            'image' => UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf'),
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['image']);
+    }
+
+    public function test_logout_guest_unauthorized(): void
+    {
+        $this->postJson('api/logout')->assertUnauthorized();
+    }
+
+    public function test_logout_admin_guest_unauthorized(): void
+    {
+        $this->postJson('api/logout-admin')->assertUnauthorized();
+    }
+
+    public function test_deactivate_guest_unauthorized(): void
+    {
+        $this->patchJson('api/me/deactivate', ['reason' => fake()->sentence()])
+            ->assertUnauthorized();
+    }
+
+    public function test_login_admin_fails_for_invalid_credentials(): void
+    {
+        $admin = $this->createAdmin(['password' => 'password123']);
+
+        $this->postJson('api/login-admin', [
+            'email' => $admin->email,
+            'password' => 'wrong-password',
+        ])->assertStatus(401)
+            ->assertJsonFragment(['message' => 'Invalid credentials']);
+    }
+
+    public function test_login_admin_rejects_non_admin_user(): void
+    {
+        $user = $this->createUser(['password' => 'password123']);
+
+        $this->postJson('api/login-admin', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ])->assertStatus(403)
+            ->assertJsonFragment(['message' => 'Forbidden. Admin access only.']);
+    }
+
+    public function test_forgot_password_rejects_invalid_email_format(): void
+    {
+        $this->postJson('api/forgot-password', [
+            'email' => 'not-an-email',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
 }
 

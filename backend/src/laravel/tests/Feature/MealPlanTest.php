@@ -18,14 +18,14 @@ class MealPlanTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createMealPlan(User $user, Recipe $recipe): MealPlan
+    private function mealPlanFor(User $user, Recipe $recipe, array $attributes = []): MealPlan
     {
-        return MealPlan::create([
+        return MealPlan::factory()->create(array_merge([
             'user_id' => $user->id,
             'recipe_id' => $recipe->id,
             'planned_date' => now()->toDateString(),
             'meal_slot' => 'lunch',
-        ]);
+        ], $attributes));
     }
 
     public function test_user_can_create_meal_plan(): void
@@ -72,7 +72,7 @@ class MealPlanTest extends TestCase
             'instructions' => 'Test',
             'prep_time' => 10
         ]);
-        $this->createMealPlan($user, $recipe);
+        $this->mealPlanFor($user, $recipe);
 
         Sanctum::actingAs($user);
 
@@ -93,7 +93,7 @@ class MealPlanTest extends TestCase
             'instructions' => 'Test',
             'prep_time' => 10
         ]);
-        $mealPlan = $this->createMealPlan($user, $recipe);
+        $mealPlan = $this->mealPlanFor($user, $recipe);
 
         Sanctum::actingAs($user);
 
@@ -108,7 +108,7 @@ class MealPlanTest extends TestCase
     public function test_user_cannot_delete_others_meal_plan(): void
     {
         $user = $this->createUser();
-        $otherUser = $this->createUser(['email' => 'other@example.com']);
+        $otherUser = $this->createUser();
         $category = $this->createCategory(['name' => 'Meals', 'description' => 'Meals desc']);
         $recipe = $this->createRecipe([
             'user_id' => $otherUser->id,
@@ -117,7 +117,7 @@ class MealPlanTest extends TestCase
             'instructions' => 'Test',
             'prep_time' => 10
         ]);
-        $mealPlan = $this->createMealPlan($otherUser, $recipe);
+        $mealPlan = $this->mealPlanFor($otherUser, $recipe);
 
         Sanctum::actingAs($user);
 
@@ -309,5 +309,69 @@ class MealPlanTest extends TestCase
 
         $this->assertSame(1, MealPlan::where('user_id', $user->id)->count());
         $this->assertSame(0, MealPlanMealSkip::where('user_id', $user->id)->count());
+    }
+
+    public function test_list_meal_plans_guest_unauthorized(): void
+    {
+        $this->getJson('api/meal-plans?week_start=' . now()->startOfWeek()->toDateString())
+            ->assertUnauthorized();
+    }
+
+    public function test_create_meal_plan_guest_unauthorized(): void
+    {
+        $recipe = $this->createRecipe();
+
+        $this->postJson('api/meal-plans', [
+            'recipe_id' => $recipe->id,
+            'planned_date' => now()->toDateString(),
+            'meal_slot' => 'dinner',
+        ])->assertUnauthorized();
+    }
+
+    public function test_create_meal_plan_rejects_invalid_meal_slot(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $user->id]);
+        Sanctum::actingAs($user);
+
+        $this->postJson('api/meal-plans', [
+            'recipe_id' => $recipe->id,
+            'planned_date' => now()->toDateString(),
+            'meal_slot' => 'invalid-slot',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['meal_slot']);
+    }
+
+    public function test_day_skip_guest_unauthorized(): void
+    {
+        $this->postJson('api/meal-plans/day-skip', [
+            'planned_date' => now()->toDateString(),
+            'did_not_eat' => true,
+        ])->assertUnauthorized();
+    }
+
+    public function test_meal_skip_guest_unauthorized(): void
+    {
+        $this->postJson('api/meal-plans/meal-skip', [
+            'planned_date' => now()->toDateString(),
+            'meal_slot' => 'lunch',
+            'skipped' => true,
+        ])->assertUnauthorized();
+    }
+
+    public function test_delete_meal_plan_guest_unauthorized(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $user->id]);
+        $mealPlan = $this->mealPlanFor($user, $recipe);
+
+        $this->deleteJson("api/meal-plans/{$mealPlan->id}")
+            ->assertUnauthorized();
+    }
+
+    public function test_export_meal_plans_guest_unauthorized(): void
+    {
+        $this->getJson('api/meal-plans/export?week_start=' . now()->startOfWeek()->toDateString())
+            ->assertUnauthorized();
     }
 }

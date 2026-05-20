@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class RecipeRating extends Model
 {
+    /** @use HasFactory<\Database\Factories\RecipeRatingFactory> */
+    use HasFactory;
+
     protected $fillable = ['recipe_id', 'user_id', 'rating', 'comment'];
 
     protected $casts = [

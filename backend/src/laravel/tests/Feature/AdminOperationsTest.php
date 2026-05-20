@@ -290,4 +290,106 @@ class AdminOperationsTest extends TestCase
         $response->assertForbidden();
         $this->assertDatabaseHas('recipes', ['id' => $recipe->id]);
     }
+
+    public function test_register_admin_non_admin_forbidden(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $this->postJson('api/register-admin', [
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password123',
+        ])->assertForbidden();
+    }
+
+    public function test_register_admin_guest_unauthorized(): void
+    {
+        $this->postJson('api/register-admin', [
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'password123',
+        ])->assertUnauthorized();
+    }
+
+    public function test_admin_users_list_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/users')->assertForbidden();
+    }
+
+    public function test_admin_users_list_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/users')->assertUnauthorized();
+    }
+
+    public function test_admin_update_user_status_non_admin_forbidden(): void
+    {
+        $target = $this->createUser();
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/users/{$target->id}/status", [
+            'account_status' => 'suspended',
+        ])->assertForbidden();
+    }
+
+    public function test_admin_update_user_status_guest_unauthorized(): void
+    {
+        $target = $this->createUser();
+
+        $this->patchJson("api/admin/users/{$target->id}/status", [
+            'account_status' => 'suspended',
+        ])->assertUnauthorized();
+    }
+
+    public function test_admin_stats_overview_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/stats/overview')->assertForbidden();
+    }
+
+    public function test_admin_stats_overview_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/stats/overview')->assertUnauthorized();
+    }
+
+    public function test_admin_stats_user_growth_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/stats/user-growth')->assertForbidden();
+    }
+
+    public function test_admin_stats_user_growth_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/stats/user-growth')->assertUnauthorized();
+    }
+
+    public function test_admin_stats_post_frequency_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/stats/post-frequency')->assertForbidden();
+    }
+
+    public function test_admin_stats_post_frequency_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/stats/post-frequency')->assertUnauthorized();
+    }
+
+    public function test_admin_stats_chatbot_interactions_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/stats/chatbot-interactions')->assertForbidden();
+    }
+
+    public function test_admin_stats_chatbot_interactions_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/stats/chatbot-interactions')->assertUnauthorized();
+    }
 }

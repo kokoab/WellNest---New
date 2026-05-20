@@ -17,27 +17,27 @@ class AdminModerationTest extends TestCase
     public function test_admin_can_list_pending_reports(): void
     {
         $admin = $this->createAdmin();
-        $reporter = $this->createUser(['email' => 'reporter@example.com']);
-        $target = $this->createUser(['email' => 'target@example.com']);
+        $reporter = $this->createUser();
+        $target = $this->createUser();
         $recipe = $this->createRecipe([
             'user_id' => $target->id,
             'category_id' => $this->createCategory()->id,
         ]);
 
-        Report::create([
+        $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $recipe->id,
             'reportable_type' => Recipe::class,
-            'reason' => 'Spam',
-            'details' => 'Looks suspicious',
+            'reason' => fake()->words(3, true),
+            'details' => fake()->sentence(),
             'status' => 'pending',
         ]);
-        Report::create([
+        $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $target->id,
             'reportable_type' => User::class,
-            'reason' => 'Abuse',
-            'details' => 'Bad behavior',
+            'reason' => fake()->words(3, true),
+            'details' => fake()->sentence(),
             'status' => 'approved',
         ]);
 
@@ -124,15 +124,15 @@ class AdminModerationTest extends TestCase
     public function test_admin_can_suspend_reported_user(): void
     {
         $admin = $this->createAdmin();
-        $reporter = $this->createUser(['email' => 'reporter2@example.com']);
-        $target = $this->createUser(['email' => 'reported-user@example.com']);
+        $reporter = $this->createUser();
+        $target = $this->createUser();
 
-        $report = Report::create([
+        $report = $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $target->id,
             'reportable_type' => User::class,
-            'reason' => 'Abuse',
-            'details' => 'Needs review',
+            'reason' => fake()->words(3, true),
+            'details' => fake()->sentence(),
             'status' => 'pending',
         ]);
 
@@ -156,15 +156,15 @@ class AdminModerationTest extends TestCase
     public function test_admin_can_unban_reported_user(): void
     {
         $admin = $this->createAdmin();
-        $reporter = $this->createUser(['email' => 'reporter3@example.com']);
-        $target = $this->createUser(['email' => 'banned-user@example.com', 'account_status' => 'suspended']);
+        $reporter = $this->createUser();
+        $target = $this->createUser(['account_status' => 'suspended']);
 
-        $report = Report::create([
+        $report = $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $target->id,
             'reportable_type' => User::class,
-            'reason' => 'Abuse',
-            'details' => 'Previously suspended',
+            'reason' => fake()->words(3, true),
+            'details' => fake()->sentence(),
             'status' => 'suspended',
         ]);
 
@@ -190,12 +190,12 @@ class AdminModerationTest extends TestCase
         $admin = $this->createAdmin();
         $this->pendingRecipeReport();
         $this->pendingPostReport();
-        Report::create([
-            'user_id' => $this->createUser(['email' => 'done@example.com'])->id,
-            'reportable_id' => $this->createUser(['email' => 'done-target@example.com'])->id,
+        $this->createReport([
+            'user_id' => $this->createUser()->id,
+            'reportable_id' => $this->createUser()->id,
             'reportable_type' => User::class,
-            'reason' => 'Spam',
-            'details' => 'Already processed',
+            'reason' => fake()->words(3, true),
+            'details' => fake()->sentence(),
             'status' => 'approved',
         ]);
 
@@ -211,38 +211,172 @@ class AdminModerationTest extends TestCase
 
     private function pendingRecipeReport(): Report
     {
-        $reporter = $this->createUser(['email' => fake()->unique()->safeEmail()]);
-        $owner = $this->createUser(['email' => fake()->unique()->safeEmail()]);
+        $reporter = $this->createUser();
+        $owner = $this->createUser();
         $recipe = $this->createRecipe([
             'user_id' => $owner->id,
             'category_id' => $this->createCategory()->id,
         ]);
 
-        return Report::create([
+        return $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $recipe->id,
             'reportable_type' => Recipe::class,
-            'reason' => 'Spam',
-            'details' => 'Needs attention',
             'status' => 'pending',
         ]);
     }
 
     private function pendingPostReport(): Report
     {
-        $reporter = $this->createUser(['email' => fake()->unique()->safeEmail()]);
-        $owner = $this->createUser(['email' => fake()->unique()->safeEmail()]);
+        $reporter = $this->createUser();
+        $owner = $this->createUser();
         $post = $this->createPost([
             'user_id' => $owner->id,
         ]);
 
-        return Report::create([
+        return $this->createReport([
             'user_id' => $reporter->id,
             'reportable_id' => $post->id,
             'reportable_type' => Post::class,
-            'reason' => 'Spam',
-            'details' => 'Needs attention',
             'status' => 'pending',
         ]);
+    }
+
+    public function test_admin_reports_list_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/reports')->assertForbidden();
+    }
+
+    public function test_admin_reports_list_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/reports')->assertUnauthorized();
+    }
+
+    public function test_admin_approve_report_non_admin_forbidden(): void
+    {
+        $report = $this->pendingRecipeReport();
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/reports/{$report->id}/approve")->assertForbidden();
+    }
+
+    public function test_admin_approve_report_guest_unauthorized(): void
+    {
+        $report = $this->pendingRecipeReport();
+
+        $this->patchJson("api/admin/reports/{$report->id}/approve")->assertUnauthorized();
+    }
+
+    public function test_admin_dismiss_report_non_admin_forbidden(): void
+    {
+        $report = $this->pendingRecipeReport();
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/reports/{$report->id}/dismiss")->assertForbidden();
+    }
+
+    public function test_admin_dismiss_report_guest_unauthorized(): void
+    {
+        $report = $this->pendingRecipeReport();
+
+        $this->patchJson("api/admin/reports/{$report->id}/dismiss")->assertUnauthorized();
+    }
+
+    public function test_admin_remove_content_non_admin_forbidden(): void
+    {
+        $report = $this->pendingRecipeReport();
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/reports/{$report->id}/remove-content")->assertForbidden();
+    }
+
+    public function test_admin_remove_content_guest_unauthorized(): void
+    {
+        $report = $this->pendingRecipeReport();
+
+        $this->patchJson("api/admin/reports/{$report->id}/remove-content")->assertUnauthorized();
+    }
+
+    public function test_admin_suspend_user_non_admin_forbidden(): void
+    {
+        $report = $this->pendingRecipeReport();
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/reports/{$report->id}/suspend-user")->assertForbidden();
+    }
+
+    public function test_admin_suspend_user_guest_unauthorized(): void
+    {
+        $report = $this->pendingRecipeReport();
+
+        $this->patchJson("api/admin/reports/{$report->id}/suspend-user")->assertUnauthorized();
+    }
+
+    public function test_admin_unban_user_non_admin_forbidden(): void
+    {
+        $admin = $this->createAdmin();
+        $reporter = $this->createUser();
+        $target = $this->createUser(['account_status' => 'suspended']);
+        $report = $this->createReport([
+            'user_id' => $reporter->id,
+            'reportable_id' => $target->id,
+            'reportable_type' => User::class,
+            'status' => 'suspended',
+        ]);
+
+        Sanctum::actingAs($this->createUser());
+
+        $this->patchJson("api/admin/reports/{$report->id}/unban-user")->assertForbidden();
+    }
+
+    public function test_admin_unban_user_guest_unauthorized(): void
+    {
+        $reporter = $this->createUser();
+        $target = $this->createUser(['account_status' => 'suspended']);
+        $report = $this->createReport([
+            'user_id' => $reporter->id,
+            'reportable_id' => $target->id,
+            'reportable_type' => User::class,
+            'status' => 'suspended',
+        ]);
+
+        $this->patchJson("api/admin/reports/{$report->id}/unban-user")->assertUnauthorized();
+    }
+
+    public function test_admin_delete_reports_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->deleteJson('api/admin/reports')->assertForbidden();
+    }
+
+    public function test_admin_delete_reports_guest_unauthorized(): void
+    {
+        $this->deleteJson('api/admin/reports')->assertUnauthorized();
+    }
+
+    public function test_admin_recipe_rankings_returns_data(): void
+    {
+        $admin = $this->createAdmin();
+        $this->createRecipe();
+        Sanctum::actingAs($admin);
+
+        $this->getJson('api/admin/recipes/rankings')
+            ->assertOk()
+            ->assertJsonStructure(['data']);
+    }
+
+    public function test_admin_recipe_rankings_non_admin_forbidden(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/admin/recipes/rankings')->assertForbidden();
+    }
+
+    public function test_admin_recipe_rankings_guest_unauthorized(): void
+    {
+        $this->getJson('api/admin/recipes/rankings')->assertUnauthorized();
     }
 }

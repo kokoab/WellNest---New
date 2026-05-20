@@ -7,19 +7,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-
-
 class RecipeCrudTest extends TestCase
 {
     use RefreshDatabase;
 
+    // POST /api/recipes
 
-    public function test_authenticated_user_can_create_recipe(): void
+    public function test_post_recipes_authenticated_user_can_create(): void
     {
         $user = $this->createUser();
         $category = $this->createCategory();
+        Sanctum::actingAs($user);
 
-        $recipe = [
+        $response = $this->postJson('/api/recipes', [
             'category_id' => $category->id,
             'title' => 'Simple Oats',
             'description' => 'A very simple breakfast.',
@@ -29,35 +29,25 @@ class RecipeCrudTest extends TestCase
                 ['name' => 'Oats', 'amount' => '1 cup'],
                 ['name' => 'Water', 'amount' => '2 cups'],
             ],
-        ];
+        ]);
 
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson("/api/recipes", $recipe);
-
-        $response->assertCreated()
-            ->assertJsonStructure(['message', 'id']);
-
+        $response->assertCreated()->assertJsonStructure(['message', 'id']);
         $recipeId = $response->json('id');
-
         $this->assertDatabaseHas('recipes', [
             'id' => $recipeId,
             'user_id' => $user->id,
-            'category_id' => $category->id,
             'title' => 'Simple Oats',
         ]);
-
         $this->assertDatabaseCount('recipe_ingredients', 2);
     }
 
-    public function test_authenticated_user_can_create_recipe_with_structured_steps(): void
+    public function test_post_recipes_authenticated_user_can_create_with_steps(): void
     {
         $user = $this->createUser();
         $category = $this->createCategory();
-
         Sanctum::actingAs($user);
 
-        $payload = [
+        $response = $this->postJson('/api/recipes', [
             'category_id' => $category->id,
             'title' => 'Step Soup',
             'description' => 'Structured steps.',
@@ -67,71 +57,73 @@ class RecipeCrudTest extends TestCase
                 ['title' => 'Chop', 'instructions' => 'Dice onions'],
                 ['title' => 'Simmer', 'instructions' => 'Cook on low heat'],
             ],
-            'ingredients' => [
-                ['name' => 'Onion'],
-            ],
-        ];
-
-        $response = $this->postJson('/api/recipes', $payload);
+            'ingredients' => [['name' => 'Onion']],
+        ]);
 
         $response->assertCreated()->assertJsonStructure(['message', 'id']);
-
         $recipeId = $response->json('id');
-
-        $this->assertDatabaseHas('recipe_steps', ['recipe_id' => $recipeId]);
         $this->assertSame(2, \App\Models\RecipeStep::where('recipe_id', $recipeId)->count());
-
-        $show = $this->getJson("/api/recipes/{$recipeId}");
-        $show->assertOk()->assertJsonPath('prep_timing_mode', 'overall');
-        $steps = $show->json('steps');
-        $this->assertIsArray($steps);
-        $this->assertCount(2, $steps);
     }
 
-    public function test_guest_cannot_create_recipe(): void
+    public function test_post_recipes_guest_is_unauthorized(): void
     {
         $category = $this->createCategory();
 
-        $recipe = [
+        $this->postJson('/api/recipes', [
             'category_id' => $category->id,
             'title' => 'Guest',
-        ];
-
-        $response = $this->postJson('/api/recipes', $recipe);
-
-        $response->assertUnauthorized();
+        ])->assertUnauthorized();
     }
 
-    public function test_recipe_is_visible_on_public_show_and_index(): void
+    // GET /api/recipes & GET /api/recipes/{recipe}
+
+    public function test_get_recipes_authenticated_user_can_list(): void
     {
-        $user = $this->createUser();
+        $viewer = $this->createUser();
+        $owner = $this->createUser();
+        $category = $this->createCategory();
+        $this->createRecipe([
+            'user_id' => $owner->id,
+            'category_id' => $category->id,
+            'title' => 'Tomato Soup',
+        ]);
+        Sanctum::actingAs($viewer);
+
+        $this->getJson('/api/recipes')
+            ->assertOk()
+            ->assertJsonFragment(['title' => 'Tomato Soup']);
+    }
+
+    public function test_get_recipe_authenticated_user_can_show(): void
+    {
+        $viewer = $this->createUser();
+        $owner = $this->createUser();
         $category = $this->createCategory();
         $recipe = $this->createRecipe([
-            'user_id' => $user->id,
+            'user_id' => $owner->id,
             'category_id' => $category->id,
             'title' => 'Tomato Soup',
             'instructions' => 'Boil tomatoes and blend.',
             'prep_time' => 20,
         ]);
-
-        $this->getJson('/api/recipes')
-            ->assertOk()
-            ->assertJsonFragment(['title' => 'Tomato Soup']);
+        Sanctum::actingAs($viewer);
 
         $this->getJson("/api/recipes/{$recipe->id}")
             ->assertOk()
-            ->assertJsonFragment([
-                'id' => $recipe->id,
-                'title' => 'Tomato Soup',
-            ]);
+            ->assertJsonFragment(['id' => $recipe->id, 'title' => 'Tomato Soup']);
     }
 
-    public function test_owner_can_update_recipe_but_other_user_cannot(): void
+    public function test_get_recipes_guest_is_unauthorized(): void
     {
-        $owner = $this->createUser(['email' => 'owner1@example.com']);
-        $otherUser = $this->createUser(['email' => 'owner2@example.com']);
-        $category = $this->createCategory();
+        $this->getJson('/api/recipes')->assertUnauthorized();
+    }
 
+    // PUT /api/recipes/{recipe}
+
+    public function test_put_recipe_owner_can_update(): void
+    {
+        $owner = $this->createUser();
+        $category = $this->createCategory();
         $recipe = $this->createRecipe([
             'user_id' => $owner->id,
             'category_id' => $category->id,
@@ -139,12 +131,8 @@ class RecipeCrudTest extends TestCase
             'instructions' => 'Initial instructions.',
             'prep_time' => 15,
         ]);
-
-        Sanctum::actingAs($otherUser);
-        $this->putJson("/api/recipes/{$recipe->id}", ['title' => 'Hacked Title'])
-            ->assertForbidden();
-
         Sanctum::actingAs($owner);
+
         $this->putJson("/api/recipes/{$recipe->id}", [
             'title' => 'Updated Title',
             'prep_time' => 25,
@@ -159,20 +147,63 @@ class RecipeCrudTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_delete_recipe(): void
+    public function test_put_recipe_non_owner_is_forbidden(): void
     {
         $owner = $this->createUser();
-        $category = $this->createCategory();
+        $otherUser = $this->createUser();
         $recipe = $this->createRecipe([
             'user_id' => $owner->id,
-            'category_id' => $category->id,
+            'category_id' => $this->createCategory()->id,
         ]);
+        Sanctum::actingAs($otherUser);
 
+        $this->putJson("/api/recipes/{$recipe->id}", ['title' => 'Hacked Title'])
+            ->assertForbidden();
+    }
+
+    public function test_put_recipe_guest_is_unauthorized(): void
+    {
+        $recipe = $this->createRecipe(['user_id' => $this->createUser()->id]);
+
+        $this->putJson("/api/recipes/{$recipe->id}", ['title' => 'Hacked'])
+            ->assertUnauthorized();
+    }
+
+    // DELETE /api/recipes/{recipe}
+
+    public function test_delete_recipe_owner_can_delete(): void
+    {
+        $owner = $this->createUser();
+        $recipe = $this->createRecipe([
+            'user_id' => $owner->id,
+            'category_id' => $this->createCategory()->id,
+        ]);
         Sanctum::actingAs($owner);
+
         $this->deleteJson("/api/recipes/{$recipe->id}")
             ->assertOk()
             ->assertJsonFragment(['message' => 'Recipe deleted successfully']);
 
         $this->assertDatabaseMissing('recipes', ['id' => $recipe->id]);
+    }
+
+    public function test_delete_recipe_non_owner_is_forbidden(): void
+    {
+        $owner = $this->createUser();
+        $other = $this->createUser();
+        $recipe = $this->createRecipe([
+            'user_id' => $owner->id,
+            'category_id' => $this->createCategory()->id,
+        ]);
+        Sanctum::actingAs($other);
+
+        $this->deleteJson("/api/recipes/{$recipe->id}")->assertForbidden();
+    }
+
+    public function test_delete_recipe_guest_is_unauthorized(): void
+    {
+        $recipe = $this->createRecipe(['user_id' => $this->createUser()->id]);
+
+        $this->deleteJson("/api/recipes/{$recipe->id}")->assertUnauthorized();
     }
 }

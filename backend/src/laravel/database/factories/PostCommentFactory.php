@@ -23,8 +23,8 @@ class PostCommentFactory extends Factory
         return [
             'user_id' => User::factory(),
             'post_id' => Post::factory(),
-            'comment' => fake('paragraph'),
-            'image_url' => fake('image'),
+            'comment' => fake()->paragraph(),
+            'image_url' => fake()->imageUrl(),
         ];
     }
 }

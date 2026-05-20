@@ -152,7 +152,7 @@ class MealPlanController extends Controller
     {
         $validated = $request->validate([
             'planned_date' => 'required|date',
-            'meal_slot' => 'required|string|max:20',
+            'meal_slot' => 'required|string|in:breakfast,lunch,dinner,snack|max:20',
             'skipped' => 'required|boolean',
         ]);
 
@@ -217,7 +217,7 @@ class MealPlanController extends Controller
         $validated = $request->validate([
             'recipe_id' => 'required|exists:recipes,id',
             'planned_date' => 'required|date',
-            'meal_slot' => 'sometimes|string|max:20',
+            'meal_slot' => 'sometimes|string|in:breakfast,lunch,dinner,snack|max:20',
         ]);
 
         $plan = MealPlan::updateOrCreate(

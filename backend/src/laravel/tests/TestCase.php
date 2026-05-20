@@ -9,6 +9,13 @@ use App\Models\Category;
 use App\Models\Recipe;
 use App\Models\Post;
 use App\Models\Ingredient;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\MealPlan;
+use App\Models\RecipeStep;
+use App\Models\Report;
+use App\Models\RecipeRating;
+use App\Models\ActivityLog;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -76,8 +83,40 @@ abstract class TestCase extends BaseTestCase
     protected function createPost(array $attributes = [])
     {
         return Post::factory()->create($attributes);
-    } 
+    }
 
+    protected function createConversation(array $attributes = [])
+    {
+        return Conversation::factory()->create($attributes);
+    }
 
+    protected function createMessage(array $attributes = [])
+    {
+        return Message::factory()->create($attributes);
+    }
 
+    protected function createMealPlan(array $attributes = [])
+    {
+        return MealPlan::factory()->create($attributes);
+    }
+
+    protected function createRecipeStep(array $attributes = [])
+    {
+        return RecipeStep::factory()->create($attributes);
+    }
+
+    protected function createReport(array $attributes = [])
+    {
+        return Report::factory()->create($attributes);
+    }
+
+    protected function createRecipeRating(array $attributes = [])
+    {
+        return RecipeRating::factory()->create($attributes);
+    }
+
+    protected function createActivityLog(array $attributes = [])
+    {
+        return ActivityLog::factory()->create($attributes);
+    }
 }

@@ -11,7 +11,7 @@ class CategoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_can_list_categories_sorted_by_name(): void
+    public function test_get_categories_authenticated_user_can_list_sorted_by_name(): void
     {
         $this->createCategory([
             'name' => 'Zucchini',
@@ -22,6 +22,8 @@ class CategoryTest extends TestCase
             'description' => 'First alphabet',
         ]);
 
+        Sanctum::actingAs($this->createUser());
+
         $response = $this->getJson('/api/categories');
 
         $response->assertOk()
@@ -29,12 +31,19 @@ class CategoryTest extends TestCase
             ->assertJsonPath('1.name', 'Zucchini');
     }
 
-    public function test_can_show_a_category(): void
+    public function test_get_categories_guest_is_unauthorized(): void
+    {
+        $this->getJson('/api/categories')->assertUnauthorized();
+    }
+
+    public function test_get_category_authenticated_user_can_show(): void
     {
         $category = $this->createCategory([
             'name' => 'Breakfast',
             'description' => 'Morning meals',
         ]);
+
+        Sanctum::actingAs($this->createUser());
 
         $response = $this->getJson("/api/categories/{$category->id}");
 
@@ -46,11 +55,18 @@ class CategoryTest extends TestCase
             ]);
     }
 
-    public function test_showing_a_missing_category_returns_404(): void
+    public function test_get_category_guest_is_unauthorized(): void
     {
-        $response = $this->getJson('/api/categories/999999');
+        $category = $this->createCategory();
 
-        $response->assertNotFound();
+        $this->getJson("/api/categories/{$category->id}")->assertUnauthorized();
+    }
+
+    public function test_get_category_authenticated_user_gets_404_for_missing(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('/api/categories/999999')->assertNotFound();
     }
 
     public function test_admin_can_create_category(): void
@@ -300,5 +316,44 @@ class CategoryTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('id', $existing->id)
             ->assertJsonPath('name', 'Vegan');
+    }
+
+    public function test_for_recipe_guest_unauthorized(): void
+    {
+        $this->postJson('/api/categories/for-recipe', [
+            'name' => fake()->word(),
+            'description' => fake()->sentence(),
+        ])->assertUnauthorized();
+    }
+
+    public function test_for_recipe_creates_new_category_when_no_match(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $name = ucfirst(fake()->unique()->word());
+
+        $response = $this->postJson('/api/categories/for-recipe', [
+            'name' => $name,
+            'description' => fake()->sentence(),
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('name', $name);
+
+        $this->assertDatabaseHas('categories', ['name' => $name]);
+    }
+
+    public function test_regular_user_can_use_for_recipe_endpoint(): void
+    {
+        $user = $this->createUser();
+        Sanctum::actingAs($user);
+
+        $name = ucfirst(fake()->unique()->word());
+
+        $this->postJson('/api/categories/for-recipe', [
+            'name' => $name,
+            'description' => fake()->sentence(),
+        ])->assertCreated();
     }
 }

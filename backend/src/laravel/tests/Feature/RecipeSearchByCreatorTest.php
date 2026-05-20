@@ -6,6 +6,7 @@ use App\Models\Recipe;
 use App\Models\User;
 use App\Models\Category;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class RecipeSearchByCreatorTest extends TestCase
@@ -22,6 +23,8 @@ class RecipeSearchByCreatorTest extends TestCase
             'category_id' => $category->id,
             'title' => 'Beef Wellington'
         ]);
+
+        Sanctum::actingAs($this->createUser());
 
         $response = $this->getJson('/api/recipes?search=Gordon');
 
@@ -40,6 +43,8 @@ class RecipeSearchByCreatorTest extends TestCase
             'category_id' => $category->id,
             'title' => 'Scrambled Eggs'
         ]);
+
+        Sanctum::actingAs($this->createUser());
 
         $response = $this->getJson('/api/recipes?search=Ramsay');
 
@@ -67,9 +72,16 @@ class RecipeSearchByCreatorTest extends TestCase
             'title' => 'Creamy Pasta'
         ]);
 
+        Sanctum::actingAs($this->createUser());
+
         $response = $this->getJson('/api/recipes?search=Pasta');
 
         $response->assertStatus(200)
                  ->assertJsonCount(2, 'data');
+    }
+
+    public function test_get_recipes_search_guest_is_unauthorized(): void
+    {
+        $this->getJson('/api/recipes?search=test')->assertUnauthorized();
     }
 }

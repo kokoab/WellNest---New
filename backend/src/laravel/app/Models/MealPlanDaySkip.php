@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MealPlanDaySkip extends Model
 {
+    /** @use HasFactory<\Database\Factories\MealPlanDaySkipFactory> */
+    use HasFactory;
+
     protected $table = 'meal_plan_day_skips';
 
     protected $fillable = [

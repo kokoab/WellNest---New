@@ -1205,4 +1205,401 @@ class ModelLifecycleFeatureTest extends TestCase
 
         $this->assertDatabaseMissing('recipes', ['id' => $id]);
     }
+
+    public function test_user_is_active_account(): void
+    {
+        $user = $this->createUser(['account_status' => 'active']);
+        $this->assertTrue($user->isActiveAccount());
+    }
+
+    public function test_user_is_deactivated_account(): void
+    {
+        $user = $this->createUser(['account_status' => 'deactivated']);
+        $this->assertTrue($user->isDeactivatedAccount());
+    }
+
+    public function test_user_is_suspended_account(): void
+    {
+        $user = $this->createUser(['account_status' => 'suspended']);
+        $this->assertTrue($user->isSuspendedAccount());
+    }
+
+    public function test_user_name_attribute(): void
+    {
+        $user = $this->createUser(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
+        $this->assertSame('Ada Lovelace', $user->name);
+    }
+
+    public function test_user_votes_relation(): void
+    {
+        $user = $this->createUser();
+        $post = $this->createPost(['user_id' => $user->id]);
+        \App\Models\Vote::factory()->create([
+            'user_id' => $user->id,
+            'votable_id' => $post->id,
+            'votable_type' => \App\Models\Post::class,
+        ]);
+        $this->assertCount(1, $user->votes);
+    }
+
+    public function test_user_recipes_relation(): void
+    {
+        $user = $this->createUser();
+        $this->createRecipe(['user_id' => $user->id]);
+        $this->assertCount(1, $user->recipes);
+    }
+
+    public function test_user_comments_relation(): void
+    {
+        $user = $this->createUser();
+        $post = $this->createPost();
+        \App\Models\PostComment::factory()->create(['user_id' => $user->id, 'post_id' => $post->id]);
+        $this->assertCount(1, $user->comments);
+    }
+
+    public function test_user_saved_recipes_relation(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe();
+        \App\Models\SavedRecipe::factory()->create(['user_id' => $user->id, 'recipe_id' => $recipe->id]);
+        $this->assertCount(1, $user->savedRecipes);
+    }
+
+    public function test_user_meal_plans_relation(): void
+    {
+        $user = $this->createUser();
+        \App\Models\MealPlan::factory()->create(['user_id' => $user->id]);
+        $this->assertCount(1, $user->mealPlans);
+    }
+
+    public function test_user_conversations_query(): void
+    {
+        $user = $this->createUser();
+        $other = $this->createUser();
+        Conversation::factory()->create(['user1_id' => $user->id, 'user2_id' => $other->id]);
+        $this->assertCount(1, $user->conversationsQuery()->get());
+    }
+
+    public function test_user_followers_relation(): void
+    {
+        $target = $this->createUser();
+        $follower = $this->createUser();
+        $target->followers()->attach($follower->id);
+        $this->assertTrue($target->followers->contains($follower));
+    }
+
+    public function test_user_following_relation(): void
+    {
+        $follower = $this->createUser();
+        $target = $this->createUser();
+        $follower->following()->attach($target->id);
+        $this->assertTrue($follower->following->contains($target));
+    }
+
+    public function test_user_reports_morph_relation(): void
+    {
+        $user = $this->createUser();
+        Report::factory()->create([
+            'reportable_type' => User::class,
+            'reportable_id' => $user->id,
+        ]);
+        $this->assertCount(1, $user->reports);
+    }
+
+    public function test_conversation_other_user(): void
+    {
+        $user = $this->createUser();
+        $other = $this->createUser();
+        $conversation = Conversation::factory()->create([
+            'user1_id' => $user->id,
+            'user2_id' => $other->id,
+        ]);
+        $this->assertTrue($conversation->otherUser($user)->is($other));
+    }
+
+    public function test_conversation_user1_relation(): void
+    {
+        $user = $this->createUser();
+        $other = $this->createUser();
+        $conversation = Conversation::factory()->create(['user1_id' => $user->id, 'user2_id' => $other->id]);
+        $this->assertTrue($conversation->user1->is($user));
+    }
+
+    public function test_conversation_user2_relation(): void
+    {
+        $user = $this->createUser();
+        $other = $this->createUser();
+        $conversation = Conversation::factory()->create(['user1_id' => $user->id, 'user2_id' => $other->id]);
+        $this->assertTrue($conversation->user2->is($other));
+    }
+
+    public function test_conversation_messages_relation(): void
+    {
+        $conversation = Conversation::factory()->create();
+        Message::factory()->count(2)->create(['conversation_id' => $conversation->id]);
+        $this->assertCount(2, $conversation->messages);
+    }
+
+    public function test_recipe_steps_relation(): void
+    {
+        $recipe = Recipe::factory()->withoutIngredients()->create();
+        RecipeStep::factory()->count(2)->create(['recipe_id' => $recipe->id]);
+        $this->assertCount(2, $recipe->steps);
+    }
+
+    public function test_recipe_views_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        RecipeView::factory()->create(['recipe_id' => $recipe->id]);
+        $this->assertCount(1, $recipe->views);
+    }
+
+    public function test_recipe_user_relation(): void
+    {
+        $owner = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $owner->id]);
+        $this->assertTrue($recipe->user->is($owner));
+    }
+
+    public function test_recipe_ingredients_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        $this->assertGreaterThanOrEqual(1, $recipe->ingredients()->count());
+    }
+
+    public function test_recipe_images_relation(): void
+    {
+        $recipe = Recipe::factory()->withoutIngredients()->create();
+        Image::factory()->create([
+            'imageable_type' => Recipe::class,
+            'imageable_id' => $recipe->id,
+        ]);
+        $this->assertCount(1, $recipe->images);
+    }
+
+    public function test_recipe_votes_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        Vote::factory()->create([
+            'votable_id' => $recipe->id,
+            'votable_type' => Recipe::class,
+        ]);
+        $this->assertCount(1, $recipe->votes);
+    }
+
+    public function test_recipe_posts_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        $this->createPost(['recipe_id' => $recipe->id]);
+        $this->assertCount(1, $recipe->posts);
+    }
+
+    public function test_recipe_reports_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        Report::factory()->create([
+            'reportable_type' => Recipe::class,
+            'reportable_id' => $recipe->id,
+        ]);
+        $this->assertCount(1, $recipe->reports);
+    }
+
+    public function test_recipe_ratings_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        RecipeRating::factory()->create(['recipe_id' => $recipe->id]);
+        $this->assertCount(1, $recipe->ratings);
+    }
+
+    public function test_recipe_saved_recipes_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        $saver = $this->createUser();
+        SavedRecipe::factory()->create(['user_id' => $saver->id, 'recipe_id' => $recipe->id]);
+        $this->assertCount(1, $recipe->savedRecipes);
+    }
+
+    public function test_post_recipe_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        $post = $this->createPost(['recipe_id' => $recipe->id]);
+        $this->assertTrue($post->recipe->is($recipe));
+    }
+
+    public function test_post_images_relation(): void
+    {
+        $post = $this->createPost();
+        Image::factory()->create([
+            'imageable_type' => Post::class,
+            'imageable_id' => $post->id,
+        ]);
+        $this->assertCount(1, $post->images);
+    }
+
+    public function test_post_votes_relation(): void
+    {
+        $post = $this->createPost();
+        Vote::factory()->create([
+            'votable_id' => $post->id,
+            'votable_type' => Post::class,
+        ]);
+        $this->assertCount(1, $post->votes);
+    }
+
+    public function test_post_comments_relation(): void
+    {
+        $post = $this->createPost();
+        PostComment::factory()->create(['post_id' => $post->id]);
+        $this->assertCount(1, $post->comments);
+    }
+
+    public function test_post_reports_relation(): void
+    {
+        $post = $this->createPost();
+        Report::factory()->create([
+            'reportable_type' => Post::class,
+            'reportable_id' => $post->id,
+        ]);
+        $this->assertCount(1, $post->reports);
+    }
+
+    public function test_message_attachments_relation(): void
+    {
+        $message = Message::factory()->create();
+        MessageAttachment::factory()->create(['message_id' => $message->id]);
+        $this->assertCount(1, $message->attachments);
+    }
+
+    public function test_message_user_relation(): void
+    {
+        $user = $this->createUser();
+        $message = Message::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($message->user->is($user));
+    }
+
+    public function test_activity_log_subject_morph(): void
+    {
+        $recipe = $this->createRecipe();
+        $log = ActivityLog::factory()->create([
+            'subject_type' => Recipe::class,
+            'subject_id' => $recipe->id,
+        ]);
+        $this->assertTrue($log->subject->is($recipe));
+    }
+
+    public function test_recipe_rating_user_relation(): void
+    {
+        $user = $this->createUser();
+        $rating = RecipeRating::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($rating->user->is($user));
+    }
+
+    public function test_report_user_relation(): void
+    {
+        $user = $this->createUser();
+        $report = Report::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($report->user->is($user));
+    }
+
+    public function test_vote_user_and_votable_post(): void
+    {
+        $user = $this->createUser();
+        $post = $this->createPost();
+        $vote = Vote::factory()->create([
+            'user_id' => $user->id,
+            'votable_id' => $post->id,
+            'votable_type' => Post::class,
+        ]);
+        $this->assertTrue($vote->user->is($user));
+        $this->assertTrue($vote->votable->is($post));
+    }
+
+    public function test_recipe_step_images_relation(): void
+    {
+        $step = RecipeStep::factory()->create();
+        Image::factory()->create([
+            'imageable_type' => RecipeStep::class,
+            'imageable_id' => $step->id,
+        ]);
+        $this->assertCount(1, $step->images);
+    }
+
+    public function test_recipe_ingredient_recipe_relation(): void
+    {
+        $recipe = $this->createRecipe();
+        $pivot = RecipeIngredient::where('recipe_id', $recipe->id)->first();
+        $this->assertNotNull($pivot);
+        $this->assertTrue($pivot->recipe->is($recipe));
+    }
+
+    public function test_meal_plan_user_relation(): void
+    {
+        $user = $this->createUser();
+        $plan = MealPlan::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($plan->user->is($user));
+    }
+
+    public function test_recipe_view_user_relation(): void
+    {
+        $user = $this->createUser();
+        $view = RecipeView::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($view->user->is($user));
+    }
+
+    public function test_post_comment_user_and_post_relations(): void
+    {
+        $user = $this->createUser();
+        $post = $this->createPost();
+        $comment = PostComment::factory()->create(['user_id' => $user->id, 'post_id' => $post->id]);
+        $this->assertTrue($comment->user->is($user));
+        $this->assertTrue($comment->post->is($post));
+    }
+
+    public function test_image_morph_to_post(): void
+    {
+        $post = $this->createPost();
+        $image = Image::factory()->create([
+            'imageable_type' => Post::class,
+            'imageable_id' => $post->id,
+        ]);
+        $this->assertTrue($image->imageable->is($post));
+    }
+
+    public function test_meal_plan_day_skip_user_relation(): void
+    {
+        $user = $this->createUser();
+        $skip = MealPlanDaySkip::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($skip->user->is($user));
+    }
+
+    public function test_meal_plan_meal_skip_user_relation(): void
+    {
+        $user = $this->createUser();
+        $skip = MealPlanMealSkip::factory()->create(['user_id' => $user->id]);
+        $this->assertTrue($skip->user->is($user));
+    }
+
+    public function test_saved_recipe_user_and_recipe_relations(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe();
+        $saved = SavedRecipe::factory()->create(['user_id' => $user->id, 'recipe_id' => $recipe->id]);
+        $this->assertTrue($saved->user->is($user));
+        $this->assertTrue($saved->recipe->is($recipe));
+    }
+
+    public function test_category_recipes_relation(): void
+    {
+        $category = $this->createCategory();
+        $this->createRecipe(['category_id' => $category->id]);
+        $this->assertCount(1, $category->recipes);
+    }
+
+    public function test_ingredient_recipes_relation(): void
+    {
+        $ingredient = $this->createIngredient();
+        $recipe = $this->createRecipe();
+        $recipe->ingredients()->attach($ingredient->id);
+        $this->assertTrue($ingredient->recipes->contains($recipe));
+    }
 }

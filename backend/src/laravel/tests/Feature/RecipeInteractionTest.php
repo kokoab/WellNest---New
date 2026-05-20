@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\Recipe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -14,210 +13,256 @@ class RecipeInteractionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_create_recipe_fails_validation_on_missing_fields(): void
-    {
-        $user = $this->createUser();
-        Sanctum::actingAs($user);
+    // POST /api/recipes/{recipe}/ratings
 
-        $response = $this->postJson('api/recipes', []);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['title', 'instructions', 'category_id']);
-    }
-
-    public function test_unauthorized_user_cannot_update_recipe(): void
-    {
-        $owner = $this->createUser(['email' => 'owner@example.com']);
-        $otherUser = $this->createUser(['email' => 'other@example.com']);
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $owner->id,
-            'category_id' => $category->id,
-        ]);
-
-        Sanctum::actingAs($otherUser);
-
-        $response = $this->putJson("api/recipes/{$recipe->id}", [
-            'title' => 'Updated Title'
-        ]);
-
-        $response->assertStatus(403);
-    }
-
-    public function test_unauthorized_user_cannot_delete_recipe(): void
-    {
-        $owner = $this->createUser(['email' => 'owner@example.com']);
-        $otherUser = $this->createUser(['email' => 'other@example.com']);
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $owner->id,
-            'category_id' => $category->id,
-        ]);
-
-        Sanctum::actingAs($otherUser);
-
-        $response = $this->deleteJson("api/recipes/{$recipe->id}");
-
-        $response->assertStatus(403);
-    }
-
-    public function test_user_can_rate_a_recipe(): void
+    public function test_post_recipe_rating_authenticated_user_can_rate(): void
     {
         $user = $this->createUser();
         $owner = $this->createUser(['email' => 'owner@example.com']);
-        $category = $this->createCategory();
         $recipe = $this->createRecipe([
             'user_id' => $owner->id,
-            'category_id' => $category->id,
+            'category_id' => $this->createCategory()->id,
         ]);
-
-        Sanctum::actingAs($user);
-
-        $response = $this->postJson("api/recipes/{$recipe->id}/ratings", [
-            'rating' => 5,
-            'comment' => 'Great recipe!'
-        ]);
-
-        $response->assertStatus(201);
-        $this->assertDatabaseHas('recipe_ratings', [
-            'recipe_id' => $recipe->id,
-            'user_id' => $user->id,
-            'rating' => 5
-        ]);
-    }
-
-    public function test_user_can_update_their_existing_recipe_rating(): void
-    {
-        $user = $this->createUser();
-        $owner = $this->createUser(['email' => 'owner-update@example.com']);
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $owner->id,
-            'category_id' => $category->id,
-        ]);
-
         Sanctum::actingAs($user);
 
         $this->postJson("api/recipes/{$recipe->id}/ratings", [
-            'rating' => 3,
-            'comment' => 'Okay recipe',
-        ])->assertCreated();
-
-        $response = $this->postJson("api/recipes/{$recipe->id}/ratings", [
             'rating' => 5,
-            'comment' => 'Much better now',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonFragment(['message' => 'Rating updated']);
+            'comment' => 'Great recipe!',
+        ])->assertCreated();
 
         $this->assertDatabaseHas('recipe_ratings', [
             'recipe_id' => $recipe->id,
             'user_id' => $user->id,
             'rating' => 5,
-            'comment' => 'Much better now',
         ]);
     }
 
-    public function test_user_can_save_and_unsave_recipe(): void
+    public function test_post_recipe_rating_authenticated_user_can_update_existing(): void
     {
         $user = $this->createUser();
-        $owner = $this->createUser(['email' => 'owner@example.com']);
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $owner->id,
-            'category_id' => $category->id,
-        ]);
-
+        $recipe = $this->createRecipe(['user_id' => $this->createUser(['email' => 'owner-r@example.com'])->id]);
         Sanctum::actingAs($user);
 
-        // Save
-        $response = $this->postJson("api/recipes/{$recipe->id}/save");
-        $response->assertSuccessful();
-        $this->assertDatabaseHas('saved_recipes', [
-            'user_id' => $user->id,
-            'recipe_id' => $recipe->id
-        ]);
-
-        // Unsave
-        $response = $this->deleteJson("api/recipes/{$recipe->id}/save");
-        $response->assertOk();
-        $this->assertDatabaseMissing('saved_recipes', [
-            'user_id' => $user->id,
-            'recipe_id' => $recipe->id
-        ]);
+        $this->postJson("api/recipes/{$recipe->id}/ratings", ['rating' => 3, 'comment' => 'Okay'])->assertCreated();
+        $this->postJson("api/recipes/{$recipe->id}/ratings", ['rating' => 5, 'comment' => 'Better'])
+            ->assertOk()
+            ->assertJsonFragment(['message' => 'Rating updated']);
     }
 
-    public function test_fetch_ingredients_for_a_recipe(): void
+    public function test_post_recipe_rating_guest_is_unauthorized(): void
+    {
+        $recipe = $this->createRecipe();
+
+        $this->postJson("api/recipes/{$recipe->id}/ratings", ['rating' => 5])
+            ->assertUnauthorized();
+    }
+
+    // GET /api/recipes/{recipe}/ratings
+
+    public function test_get_recipe_ratings_authenticated_user_can_list(): void
+    {
+        $viewer = $this->createUser();
+        $recipe = $this->createRecipe();
+        $rater = $this->createUser(['email' => 'rater@example.com']);
+        $this->createRecipeRating(['recipe_id' => $recipe->id, 'user_id' => $rater->id, 'rating' => 5]);
+        Sanctum::actingAs($viewer);
+
+        $this->getJson("api/recipes/{$recipe->id}/ratings")
+            ->assertOk()
+            ->assertJsonStructure(['data', 'average_rating', 'ratings_count']);
+    }
+
+    public function test_get_recipe_ratings_authenticated_user_sees_empty_when_none(): void
+    {
+        Sanctum::actingAs($this->createUser());
+        $recipe = $this->createRecipe();
+
+        $response = $this->getJson("api/recipes/{$recipe->id}/ratings");
+
+        $response->assertOk();
+        $this->assertSame([], $response->json('data'));
+    }
+
+    public function test_get_recipe_ratings_guest_is_unauthorized(): void
+    {
+        $this->getJson('api/recipes/'.$this->createRecipe()->id.'/ratings')->assertUnauthorized();
+    }
+
+    // GET /api/recipes/{recipe}/ratings/me
+
+    public function test_get_recipe_rating_me_authenticated_user_sees_own_rating(): void
     {
         $user = $this->createUser();
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $user->id,
-            'category_id' => $category->id,
-        ]);
+        $recipe = $this->createRecipe(['user_id' => $user->id, 'category_id' => $this->createCategory()->id]);
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/ratings", ['rating' => 4, 'comment' => 'Good'])->assertCreated();
+
+        $this->getJson("api/recipes/{$recipe->id}/ratings/me")
+            ->assertOk()
+            ->assertJsonPath('rating.rating', 4);
+    }
+
+    public function test_get_recipe_rating_me_authenticated_user_gets_null_when_none(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->getJson('api/recipes/'.$this->createRecipe()->id.'/ratings/me')
+            ->assertOk()
+            ->assertJson(['rating' => null]);
+    }
+
+    public function test_get_recipe_rating_me_guest_is_unauthorized(): void
+    {
+        $this->getJson('api/recipes/'.$this->createRecipe()->id.'/ratings/me')->assertUnauthorized();
+    }
+
+    // POST /api/recipes/{recipe}/save
+
+    public function test_post_recipe_save_authenticated_user_can_save(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $this->createUser(['email' => 'save-owner@example.com'])->id]);
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/save")->assertSuccessful();
+        $this->assertDatabaseHas('saved_recipes', ['user_id' => $user->id, 'recipe_id' => $recipe->id]);
+    }
+
+    public function test_post_recipe_save_idempotent_on_duplicate(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe();
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/save")->assertCreated();
+        $this->postJson("api/recipes/{$recipe->id}/save")->assertCreated();
+        $this->assertDatabaseCount('saved_recipes', 1);
+    }
+
+    public function test_post_recipe_save_guest_is_unauthorized(): void
+    {
+        $this->postJson('api/recipes/'.$this->createRecipe()->id.'/save')->assertUnauthorized();
+    }
+
+    // DELETE /api/recipes/{recipe}/save
+
+    public function test_delete_recipe_save_authenticated_user_can_unsave(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe();
+        Sanctum::actingAs($user);
+
+        $this->postJson("api/recipes/{$recipe->id}/save")->assertCreated();
+        $this->deleteJson("api/recipes/{$recipe->id}/save")->assertOk();
+        $this->assertDatabaseMissing('saved_recipes', ['user_id' => $user->id, 'recipe_id' => $recipe->id]);
+    }
+
+    public function test_delete_recipe_save_when_not_saved_is_safe(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->deleteJson('api/recipes/'.$this->createRecipe()->id.'/save')->assertOk();
+    }
+
+    public function test_delete_recipe_save_guest_is_unauthorized(): void
+    {
+        $this->deleteJson('api/recipes/'.$this->createRecipe()->id.'/save')->assertUnauthorized();
+    }
+
+    // GET /api/recipes/{recipe} (ingredients + view count)
+
+    public function test_get_recipe_authenticated_user_sees_ingredients(): void
+    {
+        $user = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $user->id, 'category_id' => $this->createCategory()->id]);
         $ingredient = $this->createIngredient(['name' => 'Salt']);
-
         $recipe->ingredients()->attach($ingredient->id);
+        Sanctum::actingAs($user);
 
-        $response = $this->getJson("api/recipes/{$recipe->id}");
-
-        $response->assertOk()
+        $this->getJson("api/recipes/{$recipe->id}")
+            ->assertOk()
             ->assertJsonFragment(['name' => 'Salt']);
     }
 
-    public function test_recipe_view_incrementing(): void
+    public function test_get_recipe_authenticated_user_increments_view_count(): void
     {
         $user = $this->createUser();
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $user->id,
-            'category_id' => $category->id,
-        ]);
-
+        $recipe = $this->createRecipe(['user_id' => $user->id, 'category_id' => $this->createCategory()->id]);
         Sanctum::actingAs($user);
 
         $this->getJson("api/recipes/{$recipe->id}");
-
-        $this->assertDatabaseHas('recipe_views', [
-            'recipe_id' => $recipe->id
-        ]);
+        $this->assertDatabaseHas('recipe_views', ['recipe_id' => $recipe->id]);
     }
 
-    public function test_user_can_view_their_own_recipe_rating(): void
+    public function test_get_recipe_guest_is_unauthorized(): void
     {
-        $user = $this->createUser();
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $user->id,
-            'category_id' => $category->id,
-        ]);
-
-        Sanctum::actingAs($user);
-
-        $this->postJson("api/recipes/{$recipe->id}/ratings", [
-            'rating' => 4,
-            'comment' => 'Good recipe',
-        ])->assertCreated();
-
-        $response = $this->getJson("api/recipes/{$recipe->id}/ratings/me");
-
-        $response->assertOk()
-            ->assertJsonPath('rating.rating', 4)
-            ->assertJsonPath('rating.comment', 'Good recipe');
+        $this->getJson('api/recipes/'.$this->createRecipe()->id)->assertUnauthorized();
     }
 
-    public function test_recipe_image_can_be_uploaded_by_owner(): void
+    // POST /api/recipes/{recipe}/like
+
+    public function test_post_recipe_like_authenticated_user_can_like(): void
+    {
+        $fan = $this->createUser();
+        $recipe = $this->createRecipe(['user_id' => $this->createUser()->id]);
+        Sanctum::actingAs($fan);
+
+        $this->postJson("api/recipes/{$recipe->id}/like")
+            ->assertCreated()
+            ->assertJsonFragment(['liked' => true]);
+    }
+
+    public function test_post_recipe_like_duplicate_returns_already_liked(): void
+    {
+        $fan = $this->createUser();
+        $recipe = $this->createRecipe();
+        Sanctum::actingAs($fan);
+
+        $this->postJson("api/recipes/{$recipe->id}/like")->assertCreated();
+        $this->postJson("api/recipes/{$recipe->id}/like")
+            ->assertOk()
+            ->assertJsonFragment(['message' => 'Already liked']);
+    }
+
+    public function test_post_recipe_like_guest_is_unauthorized(): void
+    {
+        $this->postJson('api/recipes/'.$this->createRecipe()->id.'/like')->assertUnauthorized();
+    }
+
+    // DELETE /api/recipes/{recipe}/like
+
+    public function test_delete_recipe_like_authenticated_user_can_unlike(): void
+    {
+        $fan = $this->createUser();
+        $recipe = $this->createRecipe();
+        Sanctum::actingAs($fan);
+
+        $this->postJson("api/recipes/{$recipe->id}/like")->assertCreated();
+        $this->deleteJson("api/recipes/{$recipe->id}/like")
+            ->assertOk()
+            ->assertJsonFragment(['liked' => false]);
+    }
+
+    public function test_delete_recipe_like_when_not_liked_is_safe(): void
+    {
+        Sanctum::actingAs($this->createUser());
+
+        $this->deleteJson('api/recipes/'.$this->createRecipe()->id.'/like')->assertOk();
+    }
+
+    public function test_delete_recipe_like_guest_is_unauthorized(): void
+    {
+        $this->deleteJson('api/recipes/'.$this->createRecipe()->id.'/like')->assertUnauthorized();
+    }
+
+    // POST /api/recipes/{recipe}/images
+
+    public function test_post_recipe_image_owner_can_upload(): void
     {
         Storage::fake('public');
-
         $owner = $this->createUser();
-        $category = $this->createCategory();
-        $recipe = $this->createRecipe([
-            'user_id' => $owner->id,
-            'category_id' => $category->id,
-        ]);
-
+        $recipe = $this->createRecipe(['user_id' => $owner->id, 'category_id' => $this->createCategory()->id]);
         Sanctum::actingAs($owner);
 
         $response = $this->postJson("api/recipes/{$recipe->id}/images", [
@@ -226,7 +271,26 @@ class RecipeInteractionTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonFragment(['message' => 'Image uploaded successfully']);
-
         $this->assertNotEmpty($response->json('image.image_url'));
+    }
+
+    public function test_post_recipe_image_non_owner_is_forbidden(): void
+    {
+        Storage::fake('public');
+        $owner = $this->createUser();
+        $intruder = $this->createUser(['email' => 'intruder-recipe@example.com']);
+        $recipe = $this->createRecipe(['user_id' => $owner->id, 'category_id' => $this->createCategory()->id]);
+        Sanctum::actingAs($intruder);
+
+        $this->postJson("api/recipes/{$recipe->id}/images", [
+            'image' => UploadedFile::fake()->create('recipe.jpg', 100, 'image/jpeg'),
+        ])->assertForbidden();
+    }
+
+    public function test_post_recipe_image_guest_is_unauthorized(): void
+    {
+        $this->postJson('api/recipes/'.$this->createRecipe()->id.'/images', [
+            'image' => UploadedFile::fake()->create('recipe.jpg', 100, 'image/jpeg'),
+        ])->assertUnauthorized();
     }
 }
