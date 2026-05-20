@@ -21,7 +21,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     _SearchFieldOption(key: 'email', label: 'Email'),
     _SearchFieldOption(key: 'full_name', label: 'Full name'),
   ];
-  _DateRangeFilter _usersRange = _DateRangeFilter.monthly;
+  _DateRangeFilter _usersRange = _DateRangeFilter.all;
   DateTimeRange? _customDateRange;
   final TextEditingController _searchController = TextEditingController();
   Timer? _usersSearchDebounce;
@@ -66,7 +66,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     setState(() {
       _searchQuery = '';
       _selectedSearchFields.clear();
-      _usersRange = _DateRangeFilter.monthly;
+      _usersRange = _DateRangeFilter.all;
       _customDateRange = null;
     });
     _loadUsersPage(reset: true);
@@ -83,7 +83,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     }
     try {
       final result = await AdminUserService.instance.fetchUsers(
-        range: _usersRange.apiValue,
+        range: _customDateRange == null ? _usersRange.apiValue : null,
         search: _searchQuery,
         searchFields: _selectedSearchFields.toList(),
         startDate: _customDateRange?.start,
@@ -111,7 +111,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
     setState(() => _usersLoadingPage = true);
     try {
       final result = await AdminUserService.instance.fetchUsers(
-        range: _usersRange.apiValue,
+        range: _customDateRange == null ? _usersRange.apiValue : null,
         search: _searchQuery,
         searchFields: _selectedSearchFields.toList(),
         startDate: _customDateRange?.start,
@@ -278,6 +278,7 @@ class _UsersSectionContainerState extends State<_UsersSectionContainer>
       onViewPosts: _showUserPostsModal,
       onViewComments: _showUserCommentsModal,
       onViewRecipes: _showUserRecipesModal,
+      totalCount: _usersTotalCount,
       currentPage: _usersPage,
       totalPages: _getUsersTotalPages(),
       loadingPage: _usersLoadingPage,
@@ -312,6 +313,7 @@ class _UsersSection extends StatelessWidget {
   final void Function(AdminUser) onViewPosts;
   final void Function(AdminUser) onViewComments;
   final void Function(AdminUser) onViewRecipes;
+  final int totalCount;
   // Pagination parameters
   final int currentPage;
   final int totalPages;
@@ -341,6 +343,7 @@ class _UsersSection extends StatelessWidget {
     required this.onViewPosts,
     required this.onViewComments,
     required this.onViewRecipes,
+    required this.totalCount,
     required this.currentPage,
     required this.totalPages,
     required this.loadingPage,
@@ -356,7 +359,7 @@ class _UsersSection extends StatelessWidget {
           title: _MinimalSectionLabel(
             theme: theme,
             label: 'Registered Users',
-            subtitle: loading ? 'Loading…' : '${users.length} users',
+            subtitle: loading ? 'Loading…' : '$totalCount users',
           ),
           actions: [
             _ClearFiltersButton(onPressed: onClearAllFilters),

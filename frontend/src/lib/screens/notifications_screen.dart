@@ -59,6 +59,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   static const Color wellGreenLight = Color(0xFFE8F5EE);
   static const Color nestOrange = Color(0xFFEF5026);
   static const Color nestOrangeLight = Color(0xFFFFF0EC);
+  /// Keeps notification cards readable on wide web layouts.
+  static const double _contentMaxWidth = 560;
 
   List<AppNotification> _notifications = [];
   bool _loading = true;
@@ -411,18 +413,22 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
         ],
       ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator(color: cs.primary))
-          : _notifications.isEmpty
-          ? _buildEmptyState(context)
-          : FadeTransition(
-              opacity: _fadeAnimation,
-              child: RefreshIndicator(
-                onRefresh: _load,
-                color: cs.primary,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  slivers: [
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
+          child: _loading
+              ? Center(child: CircularProgressIndicator(color: cs.primary))
+              : _notifications.isEmpty
+              ? _buildEmptyState(context)
+              : FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: RefreshIndicator(
+                    onRefresh: _load,
+                    color: cs.primary,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
                     if (unread.isNotEmpty) ...[
                       _buildSectionHeader(context, 'New', unread.length),
                       SliverPadding(
@@ -477,9 +483,11 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         ),
                       ),
                   ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+        ),
+      ),
     );
   }
 
@@ -657,15 +665,15 @@ class _NotificationCard extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.access_time_rounded,
-                            size: 12,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                            size: 13,
+                            color: cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             formatTime(notification.createdAt),
                             style: TextStyle(
                               fontSize: 12,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                              color: cs.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

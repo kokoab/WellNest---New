@@ -27,9 +27,19 @@ class AdminUserController extends Controller
         $usersQuery = User::query()
             ->orderBy('created_at', 'desc');
 
-        $startDate = $this->resolveStartDate($range);
-        if ($startDate !== null) {
-            $usersQuery->where('created_at', '>=', $startDate);
+        $hasCustomRange = $request->filled('start_date') || $request->filled('end_date');
+        if ($hasCustomRange) {
+            if ($request->filled('start_date')) {
+                $usersQuery->where('created_at', '>=', Carbon::parse($request->start_date)->startOfDay());
+            }
+            if ($request->filled('end_date')) {
+                $usersQuery->where('created_at', '<=', Carbon::parse($request->end_date)->endOfDay());
+            }
+        } elseif ($search === '') {
+            $startDate = $this->resolveStartDate($range);
+            if ($startDate !== null) {
+                $usersQuery->where('created_at', '>=', $startDate);
+            }
         }
 
         if ($search !== '') {

@@ -101,60 +101,69 @@ class _NotificationsBellButtonState extends State<NotificationsBellButton>
   Widget build(BuildContext context) {
     final iconSz =
         widget.borderedToolbar ? 20.0 : widget.iconSize;
+    final cs = Theme.of(context).colorScheme;
+    // Outlined bell on dark/light toolbars: brand orange has poor stroke contrast;
+    // match other admin bar icons (see _TopBarIconBtn).
+    final Color glyphColor = widget.borderedToolbar
+        ? cs.onSurfaceVariant
+        : widget.iconColor;
+    final Color borderColor = widget.borderedToolbar
+        ? cs.onSurfaceVariant.withValues(alpha: 0.45)
+        : widget.iconColor.withValues(alpha: 0.45);
 
-    final bell = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(widget.icon, color: widget.iconColor, size: iconSz),
-        if (_unreadCount > 0)
-          Positioned(
-            top: widget.borderedToolbar ? 2 : -3,
-            right: widget.borderedToolbar ? 2 : -3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: _nestOrange,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              child: Text(
-                _unreadCount > 99 ? '99+' : '$_unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+    final bell = SizedBox(
+      width: widget.borderedToolbar ? _toolbarSize : null,
+      height: widget.borderedToolbar ? _toolbarSize : null,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Icon(widget.icon, color: glyphColor, size: iconSz),
+          if (_unreadCount > 0)
+            Positioned(
+              top: widget.borderedToolbar ? 2 : -3,
+              right: widget.borderedToolbar ? 2 : -3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _nestOrange,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
-                textAlign: TextAlign.center,
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Text(
+                  _unreadCount > 99 ? '99+' : '$_unreadCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
 
     if (widget.borderedToolbar) {
       return Tooltip(
         message: widget.tooltip,
-        child: SizedBox.square(
-          dimension: _toolbarSize,
-          child: IconButton(
-            onPressed: _openNotifications,
-            tooltip: widget.tooltip,
-            style: IconButton.styleFrom(
-              minimumSize: const Size(_toolbarSize, _toolbarSize),
-              maximumSize: const Size(_toolbarSize, _toolbarSize),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              side: BorderSide(
-                color: widget.iconColor.withValues(alpha: 0.45),
-                width: 1.2,
-              ),
+        child: IconButton(
+          onPressed: _openNotifications,
+          tooltip: widget.tooltip,
+          style: IconButton.styleFrom(
+            foregroundColor: glyphColor,
+            minimumSize: const Size(_toolbarSize, _toolbarSize),
+            maximumSize: const Size(_toolbarSize, _toolbarSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-            icon: bell,
+            side: BorderSide(color: borderColor, width: 1.2),
           ),
+          icon: bell,
         ),
       );
     }
@@ -162,6 +171,7 @@ class _NotificationsBellButtonState extends State<NotificationsBellButton>
     return IconButton(
       onPressed: _openNotifications,
       tooltip: widget.tooltip,
+      style: IconButton.styleFrom(foregroundColor: widget.iconColor),
       icon: bell,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
