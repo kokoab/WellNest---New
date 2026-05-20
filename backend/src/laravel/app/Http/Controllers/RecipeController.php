@@ -136,13 +136,11 @@ class RecipeController extends Controller
 
         $rules = [
             'category_id' => 'required|exists:categories,id',
-            'title' => 'required|string|max:255',
+            'title' => ['required', 'string', 'max:255', 'regex:/^[^\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{200D}\x{1F1E6}-\x{1F1FF}]*$/u'],
             'description' => 'nullable|string',
             'prep_timing_mode' => 'nullable|in:overall,per_step',
             'ingredients' => 'nullable|array',
             'ingredients.*.name' => 'required|string|max:255',
-            'ingredients.*.quantity' => 'nullable|numeric|min:0',
-            'ingredients.*.unit' => 'nullable|string|max:50',
         ];
 
         if ($hasSteps) {
@@ -279,13 +277,11 @@ class RecipeController extends Controller
 
         $rules = [
             'category_id' => 'sometimes|exists:categories,id',
-            'title' => 'sometimes|string|max:255',
+            'title' => ['sometimes', 'string', 'max:255', 'regex:/^[^\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{200D}\x{1F1E6}-\x{1F1FF}]*$/u'],
             'description' => 'nullable|string',
             'prep_timing_mode' => 'nullable|in:overall,per_step',
             'ingredients' => 'nullable|array',
             'ingredients.*.name' => 'required|string|max:255',
-            'ingredients.*.quantity' => 'nullable|numeric|min:0',
-            'ingredients.*.unit' => 'nullable|string|max:50',
         ];
 
         if ($stepsKeyPresent) {

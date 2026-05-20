@@ -1206,6 +1206,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       const SizedBox(height: 8),
                       TextField(
                         controller: _reviewController,
+                        maxLength: 1000,
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: 'Tell others what you thought (optional)…',
@@ -1238,6 +1239,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                             horizontal: 14,
                             vertical: 12,
                           ),
+                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 12),

@@ -515,8 +515,6 @@ class ModelLifecycleFeatureTest extends TestCase
         $pivot = RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'ingredient_id' => $ing->id,
-            'quantity' => 1,
-            'unit' => 'tsp',
         ]);
 
         $this->assertDatabaseHas('recipe_ingredients', ['id' => $pivot->id]);
@@ -529,27 +527,26 @@ class ModelLifecycleFeatureTest extends TestCase
         $pivot = RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'ingredient_id' => $ing->id,
-            'quantity' => 1,
-            'unit' => 'tsp',
         ]);
 
         $this->assertTrue($pivot->ingredient->is($ing));
     }
 
-    public function test_recipe_ingredient_model_updates_quantity(): void
+    public function test_recipe_ingredient_model_updates_timestamps(): void
     {
         $recipe = Recipe::factory()->withoutIngredients()->create();
         $ing = Ingredient::firstOrCreate(['name' => 'SugarModelX']);
         $pivot = RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'ingredient_id' => $ing->id,
-            'quantity' => 1,
-            'unit' => 'cup',
         ]);
 
-        $pivot->update(['quantity' => 2]);
+        $before = $pivot->fresh()->updated_at;
 
-        $this->assertSame(2, (int) $pivot->fresh()->quantity);
+        $this->travel(2)->seconds();
+        $pivot->touch();
+
+        $this->assertTrue($pivot->fresh()->updated_at->gt($before));
     }
 
     public function test_recipe_ingredient_model_can_be_deleted(): void
@@ -559,8 +556,6 @@ class ModelLifecycleFeatureTest extends TestCase
         $pivot = RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'ingredient_id' => $ing->id,
-            'quantity' => 1,
-            'unit' => 'tbsp',
         ]);
 
         $pivot->delete();
@@ -1094,7 +1089,7 @@ class ModelLifecycleFeatureTest extends TestCase
     {
         $recipe = Recipe::factory()->withoutIngredients()->create();
         $ing = Ingredient::create(['name' => 'IngredientModelY']);
-        $recipe->ingredients()->attach($ing->id, ['quantity' => 1, 'unit' => 'pc']);
+        $recipe->ingredients()->attach($ing->id);
 
         $this->assertTrue($recipe->fresh()->ingredients()->whereKey($ing->id)->exists());
     }
@@ -1112,7 +1107,7 @@ class ModelLifecycleFeatureTest extends TestCase
     {
         $recipe = Recipe::factory()->withoutIngredients()->create();
         $ing = Ingredient::create(['name' => 'IngredientModelV']);
-        $recipe->ingredients()->attach($ing->id, ['quantity' => 1, 'unit' => 'pc']);
+        $recipe->ingredients()->attach($ing->id);
         $recipe->ingredients()->detach($ing->id);
 
         $ing->delete();

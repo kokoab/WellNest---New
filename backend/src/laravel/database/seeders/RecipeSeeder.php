@@ -254,12 +254,7 @@ class RecipeSeeder extends Seeder
                 continue;
             }
             $ingredient = \App\Models\Ingredient::firstOrCreate(['name' => $name]);
-            $qty = max(1, (int) $line['quantity']);
-            $unit = trim($line['unit']) !== '' ? trim($line['unit']) : 'unit';
-            $recipe->ingredients()->attach($ingredient->id, [
-                'quantity' => $qty,
-                'unit' => $unit,
-            ]);
+            $recipe->ingredients()->attach($ingredient->id);
         }
     }
 

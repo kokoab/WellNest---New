@@ -166,11 +166,8 @@ class Recipe {
       final list = json['ingredients'] as List<dynamic>;
       ingredients = list.map((e) {
         final m = e as Map<String, dynamic>;
-        final pivot = m['pivot'] as Map<String, dynamic>? ?? {};
         return RecipeIngredientInfo(
           name: m['name'] as String? ?? '',
-          quantity: (pivot['quantity'] as num?)?.toInt() ?? 0,
-          unit: pivot['unit'] as String? ?? '',
         );
       }).toList();
     }
@@ -276,23 +273,8 @@ class UserInfo {
 
 class RecipeIngredientInfo {
   final String name;
-  final int quantity;
-  final String unit;
-  RecipeIngredientInfo({
-    required this.name,
-    required this.quantity,
-    required this.unit,
-  });
+  RecipeIngredientInfo({required this.name});
 
-  /// Single line for UI and editing. Free-text lines are stored with quantity 1 and unit `unit`.
-  String get displayLine {
-    final u = unit.trim().toLowerCase();
-    if ((u.isEmpty || u == 'unit') && quantity == 1) {
-      return name;
-    }
-    final qtyStr = quantity.toString();
-    final unitPart = unit.trim();
-    final amount = unitPart.isEmpty ? qtyStr : '$qtyStr $unitPart';
-    return '$amount $name'.trim();
-  }
+  /// Single line for UI and editing (free-text ingredient line).
+  String get displayLine => name;
 }

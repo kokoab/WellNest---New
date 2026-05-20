@@ -42,7 +42,7 @@ class PostCommentController extends Controller
     public function store(Request $request, Post $post): JsonResponse
     {
         $validated = $request->validate([
-            'comment'  => 'nullable|string|max:2000',
+            'comment'  => 'nullable|string|max:1000',
             'image'    => 'nullable|image|max:5120', // 5MB max
         ]);
 

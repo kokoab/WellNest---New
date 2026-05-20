@@ -24,8 +24,6 @@ class RecipeIngredientFactory extends Factory
             'ingredient_id' => fn () => Ingredient::firstOrCreate([
                 'name' => fake()->word(),
             ])->id,
-            'quantity' => rand(1,3),
-            'unit' => rand(1,3),
         ];
     }
 }

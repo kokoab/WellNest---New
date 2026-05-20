@@ -204,6 +204,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _addComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
+    if (text.length > 1000) {
+      return;
+    }
     try {
       final comment = await PostService.instance.addComment(_post.id, text);
       if (comment != null && mounted) {
@@ -253,6 +256,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         borderSide: BorderSide(color: cs.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      counterText: '',
     );
   }
 
@@ -791,6 +795,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Expanded(
                       child: TextField(
                         controller: _commentController,
+                        maxLength: 1000,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: cs.onSurface,
                         ),

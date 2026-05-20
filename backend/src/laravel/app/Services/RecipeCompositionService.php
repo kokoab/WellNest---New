@@ -18,15 +18,7 @@ class RecipeCompositionService
                 continue;
             }
             $ingredient = Ingredient::firstOrCreate(['name' => $name]);
-            $quantity = (int) round((float) ($item['quantity'] ?? 0));
-            if ($quantity < 1) {
-                $quantity = 1;
-            }
-            $unit = trim($item['unit'] ?? '') ?: 'unit';
-            $recipe->ingredients()->attach($ingredient->id, [
-                'quantity' => $quantity,
-                'unit' => $unit,
-            ]);
+            $recipe->ingredients()->attach($ingredient->id);
         }
     }
 

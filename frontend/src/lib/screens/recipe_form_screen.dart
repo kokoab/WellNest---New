@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wellnest/models/category.dart';
 import 'package:wellnest/models/recipe.dart';
@@ -23,6 +23,15 @@ Color _recipeFormFieldFill(BuildContext context) =>
 
 Color _recipeFormFieldBorder(BuildContext context) =>
     Theme.of(context).colorScheme.outline;
+
+/// Strips emoji / pictograph code points from recipe titles (input + paste).
+final RegExp _recipeTitleEmojiPattern = RegExp(
+  r'[\u{200D}\u{FE00}-\u{FE0F}\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]',
+  unicode: true,
+);
+
+bool _recipeTitleContainsEmoji(String s) =>
+    _recipeTitleEmojiPattern.hasMatch(s);
 
 class RecipeFormScreen extends StatefulWidget {
   final Recipe? recipe;
@@ -366,7 +375,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   }
 
   bool _validateBasics() {
-    if ((_titleController.text.trim()).isEmpty) return false;
+    final title = _titleController.text.trim();
+    if (title.isEmpty) return false;
+    if (_recipeTitleContainsEmoji(title)) return false;
     if (_useCustomCategory) {
       if (_newCategoryController.text.trim().isEmpty) return false;
     } else if (_selectedCategoryId == null) {
@@ -563,6 +574,13 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
 
   Future<void> _submit() async {
     _submitError = null;
+    final titleTrim = _titleController.text.trim();
+    if (titleTrim.isNotEmpty && _recipeTitleContainsEmoji(titleTrim)) {
+      setState(
+        () => _submitError = 'Recipe title cannot include emojis.',
+      );
+      return;
+    }
     if (!_validateBasics() || !_validateIngredients() || !_validateSteps()) {
       setState(() => _submitError = 'Please complete all required fields.');
       return;
@@ -652,12 +670,21 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   }
 
   void _goNext() {
-    if (_wizardIndex == 0 && !_validateBasics()) {
-      setState(
-        () =>
-            _submitError = 'Add a title, category, and prep time (if overall).',
-      );
-      return;
+    if (_wizardIndex == 0) {
+      final t = _titleController.text.trim();
+      if (t.isNotEmpty && _recipeTitleContainsEmoji(t)) {
+        setState(
+          () => _submitError = 'Recipe title cannot include emojis.',
+        );
+        return;
+      }
+      if (!_validateBasics()) {
+        setState(
+          () =>
+              _submitError = 'Add a title, category, and prep time (if overall).',
+        );
+        return;
+      }
     }
     if (_wizardIndex == 1 && !_validateIngredients()) {
       setState(() => _submitError = 'Add at least one ingredient.');
@@ -823,6 +850,9 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
             labelText: 'Recipe title',
           ),
           maxLength: 255,
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(_recipeTitleEmojiPattern),
+          ],
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 8),

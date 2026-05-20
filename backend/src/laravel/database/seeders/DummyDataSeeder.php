@@ -220,8 +220,6 @@ class DummyDataSeeder extends Seeder
                     $rows[] = [
                         'recipe_id' => $recipe->id,
                         'ingredient_id' => $ingredient->id,
-                        'quantity' => 1,
-                        'unit' => 'pinch',
                         'created_at' => $nowStr,
                         'updated_at' => $nowStr,
                     ];

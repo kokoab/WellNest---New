@@ -68,7 +68,7 @@ class RecipeCrudTest extends TestCase
                 ['title' => 'Simmer', 'instructions' => 'Cook on low heat'],
             ],
             'ingredients' => [
-                ['name' => 'Onion', 'quantity' => 1, 'unit' => 'whole'],
+                ['name' => 'Onion'],
             ],
         ];
 

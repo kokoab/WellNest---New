@@ -158,7 +158,7 @@ class RecipeInteractionTest extends TestCase
         ]);
         $ingredient = $this->createIngredient(['name' => 'Salt']);
 
-        $recipe->ingredients()->attach($ingredient->id, ['quantity' => '1', 'unit' => 'tsp']);
+        $recipe->ingredients()->attach($ingredient->id);
 
         $response = $this->getJson("api/recipes/{$recipe->id}");
 

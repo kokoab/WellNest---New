@@ -260,6 +260,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                         const SizedBox(height: 14),
                         TextField(
                           controller: reviewController,
+                          maxLength: 1000,
                           maxLines: 3,
                           style: TextStyle(
                             fontFamily: kFontHelveticaNow,
@@ -286,6 +287,7 @@ class _RecipeCookModeScreenState extends State<RecipeCookModeScreen> {
                               borderSide:
                                   const BorderSide(color: _wellGreen, width: 1.5),
                             ),
+                            counterText: '',
                           ),
                         ),
                         const SizedBox(height: 22),
