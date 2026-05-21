@@ -50,7 +50,7 @@ flutter run -d BE3ADADD-5382-4422-93DD-2552A3728A47 \
 # phone
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d 00008110-00111D1A0130A01E \
-  --dart-define=BASE_URL=http://192.168.1.130:8080 \
+  --dart-define=BASE_URL=http://192.168.2.1:8080 \
   --dart-define=REVERB_PORT=8081 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 

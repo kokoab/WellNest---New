@@ -234,10 +234,10 @@ class AuthController extends Controller
 
         $file = $request->file('image');
         $path = $file->store('profile-photos', 'public');
-        $baseUrl = rtrim(config('app.url'), '/');
+        $baseUrl = rtrim(config('app.url', 'http://localhost:8080') ?? 'http://localhost:8080', '/');
         $imageUrl = $baseUrl . '/storage/' . $path;
 
-        $user->profile_photo_url = $imageUrl;
+        $user->profile_photo_url = $imageUrl;   
         $user->save();
 
         ActivityLogService::log('user_account_updates', 'account_update_profile_photo', 'Profile photo updated', $user->id, $user);
