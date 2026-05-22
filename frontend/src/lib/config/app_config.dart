@@ -1,9 +1,20 @@
 class AppConfig {
+  /// Your Mac's static local-network IP address.
+  /// Both Android and iOS physical devices use this to reach the backend
+  /// as long as the phone and Mac are on the same WiFi network.
+  /// To find your Mac IP: run `ipconfig getifaddr en0` in Terminal.
+  /// Override at build time with --dart-define=MAC_IP=<new-ip>
+  static const String macIp = String.fromEnvironment(
+    'MAC_IP',
+    defaultValue: '10.176.54.244',
+  );
+
   // API base URL – passed via --dart-define=BASE_URL=...
-  // Docker (nginx) exposes backend on 8080. Use http://10.0.2.2:8080 for Android emulator.
+  // Docker (nginx) exposes backend on 8080.
+  // Physical devices (Android/iOS) use macIp; Android emulator uses 10.0.2.2.
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'http://10.176.54.244:8080',
   );
 
   /// Reverb WebSocket server (Laravel Reverb). Use a different port than API if both run locally.

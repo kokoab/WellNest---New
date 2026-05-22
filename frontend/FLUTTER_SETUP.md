@@ -30,29 +30,32 @@ flutter run -d chrome \
   --web-hostname 0.0.0.0 \
   --web-port 3000 \
   --dart-define=BASE_URL=http://localhost:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
   # Android emulator
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d emulator-5554 \
   --dart-define=BASE_URL=http://10.0.2.2:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
 # IOS EMULATOR
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d BE3ADADD-5382-4422-93DD-2552A3728A47 \
   --dart-define=BASE_URL=http://localhost:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 
-# phone
+# iPhone (USB or wireless – see wireless setup below)
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d 00008110-00111D1A0130A01E \
-  --dart-define=BASE_URL=http://192.168.2.1:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=BASE_URL=http://10.176.54.244:8080 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+
+
+
 
 
 ## Option 1: Run Flutter on your Mac (recommended)
@@ -89,7 +92,7 @@ cd frontend/src
 flutter pub get
 flutter run -d chrome \
   --dart-define=BASE_URL=http://localhost:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 ```
 
@@ -103,7 +106,7 @@ flutter run -d chrome \
    flutter devices   # you should see the emulator
    flutter run -d <device-id> \
      --dart-define=BASE_URL=http://10.0.2.2:8080 \
-     --dart-define=REVERB_PORT=8081 \
+     --dart-define=REVERB_PORT=8080 \
      --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
    ```
 
@@ -120,12 +123,37 @@ flutter run -d chrome \
    cd frontend/src
    flutter devices   # phone should appear
    flutter run -d <device-id> \
-     --dart-define=BASE_URL=http://<YOUR_MAC_IP>:8080 \
-     --dart-define=REVERB_PORT=8081 \
+     --dart-define=BASE_URL=http://10.176.54.244:8080 \
+     --dart-define=REVERB_PORT=8080 \
      --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
    ```
 
-   Use your Mac’s IP (e.g. `192.168.1.x`) so the phone can reach the backend. Find it: **System Settings → Wi‑Fi → your network → Details**.
+   `10.176.54.244` is the Mac’s local network IP — both Mac and phone must be on the same WiFi. If the IP changes, run `ipconfig getifaddr en0` to get the new one.
+
+---
+
+**Physical iPhone – Wireless debugging (no USB cable after initial pairing):**
+
+> Requires iOS 16+ and Xcode 14+.
+
+1. **First time only — pair via USB:**
+   - Connect iPhone to Mac with a USB cable.
+   - Open **Xcode → Window → Devices and Simulators**.
+   - Select your iPhone, then check **“Connect via network”**. A globe icon appears next to the device name.
+   - You can now unplug the USB cable — Xcode keeps the connection alive over WiFi.
+
+2. **Run wirelessly from terminal:**
+
+   ```bash
+   cd frontend/src
+   flutter devices          # iPhone should appear (e.g. "iPhone (wireless)")
+   flutter run -d 00008110-00111D1A0130A01E \
+     --dart-define=BASE_URL=http://10.176.54.244:8080 \
+     --dart-define=REVERB_PORT=8080 \
+     --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
+   ```
+
+   If the device doesn’t appear in `flutter devices`, open Xcode once (it re-establishes the pairing) then retry.
 
 ---
 
@@ -149,7 +177,7 @@ flutter pub get
 cd /Users/frnzlo/Documents/SoftwareDev/WellNest/frontend/src
 flutter run -d chrome --web-hostname 0.0.0.0 --web-port 3000 \
   --dart-define=BASE_URL=http://localhost:8080 \
-  --dart-define=REVERB_PORT=8081 \
+  --dart-define=REVERB_PORT=8080 \
   --dart-define=REVERB_APP_KEY=efcct5mu8lg3nxzgpixd
 ```
 
@@ -163,12 +191,13 @@ The emulator runs on your Mac; the container can’t easily drive it. Prefer **O
 
 ## Quick reference: BASE_URL
 
-| Where the app runs        | Backend URL to use        |
-|---------------------------|----------------------------|
-| Chrome on Mac             | `http://localhost:8080`    |
-| Android emulator          | `http://10.0.2.2:8080`     |
-| Physical Android (USB)    | `http://<YOUR_MAC_IP>:8080` |
-| Flutter inside Docker     | `http://backend_nginx:80`  |
+| Where the app runs              | Backend URL to use          |
+|---------------------------------|-----------------------------|
+| Chrome on Mac                   | `http://localhost:8080`     |
+| Android emulator                | `http://10.0.2.2:8080`      |
+| Physical Android (USB/wireless) | `http://10.176.54.244:8080` |
+| iPhone (USB or wireless)        | `http://10.176.54.244:8080` |
+| Flutter inside Docker           | `http://backend_nginx:80`   |
 
 Use `:80` instead of `:8080` if you exposed the backend on port 80.
 
